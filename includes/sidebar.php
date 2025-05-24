@@ -54,6 +54,12 @@
                         <span class="nav-text">Cuentas</span>
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a href="payment_types.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'payment_types.php' ? 'active' : ''; ?>">
+                        <i class="fas fa-money-check-alt"></i>
+                        <span class="nav-text">Tipos de Pago</span>
+                    </a>
+                </li>
                 
                 <!-- Administración -->
                 <li class="nav-item">

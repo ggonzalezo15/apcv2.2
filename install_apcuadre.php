@@ -85,13 +85,11 @@ try {
             email VARCHAR(255),
             phone VARCHAR(50),
             address TEXT,
-            tax_id VARCHAR(50),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY unique_name (name),
             INDEX idx_name (name),
-            INDEX idx_email (email),
-            INDEX idx_tax_id (tax_id)
+            INDEX idx_email (email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ";
     $pdo->exec($createContractorsTable);
@@ -104,13 +102,11 @@ try {
             email VARCHAR(255),
             phone VARCHAR(50),
             address TEXT,
-            tax_id VARCHAR(50),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY unique_name (name),
             INDEX idx_name (name),
-            INDEX idx_email (email),
-            INDEX idx_tax_id (tax_id)
+            INDEX idx_email (email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ";
     $pdo->exec($createVendorsTable);
@@ -411,10 +407,10 @@ try {
             generateUUID()
         ];
         
-        $stmt = $pdo->prepare("INSERT INTO contractors (id, name, email, phone, tax_id) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$contractorIds[0], 'Juan Pérez', 'juan@example.com', '+1234567890', 'RFC123456789']);
-        $stmt->execute([$contractorIds[1], 'María García', 'maria@example.com', '+1234567891', 'RFC123456790']);
-        $stmt->execute([$contractorIds[2], 'Carlos López', 'carlos@example.com', '+1234567892', 'RFC123456791']);
+        $stmt = $pdo->prepare("INSERT INTO contractors (id, name, email, phone) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$contractorIds[0], 'Juan Pérez', 'juan@example.com', '+1234567890']);
+        $stmt->execute([$contractorIds[1], 'María García', 'maria@example.com', '+1234567891']);
+        $stmt->execute([$contractorIds[2], 'Carlos López', 'carlos@example.com', '+1234567892']);
         
         echo "<p>🏪 Insertando proveedores de ejemplo...</p>\n";
         $vendorIds = [
@@ -423,10 +419,10 @@ try {
             generateUUID()
         ];
         
-        $stmt = $pdo->prepare("INSERT INTO vendors (id, name, email, phone, tax_id) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$vendorIds[0], 'Proveedor Tech SA', 'tech@proveedor.com', '+1234567893', 'RFC123456792']);
-        $stmt->execute([$vendorIds[1], 'Suministros Office', 'office@suministros.com', '+1234567894', 'RFC123456793']);
-        $stmt->execute([$vendorIds[2], 'Servicios Generales', 'general@servicios.com', '+1234567895', 'RFC123456794']);
+        $stmt = $pdo->prepare("INSERT INTO vendors (id, name, email, phone) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$vendorIds[0], 'Proveedor Tech SA', 'tech@proveedor.com', '+1234567893']);
+        $stmt->execute([$vendorIds[1], 'Suministros Office', 'office@suministros.com', '+1234567894']);
+        $stmt->execute([$vendorIds[2], 'Servicios Generales', 'general@servicios.com', '+1234567895']);
         
         echo "<p>🔧 Insertando tipos de trabajo...</p>\n";
         $jobTypeIds = [

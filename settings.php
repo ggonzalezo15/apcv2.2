@@ -202,6 +202,28 @@ $pageTitle = 'Configuración';
                     </div>
                 </div>
             </div>
+            
+            <!-- Accesos directos administrativos -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-tools"></i>
+                        Administración de Catálogos
+                    </h3>
+                    <p class="card-subtitle">Accesos rápidos a catálogos clave</p>
+                </div>
+                <div style="padding: 16px 0; display: flex; flex-direction: column; gap: 12px;">
+                    <a href="payment_types.php" class="btn btn-outline-primary" style="text-align:left;">
+                        <i class="fas fa-credit-card"></i> Tipos de Pago
+                    </a>
+                    <a href="job_types.php" class="btn btn-outline-primary" style="text-align:left;">
+                        <i class="fas fa-briefcase"></i> Tipos de Trabajo
+                    </a>
+                    <a href="expense_types.php" class="btn btn-outline-primary" style="text-align:left;">
+                        <i class="fas fa-file-invoice-dollar"></i> Tipos de Gasto
+                    </a>
+                </div>
+            </div>
         </div>
         
         <!-- Botón de guardar cambios -->

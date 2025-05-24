@@ -440,72 +440,6 @@ body {
     gap: 6px;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-    .main-layout {
-        grid-template-areas: 
-            "header"
-            "content"
-            "footer";
-        grid-template-columns: 1fr;
-    }
-    
-    .sidebar {
-        position: fixed;
-        top: 0;
-        left: -250px;
-        height: 100vh;
-        width: var(--sidebar-width) !important;
-        z-index: 1000;
-        transition: var(--transition-normal);
-    }
-    
-    .sidebar.active {
-        left: 0;
-    }
-    
-    .sidebar:hover {
-        width: var(--sidebar-width) !important;
-    }
-    
-    .sidebar-toggle {
-        display: block !important;
-    }
-    
-    .content {
-        padding: 20px;
-    }
-    
-    .footer-content {
-        padding: 0 20px;
-        flex-direction: column;
-        gap: 8px;
-        text-align: center;
-    }
-    
-    .login-form {
-        padding: 30px 20px;
-    }
-}
-
-@media (max-width: 480px) {
-    .header-title h1 {
-        font-size: 16px;
-    }
-    
-    .user-name {
-        display: none;
-    }
-    
-    .content-title {
-        font-size: 20px;
-    }
-    
-    .card {
-        padding: 16px;
-    }
-}
-
 /* Overlay para móvil */
 .sidebar-overlay {
     display: none;
@@ -561,4 +495,293 @@ body {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/* Estilos para tablas de datos */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.data-table th,
+.data-table td {
+    padding: 12px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+
+.data-table th {
+    background-color: var(--bg-primary);
+    font-weight: 600;
+    color: var(--text-primary);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.data-table tr:hover {
+    background-color: var(--bg-primary);
+}
+
+.data-table td:last-child,
+.data-table th:last-child {
+    text-align: center;
+}
+
+/* Centrar perfectamente la columna de acciones en tablas */
+.data-table th.acciones,
+.data-table td.acciones {
+    text-align: center;
+    padding-left: 0;
+    padding-right: 0;
+}
+.data-table th.acciones > div,
+.data-table td.acciones > div {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Mejorar responsividad de th igual que td en tablas */
+@media (max-width: 768px) {
+    .data-table th,
+    .data-table td {
+        padding: 8px 4px;
+        font-size: 12px;
+        word-break: break-word;
+        white-space: normal;
+    }
+    .data-table th {
+        font-weight: 500;
+    }
+}
+
+/* Badges */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.badge-primary {
+    background-color: rgb(37 99 235 / 0.1);
+    color: var(--primary-color);
+}
+
+.badge-success {
+    background-color: rgb(5 150 105 / 0.1);
+    color: var(--success-color);
+}
+
+.badge-warning {
+    background-color: rgb(217 119 6 / 0.1);
+    color: var(--warning-color);
+}
+
+.badge-danger {
+    background-color: rgb(220 38 38 / 0.1);
+    color: var(--danger-color);
+}
+
+.badge-info {
+    background-color: rgb(8 145 178 / 0.1);
+    color: var(--info-color);
+}
+
+.badge-secondary {
+    background-color: rgb(100 116 139 / 0.1);
+    color: var(--secondary-color);
+}
+
+/* Botones de iconos */
+.btn-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    background-color: var(--bg-primary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition-fast);
+    font-size: 14px;
+}
+
+.btn-icon:hover {
+    background-color: var(--primary-color);
+    color: white;
+    transform: translateY(-1px);
+}
+
+.btn-icon.btn-danger {
+    background-color: rgb(220 38 38 / 0.1);
+    color: var(--danger-color);
+}
+
+.btn-icon.btn-danger:hover {
+    background-color: var(--danger-color);
+    color: white;
+}
+
+/* Modales */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+}
+
+.modal-content {
+    position: relative;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    max-width: 500px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+.modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.modal-close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.modal-close:hover {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+}
+
+.modal-body {
+    padding: 24px;
+}
+
+.modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border-color);
+    background-color: var(--bg-primary);
+    border-radius: 0 0 12px 12px;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Checkbox group */
+.checkbox-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.checkbox-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: var(--transition-fast);
+}
+
+.checkbox-item:hover {
+    background-color: var(--bg-primary);
+}
+
+.checkbox-item input[type="checkbox"] {
+    margin: 0;
+    accent-color: var(--primary-color);
+}
+
+/* Responsivo para modales */
+@media (max-width: 768px) {
+    .modal {
+        padding: 10px;
+    }
+    
+    .modal-content {
+        max-width: 100%;
+        max-height: 95vh;
+    }
+    
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+        padding-left: 16px;
+        padding-right: 16px;
+    }
+    
+    .modal-footer {
+        flex-direction: column;
+    }
+    
+    .data-table {
+        font-size: 12px;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 8px 4px;
+    }
 }
