@@ -320,6 +320,249 @@ function deleteExpenseType(id) {
     openModal('confirmDeleteModal');
 }
 
+// SECCIÓN TIPOS DE TRABAJOS
+function loadJobTypesSection() {
+    document.getElementById('settingsContent').innerHTML = `
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <h3 class="card-title">
+                        <i class="fas fa-briefcase"></i>
+                        Tipos de Trabajos
+                    </h3>
+                    <p class="card-subtitle">Gestionar tipos de trabajos del sistema</p>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="openJobTypeModal()">
+                    <i class="fas fa-plus"></i>
+                    Nuevo Tipo de Trabajo
+                </button>
+            </div>
+            
+            <div style="overflow-x: auto;">
+                <table class="data-table" style="min-width: 800px;">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Pago Contratista</th>
+                            <th>Pago Sub-contratista</th>
+                            <th>Fecha Creación</th>
+                            <th style="width: 120px; text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobTypesTableBody">
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 40px;">
+                                <div style="display: inline-block; width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                                <p style="margin-top: 12px; color: var(--text-secondary);">Cargando tipos de trabajos...</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    
+    // Cargar datos desde la API
+    setTimeout(() => loadJobTypesData(), 500);
+}
+
+async function loadJobTypesData() {
+    const tbody = document.getElementById('jobTypesTableBody');
+    if (!tbody) return;
+    
+    try {
+        const response = await fetch('api/job_type/JobTypeController.php?action=getAllJobTypes');
+        
+        if (!response.ok) {
+            throw new Error('API not available');
+        }
+        
+        const result = await response.json();
+        
+        if (result.error) {
+            throw new Error(result.error);
+        }
+        
+        if (!Array.isArray(result.data) || result.data.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        <i class="fas fa-briefcase" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
+                        <p>No hay tipos de trabajos registrados</p>
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        let tableHTML = '';
+        result.data.forEach(jobType => {
+            const createdDate = new Date(jobType.created_at).toLocaleDateString('es-ES');
+            
+            tableHTML += `
+                <tr>
+                    <td><strong>${jobType.name}</strong></td>
+                    <td style="text-align: right;">$${parseFloat(jobType.pay_as_contractor || 0).toFixed(2)}</td>
+                    <td style="text-align: right;">$${parseFloat(jobType.pay_as_sub_contractor || 0).toFixed(2)}</td>
+                    <td>${createdDate}</td>
+                    <td style="text-align: center;">
+                        <div style="display: flex; gap: 4px; justify-content: center;">
+                            <button type="button" class="btn-action" title="Editar" onclick="editJobType('${jobType.id}')">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button type="button" class="btn-action btn-danger" title="Eliminar" onclick="deleteJobType('${jobType.id}')">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        tbody.innerHTML = tableHTML;
+        
+    } catch (error) {
+        console.error('Error loading job types:', error);
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 40px; color: var(--danger-color);">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; margin-bottom: 16px;"></i>
+                    <p>Error al cargar tipos de trabajos</p>
+                    <small>${error.message}</small>
+                </td>
+            </tr>
+        `;
+    }
+}
+
+function openJobTypeModal(id = null) {
+    const isEdit = id !== null;
+    const title = isEdit ? 'Editar Tipo de Trabajo' : 'Nuevo Tipo de Trabajo';
+    
+    const modalContent = `
+        <form id="jobTypeForm">
+            <div class="modal-body">
+                <input type="hidden" id="jobTypeId" value="${id || ''}">
+                
+                <div class="form-group">
+                    <label class="form-label" for="jobTypeName">Nombre *</label>
+                    <input type="text" class="form-input" id="jobTypeName" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="jobTypePayContractor">Pago como Contratista *</label>
+                    <input type="number" step="0.01" min="0" class="form-input" id="jobTypePayContractor" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="jobTypePaySubContractor">Pago como Sub-contratista *</label>
+                    <input type="number" step="0.01" min="0" class="form-input" id="jobTypePaySubContractor" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" onclick="closeModal('formModal')">Cancelar</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    Guardar Tipo
+                </button>
+            </div>
+        </form>
+    `;
+    
+    document.getElementById('formModalTitle').textContent = title;
+    document.getElementById('formModalBody').innerHTML = modalContent;
+    
+    document.getElementById('jobTypeForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const data = {
+            name: document.getElementById('jobTypeName').value,
+            pay_as_contractor: parseFloat(document.getElementById('jobTypePayContractor').value),
+            pay_as_sub_contractor: parseFloat(document.getElementById('jobTypePaySubContractor').value)
+        };
+        
+        const url = isEdit 
+            ? `api/job_type/JobTypeController.php?action=updateJobType&id=${id}`
+            : 'api/job_type/JobTypeController.php?action=createJobType';
+        
+        const method = isEdit ? 'PUT' : 'POST';
+        
+        fetch(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        })
+        .then(res => res.json())
+        .then(result => {
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+            
+            showToast(result.message || 'Tipo de trabajo guardado exitosamente', 'success');
+            closeModal('formModal');
+            loadJobTypesSection();
+        })
+        .catch(err => {
+            console.error('Error saving job type:', err);
+            showToast('Error al guardar tipo de trabajo', 'error');
+        });
+    });
+    
+    openModal('formModal');
+}
+
+function editJobType(id) {
+    // Cargar datos del tipo de trabajo desde la API
+    fetch(`api/job_type/JobTypeController.php?action=getJobTypeById&id=${id}`)
+        .then(res => res.json())
+        .then(jobType => {
+            if (jobType.error || !jobType.id) {
+                showToast('Error al cargar tipo de trabajo', 'error');
+                return;
+            }
+            
+            openJobTypeModal(id);
+            
+            // Llenar formulario con datos existentes
+            setTimeout(() => {
+                document.getElementById('jobTypeName').value = jobType.name;
+                document.getElementById('jobTypePayContractor').value = jobType.pay_as_contractor || 0;
+                document.getElementById('jobTypePaySubContractor').value = jobType.pay_as_sub_contractor || 0;
+            }, 100);
+        })
+        .catch(err => {
+            console.error('Error loading job type:', err);
+            showToast('Error al cargar tipo de trabajo', 'error');
+        });
+}
+
+function deleteJobType(id) {
+    document.getElementById('confirmDeleteMessage').textContent = '¿Está seguro de que desea eliminar este tipo de trabajo?';
+    document.getElementById('confirmDeleteBtn').onclick = function() {
+        fetch(`api/job_type/JobTypeController.php?action=deleteJobType&id=${id}`, {
+            method: 'DELETE'
+        })
+        .then(res => res.json())
+        .then(result => {
+            closeModal('confirmDeleteModal');
+            
+            if (result.error) {
+                showToast(result.error, 'error');
+                return;
+            }
+            
+            showToast(result.message || 'Tipo de trabajo eliminado exitosamente', 'success');
+            loadJobTypesSection();
+        })
+        .catch(err => {
+            console.error('Error deleting job type:', err);
+            showToast('Error al eliminar tipo de trabajo', 'error');
+        });
+    };
+    openModal('confirmDeleteModal');
+}
+
 // --- Configuración ---
 const USERS_API_URL = 'api/user/UserController.php';
 let currentEditingUserId = null;

@@ -50,6 +50,10 @@ $pageTitle = 'Configuración';
                                 <i class="fas fa-list"></i>
                                 <span>Tipos de gastos</span>
                             </a>
+                            <a href="#" onclick="loadSection('job_types')" class="config-nav-item" data-section="job_types">
+                                <i class="fas fa-briefcase"></i>
+                                <span>Tipos de trabajos</span>
+                            </a>
                         </nav>
                     </div>
                 </div>
@@ -253,6 +257,9 @@ function loadSection(section) {
                 break;
             case 'expense_types':
                 loadExpenseTypesSection();
+                break;
+            case 'job_types':
+                loadJobTypesSection();
                 break;
         }
     }, 200);
