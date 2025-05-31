@@ -16,6 +16,7 @@
                         <span class="nav-text">Inicio</span>
                     </a>
                 </li>
+               
                 
                 <!-- Módulos APCUADRE -->
                 <li class="nav-item">
@@ -30,6 +31,11 @@
                         <span class="nav-text">Gastos</span>
                     </a>
                 </li>
+              
+                
+                <!-- Gestión de Gastos -->
+                
+                
                 <li class="nav-item">
                     <a href="teams.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'teams.php' ? 'active' : ''; ?>">
                         <i class="fas fa-users"></i>
@@ -42,6 +48,7 @@
                         <span class="nav-text">Contratistas</span>
                     </a>
                 </li>
+                
                 <li class="nav-item">
                     <a href="vendors.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'vendors.php' ? 'active' : ''; ?>">
                         <i class="fas fa-store"></i>
@@ -54,30 +61,14 @@
                         <span class="nav-text">Cuentas</span>
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a href="payment_types.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'payment_types.php' ? 'active' : ''; ?>">
-                        <i class="fas fa-money-check-alt"></i>
-                        <span class="nav-text">Tipos de Pago</span>
-                    </a>
-                </li>
+               
                 
                 <!-- Administración -->
-                <li class="nav-item">
-                    <a href="profile.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'profile.php' ? 'active' : ''; ?>">
-                        <i class="fas fa-user"></i>
-                        <span class="nav-text">Perfil</span>
-                    </a>
-                </li>
+              
                 <li class="nav-item">
                     <a href="reports.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : ''; ?>">
                         <i class="fas fa-chart-bar"></i>
                         <span class="nav-text">Reportes</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a href="settings.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'settings.php' ? 'active' : ''; ?>">
-                        <i class="fas fa-cog"></i>
-                        <span class="nav-text">Configuración</span>
                     </a>
                 </li>
             </ul>
