@@ -1,566 +1,2048 @@
-// SECCIÓN TIPOS DE PAGO
+// SECCIÓN TIPOS DE PAGO - Basado en payment_types.php funcional
 function loadPaymentTypesSection() {
+    // Variables específicas para tipos de pago
+    let paymentTypesData = [];
+    let bankAccountsData = [];
+    let paymentTypesCurrentPage = 1;
+    let paymentTypesItemsPerPage = 10;
+    let paymentTypesFilteredData = [];
+    let editingPaymentTypeId = null;
+    
     const content = `
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: flex-end; align-items: center;">
+                <div style="flex: 1;">
+                    <input
+                        type="text"
+                        id="paymentTypesSearchInput"
+                        class="form-input"
+                        placeholder="Buscar tipo de pago..."
+                        style="max-width: 300px;"
+                        autocomplete="off"
+                    >
+                </div>
+                <div>
+                    <button type="button" class="btn btn-primary" onclick="openPaymentTypeModal()">
+                        <i class="fas fa-plus"></i>
+                        Nuevo Tipo de Pago
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-header">
                 <h3 class="card-title">
                     <i class="fas fa-credit-card"></i>
-                    Tipos de Pagos
+                    Lista de Tipos de Pago
                 </h3>
-                <p class="card-subtitle">Gestionar tipos de pagos del sistema</p>
+                <p class="card-subtitle">Total: <span id="totalPaymentTypes">0</span> tipos registrados</p>
             </div>
-            <div style="padding: 40px; text-align: center; color: var(--text-secondary);">
-                <i class="fas fa-tools" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
-                <h3>Función en desarrollo</h3>
-                <p>Esta sección estará disponible próximamente</p>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('settingsContent').innerHTML = content;
-}
-
-function openPaymentTypeModal(id = null) {
-    const isEdit = id !== null;
-    const title = isEdit ? 'Editar Tipo de Pago' : 'Nuevo Tipo de Pago';
-    
-    const modalContent = `
-        <form id="paymentTypeForm">
-            <div class="modal-body">
-                <input type="hidden" id="paymentTypeId" value="${id || ''}">
-                
-                <div class="form-group">
-                    <label class="form-label" for="paymentTypeName">Nombre *</label>
-                    <input type="text" class="form-input" id="paymentTypeName" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="paymentTypeDescription">Descripción</label>
-                    <textarea class="form-input" id="paymentTypeDescription" rows="3"></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="paymentTypeBankAccount">Cuenta Bancaria *</label>
-                    <select class="form-input" id="paymentTypeBankAccount" required>
-                        <option value="">Seleccionar cuenta...</option>
-                        <option value="1">Caja General</option>
-                        <option value="2">Cuenta Bancaria Principal</option>
-                        <option value="3">Cuenta de Ahorros</option>
-                    </select>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn" onclick="closeModal('formModal')">Cancelar</button>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save"></i>
-                    Guardar
-                </button>
-            </div>
-        </form>
-    `;
-    
-    document.getElementById('formModalTitle').textContent = title;
-    document.getElementById('formModalBody').innerHTML = modalContent;
-    
-    // Event listener para el formulario
-    document.getElementById('paymentTypeForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        showToast('Tipo de pago guardado exitosamente', 'success');
-        closeModal('formModal');
-        loadPaymentTypesSection(); // Recargar la tabla
-    });
-    
-    openModal('formModal');
-}
-
-function editPaymentType(id) {
-    // Simular datos para edición
-    const mockData = {
-        1: { name: 'Efectivo', description: 'Pagos en efectivo', bankAccount: '1' },
-        2: { name: 'Tarjeta de Débito', description: 'Pagos con tarjeta de débito', bankAccount: '2' },
-        3: { name: 'Transferencia', description: 'Transferencias bancarias', bankAccount: '2' }
-    };
-    
-    openPaymentTypeModal(id);
-    
-    // Llenar formulario con datos existentes
-    setTimeout(() => {
-        const data = mockData[id];
-        if (data) {
-            document.getElementById('paymentTypeName').value = data.name;
-            document.getElementById('paymentTypeDescription').value = data.description;
-            document.getElementById('paymentTypeBankAccount').value = data.bankAccount;
-        }
-    }, 100);
-}
-
-function deletePaymentType(id) {
-    document.getElementById('confirmDeleteMessage').textContent = '¿Está seguro de que desea eliminar este tipo de pago?';
-    document.getElementById('confirmDeleteBtn').onclick = function() {
-        showToast('Tipo de pago eliminado exitosamente', 'success');
-        closeModal('confirmDeleteModal');
-        loadPaymentTypesSection();
-    };
-    openModal('confirmDeleteModal');
-}
-
-// SECCIÓN CATEGORÍAS DE GASTOS
-function loadExpenseCategoriesSection() {
-    const content = `
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">
-                    <i class="fas fa-tags"></i>
-                    Categorías de Gastos
-                </h3>
-                <p class="card-subtitle">Gestionar categorías de gastos</p>
-            </div>
-            <div style="padding: 40px; text-align: center; color: var(--text-secondary);">
-                <i class="fas fa-tools" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
-                <h3>Función en desarrollo</h3>
-                <p>Esta sección estará disponible próximamente</p>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('settingsContent').innerHTML = content;
-}
-
-function openCategoryModal(id = null) {
-    const isEdit = id !== null;
-    const title = isEdit ? 'Editar Categoría' : 'Nueva Categoría';
-    
-    const modalContent = `
-        <form id="categoryForm">
-            <div class="modal-body">
-                <input type="hidden" id="categoryId" value="${id || ''}">
-                
-                <div class="form-group">
-                    <label class="form-label" for="categoryName">Nombre *</label>
-                    <input type="text" class="form-input" id="categoryName" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="categoryDescription">Descripción</label>
-                    <textarea class="form-input" id="categoryDescription" rows="3" placeholder="Descripción de la categoría"></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">
-                        <input type="checkbox" id="categoryIsActive" checked>
-                        Categoría activa
-                    </label>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn" onclick="closeModal('formModal')">Cancelar</button>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save"></i>
-                    Guardar Categoría
-                </button>
-            </div>
-        </form>
-    `;
-    
-    document.getElementById('formModalTitle').textContent = title;
-    document.getElementById('formModalBody').innerHTML = modalContent;
-    
-    document.getElementById('categoryForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        showToast('Categoría guardada exitosamente', 'success');
-        closeModal('formModal');
-        loadExpenseCategoriesSection();
-    });
-    
-    openModal('formModal');
-}
-
-function editCategory(id) {
-    const mockData = {
-        1: { name: 'Transporte', description: 'Gastos relacionados con transporte', active: true },
-        2: { name: 'Alimentación', description: 'Gastos en comida y bebidas', active: true },
-        3: { name: 'Oficina', description: 'Gastos de oficina y suministros', active: true },
-        4: { name: 'Servicios', description: 'Servicios públicos y profesionales', active: true },
-        5: { name: 'Marketing', description: 'Gastos en publicidad y marketing', active: true }
-    };
-    
-    openCategoryModal(id);
-    
-    setTimeout(() => {
-        const data = mockData[id];
-        if (data) {
-            document.getElementById('categoryName').value = data.name;
-            document.getElementById('categoryDescription').value = data.description;
-            document.getElementById('categoryIsActive').checked = data.active;
-        }
-    }, 100);
-}
-
-function deleteCategory(id) {
-    document.getElementById('confirmDeleteMessage').textContent = '¿Está seguro de que desea eliminar esta categoría?';
-    document.getElementById('confirmDeleteBtn').onclick = function() {
-        showToast('Categoría eliminada exitosamente', 'success');
-        closeModal('confirmDeleteModal');
-        loadExpenseCategoriesSection();
-    };
-    openModal('confirmDeleteModal');
-}
-
-// SECCIÓN TIPOS DE GASTOS
-function loadExpenseTypesSection() {
-    const content = `
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">
-                    <i class="fas fa-list"></i>
-                    Tipos de Gastos
-                </h3>
-                <p class="card-subtitle">Gestionar tipos de gastos</p>
-            </div>
-            <div style="padding: 40px; text-align: center; color: var(--text-secondary);">
-                <i class="fas fa-tools" style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
-                <h3>Función en desarrollo</h3>
-                <p>Esta sección estará disponible próximamente</p>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('settingsContent').innerHTML = content;
-}
-
-function openExpenseTypeModal(id = null) {
-    const isEdit = id !== null;
-    const title = isEdit ? 'Editar Tipo de Gasto' : 'Nuevo Tipo de Gasto';
-    
-    const modalContent = `
-        <form id="expenseTypeForm">
-            <div class="modal-body">
-                <input type="hidden" id="expenseTypeId" value="${id || ''}">
-                
-                <div class="form-group">
-                    <label class="form-label" for="expenseTypeName">Nombre *</label>
-                    <input type="text" class="form-input" id="expenseTypeName" required>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="expenseTypeDescription">Descripción</label>
-                    <textarea class="form-input" id="expenseTypeDescription" rows="3" placeholder="Descripción del tipo de gasto"></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="expenseTypeCategory">Categoría *</label>
-                    <select class="form-input" id="expenseTypeCategory" required>
-                        <option value="">Seleccionar categoría...</option>
-                        <option value="1">Transporte</option>
-                        <option value="2">Alimentación</option>
-                        <option value="3">Oficina</option>
-                        <option value="4">Servicios</option>
-                        <option value="5">Marketing</option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">
-                        <input type="checkbox" id="expenseTypeIsActive" checked>
-                        Tipo activo
-                    </label>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn" onclick="closeModal('formModal')">Cancelar</button>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save"></i>
-                    Guardar Tipo
-                </button>
-            </div>
-        </form>
-    `;
-    
-    document.getElementById('formModalTitle').textContent = title;
-    document.getElementById('formModalBody').innerHTML = modalContent;
-    
-    document.getElementById('expenseTypeForm').addEventListener('submit', function(e) {
-        e.preventDefault();
-        showToast('Tipo de gasto guardado exitosamente', 'success');
-        closeModal('formModal');
-        loadExpenseTypesSection();
-    });
-    
-    openModal('formModal');
-}
-
-function editExpenseType(id) {
-    const mockData = {
-        1: { name: 'Combustible', description: 'Gastos en combustible para vehículos', category: '1', active: true },
-        2: { name: 'Papelería', description: 'Suministros de oficina y papelería', category: '3', active: true },
-        3: { name: 'Almuerzo de Trabajo', description: 'Comidas durante horarios laborales', category: '2', active: true },
-        4: { name: 'Internet', description: 'Servicios de internet y conectividad', category: '4', active: true }
-    };
-    
-    openExpenseTypeModal(id);
-    
-    setTimeout(() => {
-        const data = mockData[id];
-        if (data) {
-            document.getElementById('expenseTypeName').value = data.name;
-            document.getElementById('expenseTypeDescription').value = data.description;
-            document.getElementById('expenseTypeCategory').value = data.category;
-            document.getElementById('expenseTypeIsActive').checked = data.active;
-        }
-    }, 100);
-}
-
-function deleteExpenseType(id) {
-    document.getElementById('confirmDeleteMessage').textContent = '¿Está seguro de que desea eliminar este tipo de gasto?';
-    document.getElementById('confirmDeleteBtn').onclick = function() {
-        showToast('Tipo de gasto eliminado exitosamente', 'success');
-        closeModal('confirmDeleteModal');
-        loadExpenseTypesSection();
-    };
-    openModal('confirmDeleteModal');
-}
-
-// SECCIÓN TIPOS DE TRABAJOS
-function loadJobTypesSection() {
-    document.getElementById('settingsContent').innerHTML = `
-        <div class="card">
-            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <h3 class="card-title">
-                        <i class="fas fa-briefcase"></i>
-                        Tipos de Trabajos
-                    </h3>
-                    <p class="card-subtitle">Gestionar tipos de trabajos del sistema</p>
-                </div>
-                <button type="button" class="btn btn-primary" onclick="openJobTypeModal()">
-                    <i class="fas fa-plus"></i>
-                    Nuevo Tipo de Trabajo
-                </button>
-            </div>
-            
             <div style="overflow-x: auto;">
-                <table class="data-table" style="min-width: 800px;">
+                <table class="data-table" id="paymentTypesTable" style="min-width: 700px;">
                     <thead>
                         <tr>
                             <th>Nombre</th>
-                            <th>Pago Contratista</th>
-                            <th>Pago Sub-contratista</th>
-                            <th>Fecha Creación</th>
+                            <th>Descripción</th>
+                            <th>Cuenta Bancaria Asociada</th>
                             <th style="width: 120px; text-align: center;">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody id="jobTypesTableBody">
-                        <tr>
-                            <td colspan="5" style="text-align: center; padding: 40px;">
-                                <div style="display: inline-block; width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                                <p style="margin-top: 12px; color: var(--text-secondary);">Cargando tipos de trabajos...</p>
-                            </td>
-                        </tr>
+                    <tbody id="paymentTypesTableBody">
+                        <!-- Las filas se llenarán dinámicamente -->
                     </tbody>
                 </table>
+                <div id="paymentTypesTableFooter" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0 0 0;">
+                    <div id="paymentTypesPageSizeContainer"></div>
+                    <div id="paymentTypesPagination"></div>
+                </div>
             </div>
         </div>
     `;
     
-    // Cargar datos desde la API
-    setTimeout(() => loadJobTypesData(), 500);
-}
-
-async function loadJobTypesData() {
-    const tbody = document.getElementById('jobTypesTableBody');
-    if (!tbody) return;
+    document.getElementById('settingsContent').innerHTML = content;
     
-    try {
-        const response = await fetch('api/job_type/JobTypeController.php?action=getAllJobTypes');
+    // Funciones internas para tipos de pago
+    async function loadPaymentTypes() {
+        try {
+            const response = await fetch('api/payment_type/PaymentTypeController.php');
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.error) {
+                showToast('Error: ' + result.error, 'error');
+                paymentTypesData = [];
+                bankAccountsData = [];
+            } else {
+                paymentTypesData = result.data || [];
+                bankAccountsData = result.bank_accounts || [];
+            }
+            
+            filterPaymentTypes();
+            
+        } catch (error) {
+            console.error('Error loading payment types:', error);
+            showToast('Error al cargar los tipos de pago: ' + error.message, 'error');
+            paymentTypesData = [];
+            bankAccountsData = [];
+            filterPaymentTypes();
+        }
+    }
+
+    function filterPaymentTypes() {
+        const searchTerm = document.getElementById('paymentTypesSearchInput')?.value.toLowerCase() || '';
         
-        if (!response.ok) {
-            throw new Error('API not available');
+        paymentTypesFilteredData = paymentTypesData.filter(type => 
+            type.name.toLowerCase().includes(searchTerm) ||
+            (type.description && type.description.toLowerCase().includes(searchTerm))
+        );
+        
+        paymentTypesCurrentPage = 1;
+        renderPaymentTypesTable();
+        updatePaymentTypesPagination();
+    }
+
+    function renderPaymentTypesTable() {
+        const tbody = document.getElementById('paymentTypesTableBody');
+        const totalElement = document.getElementById('totalPaymentTypes');
+        
+        if (!tbody) return;
+        
+        // Actualizar contador total
+        if (totalElement) {
+            totalElement.textContent = paymentTypesFilteredData.length;
         }
         
-        const result = await response.json();
+        // Calcular índices para paginación
+        const startIndex = (paymentTypesCurrentPage - 1) * paymentTypesItemsPerPage;
+        const endIndex = startIndex + paymentTypesItemsPerPage;
+        const pageData = paymentTypesFilteredData.slice(startIndex, endIndex);
         
-        if (result.error) {
-            throw new Error(result.error);
-        }
+        // Limpiar tabla
+        tbody.innerHTML = '';
         
-        if (!Array.isArray(result.data) || result.data.length === 0) {
+        if (pageData.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                        <i class="fas fa-briefcase" style="font-size: 48px; margin-bottom: 16px; opacity: 0.3;"></i>
-                        <p>No hay tipos de trabajos registrados</p>
+                    <td colspan="4" style="text-align: center; padding: 2rem; color: #6B7280;">
+                        <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem; display: block;"></i>
+                        No se encontraron tipos de pago
                     </td>
                 </tr>
             `;
             return;
         }
         
-        let tableHTML = '';
-        result.data.forEach(jobType => {
-            const createdDate = new Date(jobType.created_at).toLocaleDateString('es-ES');
+        pageData.forEach(type => {
+            const row = document.createElement('tr');
             
-            tableHTML += `
+            // Buscar la cuenta bancaria asociada
+            const bankAccount = bankAccountsData.find(acc => acc.id === type.bank_account_id);
+            const bankAccountLabel = bankAccount 
+                ? `${bankAccount.name} (${bankAccount.bank_name} - ${bankAccount.account_number})`
+                : 'No asignada';
+            
+            row.innerHTML = `
+                <td>
+                    <div style="font-weight: 500;">${type.name || ''}</div>
+                </td>
+                <td>
+                    <div style="color: #6B7280; max-width: 300px; overflow: hidden; text-overflow: ellipsis;">
+                        ${type.description || '-'}
+                    </div>
+                </td>
+                <td>
+                    <div style="padding: 4px 8px; background-color: #F3F4F6; border-radius: 4px; font-size: 0.875rem; font-weight: 500; display: inline-block;">
+                        ${bankAccountLabel}
+                    </div>
+                </td>
+                <td style="text-align: center;">
+                    <div style="display: flex; gap: 8px; justify-content: center;">
+                        <button type="button" class="btn-action" onclick="editPaymentTypeFromSettings('${type.id}')" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button type="button" class="btn-action btn-danger" onclick="deletePaymentTypeFromSettings('${type.id}', '${type.name || ''}')" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+        });
+    }
+
+    function updatePaymentTypesPagination() {
+        const totalPages = Math.ceil(paymentTypesFilteredData.length / paymentTypesItemsPerPage);
+        const paginationContainer = document.getElementById('paymentTypesPagination');
+        const pageSizeContainer = document.getElementById('paymentTypesPageSizeContainer');
+        
+        if (!paginationContainer) return;
+        
+        // Selector de elementos por página
+        if (pageSizeContainer) {
+            pageSizeContainer.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 0.875rem; color: #6B7280;">Mostrar:</span>
+                    <select id="paymentTypesPageSizeSelector" style="padding: 4px 8px; border: 1px solid #D1D5DB; border-radius: 4px; font-size: 0.875rem;">
+                        <option value="10" ${paymentTypesItemsPerPage === 10 ? 'selected' : ''}>10</option>
+                        <option value="25" ${paymentTypesItemsPerPage === 25 ? 'selected' : ''}>25</option>
+                        <option value="50" ${paymentTypesItemsPerPage === 50 ? 'selected' : ''}>50</option>
+                    </select>
+                    <span style="font-size: 0.875rem; color: #6B7280;">por página</span>
+                </div>
+            `;
+            
+            const pageSizeSelector = document.getElementById('paymentTypesPageSizeSelector');
+            if (pageSizeSelector) {
+                pageSizeSelector.addEventListener('change', function() {
+                    paymentTypesItemsPerPage = parseInt(this.value);
+                    paymentTypesCurrentPage = 1;
+                    renderPaymentTypesTable();
+                    updatePaymentTypesPagination();
+                });
+            }
+        }
+        
+        // Paginación
+        if (totalPages <= 1) {
+            paginationContainer.innerHTML = '';
+            return;
+        }
+        
+        let paginationHTML = '<div style="display: flex; gap: 4px; align-items: center;">';
+        
+        // Botón anterior
+        if (paymentTypesCurrentPage > 1) {
+            paginationHTML += `<button class="pagination-btn" onclick="changePaymentTypesPage(${paymentTypesCurrentPage - 1})">‹</button>`;
+        }
+        
+        // Números de página
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === paymentTypesCurrentPage) {
+                paginationHTML += `<button class="pagination-btn active">${i}</button>`;
+            } else if (i === 1 || i === totalPages || (i >= paymentTypesCurrentPage - 1 && i <= paymentTypesCurrentPage + 1)) {
+                paginationHTML += `<button class="pagination-btn" onclick="changePaymentTypesPage(${i})">${i}</button>`;
+            } else if (i === paymentTypesCurrentPage - 2 || i === paymentTypesCurrentPage + 2) {
+                paginationHTML += `<span style="padding: 0 4px;">...</span>`;
+            }
+        }
+        
+        // Botón siguiente
+        if (paymentTypesCurrentPage < totalPages) {
+            paginationHTML += `<button class="pagination-btn" onclick="changePaymentTypesPage(${paymentTypesCurrentPage + 1})">›</button>`;
+        }
+        
+        paginationHTML += '</div>';
+        paginationContainer.innerHTML = paginationHTML;
+    }
+
+    function renderBankAccountsSelect() {
+        const select = document.getElementById('paymentTypeBankAccount');
+        if (!select) return;
+        
+        select.innerHTML = '<option value="">Seleccione una cuenta...</option>';
+        
+        bankAccountsData.forEach(account => {
+            const option = document.createElement('option');
+            option.value = account.id;
+            option.textContent = `${account.name} (${account.bank_name} - ${account.account_number})`;
+            select.appendChild(option);
+        });
+    }
+
+    // Función para cambiar página
+    window.changePaymentTypesPage = function(page) {
+        paymentTypesCurrentPage = page;
+        renderPaymentTypesTable();
+        updatePaymentTypesPagination();
+    };
+
+    // Función para abrir modal de tipo de pago
+    window.openPaymentTypeModal = function() {
+        const modalBody = `
+            <form id="paymentTypeForm">
+                <div class="modal-body">
+                    <input type="hidden" id="paymentTypeId" name="paymentTypeId" value="">
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="paymentTypeName">Nombre del Tipo de Pago *</label>
+                        <input 
+                            type="text" 
+                            class="form-input" 
+                            id="paymentTypeName" 
+                            name="paymentTypeName" 
+                            required 
+                            maxlength="255"
+                            placeholder="Ej: Efectivo, Transferencia Bancaria, Tarjeta de Débito..."
+                            autocomplete="off"
+                        >
+                        <div class="input-feedback" id="namefeedback"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="paymentTypeDescription">Descripción</label>
+                        <textarea 
+                            class="form-input" 
+                            id="paymentTypeDescription" 
+                            name="paymentTypeDescription" 
+                            rows="3" 
+                            maxlength="500"
+                            placeholder="Descripción opcional del método de pago..."
+                        ></textarea>
+                        <small class="form-text">Máximo 500 caracteres</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="paymentTypeBankAccount">Cuenta Bancaria Asociada *</label>
+                        <select class="form-input" id="paymentTypeBankAccount" name="paymentTypeBankAccount" required>
+                            <option value="">Seleccione una cuenta bancaria...</option>
+                        </select>
+                        <small class="form-text">Esta cuenta se usará para registrar los movimientos de este método de pago</small>
+                        <div class="input-feedback" id="accountFeedback"></div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="closeModal('formModal')" style="background-color: var(--secondary-color); color: white;">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="savePaymentTypeBtn">
+                        <i class="fas fa-save"></i>
+                        Guardar Tipo de Pago
+                    </button>
+                </div>
+            </form>
+        `;
+        
+        document.getElementById('formModalTitle').innerHTML = '<i class="fas fa-plus-circle"></i> Nuevo Tipo de Pago';
+        document.getElementById('formModalBody').innerHTML = modalBody;
+        
+        // Cargar cuentas bancarias en el select
+        renderBankAccountsSelect();
+        
+        openModal('formModal');
+        
+        editingPaymentTypeId = null;
+        
+        // Validación en tiempo real
+        setupPaymentTypeValidation();
+        
+        // Event listener para el formulario
+        document.getElementById('paymentTypeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            savePaymentTypeFromSettings();
+        });
+    };
+
+    // Función para validación en tiempo real
+    function setupPaymentTypeValidation() {
+        const nameInput = document.getElementById('paymentTypeName');
+        const accountSelect = document.getElementById('paymentTypeBankAccount');
+        const submitBtn = document.getElementById('savePaymentTypeBtn');
+        
+        function validateName() {
+            const value = nameInput.value.trim();
+            const feedback = document.getElementById('namefeedback');
+            
+            if (value.length === 0) {
+                feedback.textContent = '';
+                return false;
+            } else if (value.length < 3) {
+                feedback.textContent = 'El nombre debe tener al menos 3 caracteres';
+                feedback.style.color = '#ef4444';
+                return false;
+            } else {
+                feedback.textContent = '✓ Nombre válido';
+                feedback.style.color = '#10b981';
+                return true;
+            }
+        }
+        
+        function validateAccount() {
+            const value = accountSelect.value;
+            const feedback = document.getElementById('accountFeedback');
+            
+            if (value) {
+                feedback.textContent = '✓ Cuenta bancaria seleccionada';
+                feedback.style.color = '#10b981';
+                return true;
+            } else {
+                feedback.textContent = '';
+                return false;
+            }
+        }
+        
+        function updateSubmitButton() {
+            const isValid = validateName() && validateAccount();
+            submitBtn.disabled = !isValid;
+            if (!isValid) {
+                submitBtn.style.opacity = '0.5';
+                submitBtn.style.cursor = 'not-allowed';
+            } else {
+                submitBtn.style.opacity = '1';
+                submitBtn.style.cursor = 'pointer';
+            }
+        }
+        
+        nameInput.addEventListener('input', () => {
+            validateName();
+            updateSubmitButton();
+        });
+        
+        accountSelect.addEventListener('change', () => {
+            validateAccount();
+            updateSubmitButton();
+        });
+        
+        // Validación inicial
+        updateSubmitButton();
+    }
+
+    // Función para guardar tipo de pago
+    async function savePaymentTypeFromSettings() {
+        const typeId = document.getElementById('paymentTypeId').value;
+        const typeName = document.getElementById('paymentTypeName').value.trim();
+        const typeDescription = document.getElementById('paymentTypeDescription').value.trim();
+        const typeBankAccount = document.getElementById('paymentTypeBankAccount').value;
+        
+        if (!typeName) {
+            showToast('El nombre del tipo es obligatorio', 'error');
+            return;
+        }
+        
+        if (!typeBankAccount) {
+            showToast('La cuenta bancaria es obligatoria', 'error');
+            return;
+        }
+        
+        // Preparar datos
+        const data = {
+            name: typeName,
+            description: typeDescription,
+            bank_account_id: typeBankAccount,
+            csrf_token: window.CSRF_TOKEN || 'dummy_token'
+        };
+        
+        if (typeId) {
+            data.id = typeId;
+        }
+        
+        try {
+            const url = 'api/payment_type/PaymentTypeController.php';
+            const method = typeId ? 'PUT' : 'POST';
+            
+            const response = await fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.error) {
+                showToast(result.error, 'error');
+            } else {
+                showToast(typeId ? 'Tipo actualizado exitosamente' : 'Tipo creado exitosamente', 'success');
+                closeModal('formModal');
+                await loadPaymentTypes();
+            }
+            
+        } catch (error) {
+            console.error('Error saving payment type:', error);
+            showToast('Error al guardar el tipo: ' + error.message, 'error');
+        }
+    }
+
+    // Función para editar tipo de pago
+    window.editPaymentTypeFromSettings = async function(typeId) {
+        const type = paymentTypesData.find(t => t.id === typeId);
+        
+        if (!type) {
+            showToast('Tipo de pago no encontrado', 'error');
+            return;
+        }
+        
+        const modalBody = `
+            <form id="paymentTypeForm">
+                <div class="modal-body">
+                    <input type="hidden" id="paymentTypeId" name="paymentTypeId" value="${type.id}">
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="paymentTypeName">Nombre del Tipo de Pago *</label>
+                        <input 
+                            type="text" 
+                            class="form-input" 
+                            id="paymentTypeName" 
+                            name="paymentTypeName" 
+                            value="${type.name || ''}" 
+                            required 
+                            maxlength="255"
+                            placeholder="Ej: Efectivo, Transferencia Bancaria, Tarjeta de Débito..."
+                            autocomplete="off"
+                        >
+                        <div class="input-feedback" id="namefeedback"></div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="paymentTypeDescription">Descripción</label>
+                        <textarea 
+                            class="form-input" 
+                            id="paymentTypeDescription" 
+                            name="paymentTypeDescription" 
+                            rows="3" 
+                            maxlength="500"
+                            placeholder="Descripción opcional del método de pago..."
+                        >${type.description || ''}</textarea>
+                        <small class="form-text">Máximo 500 caracteres</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="paymentTypeBankAccount">Cuenta Bancaria Asociada *</label>
+                        <select class="form-input" id="paymentTypeBankAccount" name="paymentTypeBankAccount" required>
+                            <option value="">Seleccione una cuenta bancaria...</option>
+                        </select>
+                        <small class="form-text">Esta cuenta se usará para registrar los movimientos de este método de pago</small>
+                        <div class="input-feedback" id="accountFeedback"></div>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="closeModal('formModal')" style="background-color: var(--secondary-color); color: white;">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="savePaymentTypeBtn">
+                        <i class="fas fa-save"></i>
+                        Actualizar Tipo de Pago
+                    </button>
+                </div>
+            </form>
+        `;
+        
+        document.getElementById('formModalTitle').innerHTML = '<i class="fas fa-edit"></i> Editar Tipo de Pago';
+        document.getElementById('formModalBody').innerHTML = modalBody;
+        
+        // Cargar cuentas bancarias y seleccionar la actual
+        renderBankAccountsSelect();
+        setTimeout(() => {
+            document.getElementById('paymentTypeBankAccount').value = type.bank_account_id || '';
+        }, 100);
+        
+        openModal('formModal');
+        
+        editingPaymentTypeId = type.id;
+        
+        // Validación en tiempo real
+        setupPaymentTypeValidation();
+        
+        // Event listener para el formulario de edición
+        document.getElementById('paymentTypeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            savePaymentTypeFromSettings();
+        });
+    };
+
+    // Función para eliminar tipo de pago
+    window.deletePaymentTypeFromSettings = async function(typeId, typeName) {
+        let message = `¿Está seguro de que desea eliminar el tipo "${typeName}"?`;
+        
+        document.getElementById('confirmDeleteMessage').textContent = message;
+        document.getElementById('confirmDeleteBtn').onclick = async function() {
+            try {
+                const response = await fetch('api/payment_type/PaymentTypeController.php', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `id=${encodeURIComponent(typeId)}&csrf_token=${encodeURIComponent(window.CSRF_TOKEN || 'dummy_token')}`
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.error) {
+                    showToast(result.error, 'error');
+                } else {
+                    showToast('Tipo eliminado exitosamente', 'success');
+                    closeModal('confirmDeleteModal');
+                    await loadPaymentTypes();
+                }
+                
+            } catch (error) {
+                console.error('Error deleting payment type:', error);
+                showToast('Error al eliminar el tipo: ' + error.message, 'error');
+            }
+        };
+        
+        openModal('confirmDeleteModal');
+    };
+
+    // Event listener para búsqueda
+    document.getElementById('paymentTypesSearchInput').addEventListener('input', function() {
+        filterPaymentTypes();
+    });
+    
+    // Cargar datos iniciales
+    loadPaymentTypes();
+}
+
+// Función global para escapar HTML
+function escapeHtml(text) {
+    if (!text) return '';
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+}
+
+// SECCIÓN CATEGORÍAS DE GASTOS - Basado en expense_categories.php funcional
+function loadExpenseCategoriesSection() {
+    // Variables específicas para categorías
+    let categoriesData = [];
+    let categoriesCurrentPage = 1;
+    let categoriesItemsPerPage = 10;
+    let categoriesFilteredData = [];
+    
+    const content = `
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: flex-end; align-items: center;">
+                <div style="flex: 1;">
+                    <input
+                        type="text"
+                        id="categoriesSearchInput"
+                        class="form-input"
+                        placeholder="Buscar categoría..."
+                        style="max-width: 300px;"
+                        autocomplete="off"
+                    >
+                </div>
+                <div>
+                    <button type="button" class="btn btn-primary" onclick="openCategoryModal()">
+                        <i class="fas fa-plus"></i>
+                        Nueva Categoría
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="fas fa-table"></i>
+                    Lista de Categorías
+                </h3>
+                <p class="card-subtitle">Total: <span id="totalCategories">0</span> categorías registradas</p>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="data-table" id="categoriesTable" style="min-width: 600px;">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">Nombre</th>
+                            <th style="width: 80px;">Descripción</th>
+                            <th style="width: 100px; text-align: center; vertical-align: middle;">Tipos</th>
+                            <th style="width: 80px; text-align: center; vertical-align: middle;">Estado</th>
+                            <th style="width: 120px; text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="categoriesTableBody">
+                        <!-- Las filas se llenarán dinámicamente -->
+                    </tbody>
+                </table>
+                <div id="categoriesTableFooter" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0 0 0;">
+                    <div id="categoriesPageSizeContainer"></div>
+                    <div id="categoriesPagination"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('settingsContent').innerHTML = content;
+    
+    // Funciones internas para categorías
+    async function loadCategories() {
+        try {
+            const response = await fetch('api/expense_category/ExpenseCategoryController.php?action=list');
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                categoriesData = result.data || [];
+                filterCategories();
+            } else {
+                showToast('Error: ' + (result.message || 'No se pudieron cargar las categorías'), 'error');
+                categoriesData = [];
+                filterCategories();
+            }
+        } catch (error) {
+            console.error('Error loading categories:', error);
+            showToast('Error al cargar las categorías: ' + error.message, 'error');
+            categoriesData = [];
+            filterCategories();
+        }
+    }
+
+    function filterCategories() {
+        const searchTerm = document.getElementById('categoriesSearchInput')?.value.toLowerCase() || '';
+        
+        categoriesFilteredData = categoriesData.filter(category => 
+            category.name.toLowerCase().includes(searchTerm) ||
+            (category.description && category.description.toLowerCase().includes(searchTerm))
+        );
+        
+        categoriesCurrentPage = 1;
+        renderCategoriesTable();
+        updateCategoriesPagination();
+    }
+
+    function renderCategoriesTable() {
+        const tbody = document.getElementById('categoriesTableBody');
+        const totalElement = document.getElementById('totalCategories');
+        
+        if (!tbody) return;
+        
+        // Actualizar contador total
+        if (totalElement) {
+            totalElement.textContent = categoriesFilteredData.length;
+        }
+        
+        // Calcular índices para paginación
+        const startIndex = (categoriesCurrentPage - 1) * categoriesItemsPerPage;
+        const endIndex = startIndex + categoriesItemsPerPage;
+        const pageData = categoriesFilteredData.slice(startIndex, endIndex);
+        
+        // Limpiar tabla
+        tbody.innerHTML = '';
+        
+        if (pageData.length === 0) {
+            tbody.innerHTML = `
                 <tr>
-                    <td><strong>${jobType.name}</strong></td>
-                    <td style="text-align: right;">$${parseFloat(jobType.pay_as_contractor || 0).toFixed(2)}</td>
-                    <td style="text-align: right;">$${parseFloat(jobType.pay_as_sub_contractor || 0).toFixed(2)}</td>
-                    <td>${createdDate}</td>
-                    <td style="text-align: center;">
-                        <div style="display: flex; gap: 4px; justify-content: center;">
-                            <button type="button" class="btn-action" title="Editar" onclick="editJobType('${jobType.id}')">
-                                <i class="fas fa-edit"></i>
-                            </button>
-                            <button type="button" class="btn-action btn-danger" title="Eliminar" onclick="deleteJobType('${jobType.id}')">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </div>
+                    <td colspan="5" style="text-align: center; padding: 2rem; color: #6B7280;">
+                        <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem; display: block;"></i>
+                        No se encontraron categorías
                     </td>
                 </tr>
             `;
-        });
+            return;
+        }
         
-        tbody.innerHTML = tableHTML;
-        
-    } catch (error) {
-        console.error('Error loading job types:', error);
-        tbody.innerHTML = `
-            <tr>
-                <td colspan="5" style="text-align: center; padding: 40px; color: var(--danger-color);">
-                    <i class="fas fa-exclamation-triangle" style="font-size: 48px; margin-bottom: 16px;"></i>
-                    <p>Error al cargar tipos de trabajos</p>
-                    <small>${error.message}</small>
+        pageData.forEach(category => {
+            const row = document.createElement('tr');
+            
+            // Obtener conteo de tipos asociados
+            const typesCount = category.types_count || 0;
+            const statusText = category.is_active ? 'Activa' : 'Inactiva';
+            const statusClass = category.is_active ? 'text-success' : 'text-danger';
+            
+            row.innerHTML = `
+                <td>
+                    <div style="font-weight: 500;">${escapeHtml(category.name)}</div>
                 </td>
-            </tr>
-        `;
+                <td>
+                    <div style="color: #6B7280; max-width: 300px; overflow: hidden; text-overflow: ellipsis;">
+                        ${category.description ? escapeHtml(category.description) : '-'}
+                    </div>
+                </td>
+                <td style="text-align: center; vertical-align: middle;">
+                    <span style="padding: 4px 8px; background-color: #F3F4F6; border-radius: 4px; font-size: 0.875rem; font-weight: 500;">
+                        ${typesCount}
+                    </span>
+                </td>
+                <td style="text-align: center; vertical-align: middle;">
+                    <span class="${statusClass}" style="font-weight: 500;">
+                        ${statusText}
+                    </span>
+                </td>
+                <td style="text-align: center;">
+                    <div style="display: flex; gap: 8px; justify-content: center;">
+                        <button type="button" class="btn-action" onclick="editCategoryFromSettings('${category.id}')" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button type="button" class="btn-action btn-danger" onclick="deleteCategoryFromSettings('${category.id}', '${escapeHtml(category.name)}')" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+        });
     }
-}
 
-function openJobTypeModal(id = null) {
-    const isEdit = id !== null;
-    const title = isEdit ? 'Editar Tipo de Trabajo' : 'Nuevo Tipo de Trabajo';
-    
-    const modalContent = `
-        <form id="jobTypeForm">
-            <div class="modal-body">
-                <input type="hidden" id="jobTypeId" value="${id || ''}">
-                
-                <div class="form-group">
-                    <label class="form-label" for="jobTypeName">Nombre *</label>
-                    <input type="text" class="form-input" id="jobTypeName" required>
+    function updateCategoriesPagination() {
+        const totalPages = Math.ceil(categoriesFilteredData.length / categoriesItemsPerPage);
+        const paginationContainer = document.getElementById('categoriesPagination');
+        const pageSizeContainer = document.getElementById('categoriesPageSizeContainer');
+        
+        if (!paginationContainer) return;
+        
+        // Selector de elementos por página
+        if (pageSizeContainer) {
+            pageSizeContainer.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 0.875rem; color: #6B7280;">Mostrar:</span>
+                    <select id="categoriesPageSizeSelector" style="padding: 4px 8px; border: 1px solid #D1D5DB; border-radius: 4px; font-size: 0.875rem;">
+                        <option value="10" ${categoriesItemsPerPage === 10 ? 'selected' : ''}>10</option>
+                        <option value="25" ${categoriesItemsPerPage === 25 ? 'selected' : ''}>25</option>
+                        <option value="50" ${categoriesItemsPerPage === 50 ? 'selected' : ''}>50</option>
+                    </select>
+                    <span style="font-size: 0.875rem; color: #6B7280;">por página</span>
+                </div>
+            `;
+            
+            const pageSizeSelector = document.getElementById('categoriesPageSizeSelector');
+            if (pageSizeSelector) {
+                pageSizeSelector.addEventListener('change', function() {
+                    categoriesItemsPerPage = parseInt(this.value);
+                    categoriesCurrentPage = 1;
+                    renderCategoriesTable();
+                    updateCategoriesPagination();
+                });
+            }
+        }
+        
+        // Paginación
+        if (totalPages <= 1) {
+            paginationContainer.innerHTML = '';
+            return;
+        }
+        
+        let paginationHTML = '<div style="display: flex; gap: 4px; align-items: center;">';
+        
+        // Botón anterior
+        if (categoriesCurrentPage > 1) {
+            paginationHTML += `<button class="pagination-btn" onclick="changeCategoriesPage(${categoriesCurrentPage - 1})">‹</button>`;
+        }
+        
+        // Números de página
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === categoriesCurrentPage) {
+                paginationHTML += `<button class="pagination-btn active">${i}</button>`;
+            } else if (i === 1 || i === totalPages || (i >= categoriesCurrentPage - 1 && i <= categoriesCurrentPage + 1)) {
+                paginationHTML += `<button class="pagination-btn" onclick="changeCategoriesPage(${i})">${i}</button>`;
+            } else if (i === categoriesCurrentPage - 2 || i === categoriesCurrentPage + 2) {
+                paginationHTML += `<span style="padding: 0 4px;">...</span>`;
+            }
+        }
+        
+        // Botón siguiente
+        if (categoriesCurrentPage < totalPages) {
+            paginationHTML += `<button class="pagination-btn" onclick="changeCategoriesPage(${categoriesCurrentPage + 1})">›</button>`;
+        }
+        
+        paginationHTML += '</div>';
+        paginationContainer.innerHTML = paginationHTML;
+    }
+
+    // Función para cambiar página
+    window.changeCategoriesPage = function(page) {
+        categoriesCurrentPage = page;
+        renderCategoriesTable();
+        updateCategoriesPagination();
+    };
+
+    // Función para abrir modal de categoría
+    window.openCategoryModal = function() {
+        const modalBody = `
+            <form id="categoryForm">
+                <div class="modal-body">
+                    <input type="hidden" id="categoryId" name="categoryId" value="">
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="categoryName">Nombre *</label>
+                        <input type="text" class="form-input" id="categoryName" name="categoryName" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="categoryDescription">Descripción</label>
+                        <textarea class="form-input" id="categoryDescription" name="categoryDescription" rows="3" placeholder="Descripción de la categoría"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="categoryIsActive" name="categoryIsActive" checked>
+                            Categoría activa
+                        </label>
+                    </div>
                 </div>
                 
-                <div class="form-group">
-                    <label class="form-label" for="jobTypePayContractor">Pago como Contratista *</label>
-                    <input type="number" step="0.01" min="0" class="form-input" id="jobTypePayContractor" required>
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="closeModal('formModal')" style="background-color: var(--secondary-color); color: white;">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Guardar Categoría
+                    </button>
                 </div>
-                
-                <div class="form-group">
-                    <label class="form-label" for="jobTypePaySubContractor">Pago como Sub-contratista *</label>
-                    <input type="number" step="0.01" min="0" class="form-input" id="jobTypePaySubContractor" required>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn" onclick="closeModal('formModal')">Cancelar</button>
-                <button type="submit" class="btn btn-primary">
-                    <i class="fas fa-save"></i>
-                    Guardar Tipo
-                </button>
-            </div>
-        </form>
-    `;
-    
-    document.getElementById('formModalTitle').textContent = title;
-    document.getElementById('formModalBody').innerHTML = modalContent;
-    
-    document.getElementById('jobTypeForm').addEventListener('submit', function(e) {
-        e.preventDefault();
+            </form>
+        `;
         
-        const data = {
-            name: document.getElementById('jobTypeName').value,
-            pay_as_contractor: parseFloat(document.getElementById('jobTypePayContractor').value),
-            pay_as_sub_contractor: parseFloat(document.getElementById('jobTypePaySubContractor').value)
-        };
+        document.getElementById('formModalTitle').textContent = 'Nueva Categoría';
+        document.getElementById('formModalBody').innerHTML = modalBody;
+        openModal('formModal');
         
-        const url = isEdit 
-            ? `api/job_type/JobTypeController.php?action=updateJobType&id=${id}`
-            : 'api/job_type/JobTypeController.php?action=createJobType';
-        
-        const method = isEdit ? 'PUT' : 'POST';
-        
-        fetch(url, {
-            method: method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-        })
-        .then(res => res.json())
-        .then(result => {
-            if (result.error) {
-                showToast(result.error, 'error');
-                return;
-            }
-            
-            showToast(result.message || 'Tipo de trabajo guardado exitosamente', 'success');
-            closeModal('formModal');
-            loadJobTypesSection();
-        })
-        .catch(err => {
-            console.error('Error saving job type:', err);
-            showToast('Error al guardar tipo de trabajo', 'error');
-        });
-    });
-    
-    openModal('formModal');
-}
-
-function editJobType(id) {
-    // Cargar datos del tipo de trabajo desde la API
-    fetch(`api/job_type/JobTypeController.php?action=getJobTypeById&id=${id}`)
-        .then(res => res.json())
-        .then(jobType => {
-            if (jobType.error || !jobType.id) {
-                showToast('Error al cargar tipo de trabajo', 'error');
-                return;
-            }
-            
-            openJobTypeModal(id);
-            
-            // Llenar formulario con datos existentes
-            setTimeout(() => {
-                document.getElementById('jobTypeName').value = jobType.name;
-                document.getElementById('jobTypePayContractor').value = jobType.pay_as_contractor || 0;
-                document.getElementById('jobTypePaySubContractor').value = jobType.pay_as_sub_contractor || 0;
-            }, 100);
-        })
-        .catch(err => {
-            console.error('Error loading job type:', err);
-            showToast('Error al cargar tipo de trabajo', 'error');
-        });
-}
-
-function deleteJobType(id) {
-    document.getElementById('confirmDeleteMessage').textContent = '¿Está seguro de que desea eliminar este tipo de trabajo?';
-    document.getElementById('confirmDeleteBtn').onclick = function() {
-        fetch(`api/job_type/JobTypeController.php?action=deleteJobType&id=${id}`, {
-            method: 'DELETE'
-        })
-        .then(res => res.json())
-        .then(result => {
-            closeModal('confirmDeleteModal');
-            
-            if (result.error) {
-                showToast(result.error, 'error');
-                return;
-            }
-            
-            showToast(result.message || 'Tipo de trabajo eliminado exitosamente', 'success');
-            loadJobTypesSection();
-        })
-        .catch(err => {
-            console.error('Error deleting job type:', err);
-            showToast('Error al eliminar tipo de trabajo', 'error');
+        // Event listener para el formulario
+        document.getElementById('categoryForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveCategoryFromSettings();
         });
     };
-    openModal('confirmDeleteModal');
+
+    // Función para guardar categoría
+    async function saveCategoryFromSettings() {
+        const formData = new FormData();
+        const categoryId = document.getElementById('categoryId').value;
+        const categoryName = document.getElementById('categoryName').value.trim();
+        const categoryDescription = document.getElementById('categoryDescription').value.trim();
+        const categoryIsActive = document.getElementById('categoryIsActive').checked;
+        
+        if (!categoryName) {
+            showToast('El nombre de la categoría es obligatorio', 'error');
+            return;
+        }
+        
+        // Preparar datos
+        formData.append('name', categoryName);
+        formData.append('description', categoryDescription);
+        formData.append('is_active', categoryIsActive ? '1' : '0');
+        
+        try {
+            let url, method;
+            if (categoryId) {
+                // Editar
+                url = `api/expense_category/ExpenseCategoryController.php?action=update&id=${categoryId}`;
+                method = 'POST';
+            } else {
+                // Crear
+                url = 'api/expense_category/ExpenseCategoryController.php?action=create';
+                method = 'POST';
+            }
+            
+            const response = await fetch(url, {
+                method: method,
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast(categoryId ? 'Categoría actualizada exitosamente' : 'Categoría creada exitosamente', 'success');
+                closeModal('formModal');
+                await loadCategories();
+            } else {
+                showToast(result.message || 'Error al guardar la categoría', 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error saving category:', error);
+            showToast('Error al guardar la categoría: ' + error.message, 'error');
+        }
+    }
+
+    // Función para editar categoría
+    window.editCategoryFromSettings = async function(categoryId) {
+        try {
+            const response = await fetch(`api/expense_category/ExpenseCategoryController.php?action=get&id=${categoryId}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                const category = result.data;
+                
+                const modalBody = `
+                    <form id="categoryForm">
+                        <div class="modal-body">
+                            <input type="hidden" id="categoryId" name="categoryId" value="${category.id}">
+                            
+                            <div class="form-group">
+                                <label class="form-label" for="categoryName">Nombre *</label>
+                                <input type="text" class="form-input" id="categoryName" name="categoryName" value="${category.name || ''}" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label" for="categoryDescription">Descripción</label>
+                                <textarea class="form-input" id="categoryDescription" name="categoryDescription" rows="3" placeholder="Descripción de la categoría">${category.description || ''}</textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <input type="checkbox" id="categoryIsActive" name="categoryIsActive" ${category.is_active === '1' || category.is_active === 1 || category.is_active === true ? 'checked' : ''}>
+                                    Categoría activa
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="modal-footer">
+                            <button type="button" class="btn" onclick="closeModal('formModal')" style="background-color: var(--secondary-color); color: white;">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i>
+                                Actualizar Categoría
+                            </button>
+                        </div>
+                    </form>
+                `;
+                
+                document.getElementById('formModalTitle').textContent = 'Editar Categoría';
+                document.getElementById('formModalBody').innerHTML = modalBody;
+                openModal('formModal');
+                
+                // Event listener para el formulario de edición
+                document.getElementById('categoryForm').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    saveCategoryFromSettings();
+                });
+            } else {
+                showToast(result.message || 'No se pudo cargar la categoría', 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error loading category for edit:', error);
+            showToast('Error al cargar la categoría: ' + error.message, 'error');
+        }
+    };
+
+    // Función para eliminar categoría
+    window.deleteCategoryFromSettings = async function(categoryId, categoryName) {
+        // Buscar la categoría en los datos locales para verificar si tiene tipos asociados
+        const category = categoriesData.find(cat => cat.id === categoryId);
+        const typesCount = category ? (category.types_count || 0) : 0;
+        
+        let message = `¿Está seguro de que desea eliminar la categoría "${categoryName}"?`;
+        if (typesCount > 0) {
+            message += `\n\nEsta categoría tiene ${typesCount} tipo(s) de gasto asociado(s).`;
+        }
+        
+        document.getElementById('confirmDeleteMessage').textContent = message;
+        document.getElementById('confirmDeleteBtn').onclick = async function() {
+            try {
+                const response = await fetch(`api/expense_category/ExpenseCategoryController.php?action=delete&id=${categoryId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Categoría eliminada exitosamente', 'success');
+                    closeModal('confirmDeleteModal');
+                    await loadCategories();
+                } else {
+                    showToast(result.message || 'Error al eliminar la categoría', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error deleting category:', error);
+                showToast('Error al eliminar la categoría: ' + error.message, 'error');
+            }
+        };
+        
+        openModal('confirmDeleteModal');
+    };
+
+    // Event listener para búsqueda
+    document.getElementById('categoriesSearchInput').addEventListener('input', function() {
+        filterCategories();
+    });
+    
+    // Cargar datos iniciales
+    loadCategories();
+}
+
+// SECCIÓN TIPOS DE GASTOS - Basado en expense_types.php funcional
+function loadExpenseTypesSection() {
+    // Variables específicas para tipos de gastos
+    let typesData = [];
+    let categoriesData = [];
+    let typesCurrentPage = 1;
+    let typesItemsPerPage = 10;
+    let typesFilteredData = [];
+    
+    const content = `
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: flex-end; align-items: center;">
+                <div style="flex: 1;">
+                    <input
+                        type="text"
+                        id="typesSearchInput"
+                        class="form-input"
+                        placeholder="Buscar tipo de gasto..."
+                        style="max-width: 300px;"
+                        autocomplete="off"
+                    >
+                </div>
+                <div>
+                    <button type="button" class="btn btn-primary" onclick="openExpenseTypeModal()">
+                        <i class="fas fa-plus"></i>
+                        Nuevo Tipo
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="fas fa-table"></i>
+                    Lista de Tipos de Gastos
+                </h3>
+                <p class="card-subtitle">Total: <span id="totalExpenseTypes">0</span> tipos registrados</p>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="data-table" id="expenseTypesTable" style="min-width: 700px;">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Descripción</th>
+                            <th>Categoría</th>
+                            <th style="width: 80px; text-align: center; vertical-align: middle;">Estado</th>
+                            <th style="width: 120px; text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="expenseTypesTableBody">
+                        <!-- Las filas se llenarán dinámicamente -->
+                    </tbody>
+                </table>
+                <div id="expenseTypesTableFooter" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0 0 0;">
+                    <div id="expenseTypesPageSizeContainer"></div>
+                    <div id="expenseTypesPagination"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('settingsContent').innerHTML = content;
+    
+    // Funciones internas para tipos de gastos
+    async function loadExpenseTypesCategories() {
+        try {
+            const response = await fetch('api/expense_type/ExpenseTypeController.php?action=categories');
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                categoriesData = result.data || [];
+                updateExpenseTypeCategorySelect();
+            } else {
+                console.error('Error loading categories:', result.message);
+            }
+        } catch (error) {
+            console.error('Error loading categories:', error);
+        }
+    }
+
+    function updateExpenseTypeCategorySelect() {
+        const select = document.getElementById('expenseTypeCategory');
+        if (!select) return;
+        
+        // Limpiar opciones excepto la primera
+        select.innerHTML = '<option value="">Seleccionar categoría...</option>';
+        
+        categoriesData.forEach(category => {
+            const option = document.createElement('option');
+            option.value = category.id;
+            option.textContent = category.name;
+            select.appendChild(option);
+        });
+    }
+
+    async function loadExpenseTypes() {
+        try {
+            const response = await fetch('api/expense_type/ExpenseTypeController.php?action=list');
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                typesData = result.data || [];
+                filterExpenseTypes();
+            } else {
+                showToast('Error: ' + (result.message || 'No se pudieron cargar los tipos de gastos'), 'error');
+                typesData = [];
+                filterExpenseTypes();
+            }
+        } catch (error) {
+            console.error('Error loading types:', error);
+            showToast('Error al cargar los tipos de gastos: ' + error.message, 'error');
+            typesData = [];
+            filterExpenseTypes();
+        }
+    }
+
+    function filterExpenseTypes() {
+        const searchTerm = document.getElementById('typesSearchInput')?.value.toLowerCase() || '';
+        
+        typesFilteredData = typesData.filter(type => 
+            type.name.toLowerCase().includes(searchTerm) ||
+            (type.description && type.description.toLowerCase().includes(searchTerm)) ||
+            (type.category_name && type.category_name.toLowerCase().includes(searchTerm))
+        );
+        
+        typesCurrentPage = 1;
+        renderExpenseTypesTable();
+        updateExpenseTypesPagination();
+    }
+
+    function renderExpenseTypesTable() {
+        const tbody = document.getElementById('expenseTypesTableBody');
+        const totalElement = document.getElementById('totalExpenseTypes');
+        
+        if (!tbody) return;
+        
+        // Actualizar contador total
+        if (totalElement) {
+            totalElement.textContent = typesFilteredData.length;
+        }
+        
+        // Calcular índices para paginación
+        const startIndex = (typesCurrentPage - 1) * typesItemsPerPage;
+        const endIndex = startIndex + typesItemsPerPage;
+        const pageData = typesFilteredData.slice(startIndex, endIndex);
+        
+        // Limpiar tabla
+        tbody.innerHTML = '';
+        
+        if (pageData.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 2rem; color: #6B7280;">
+                        <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem; display: block;"></i>
+                        No se encontraron tipos de gastos
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+        
+        pageData.forEach(type => {
+            const row = document.createElement('tr');
+            
+            const statusText = type.is_active ? 'Activo' : 'Inactivo';
+            const statusClass = type.is_active ? 'text-success' : 'text-danger';
+            
+            row.innerHTML = `
+                <td>
+                    <div style="font-weight: 500;">${type.name || ''}</div>
+                </td>
+                <td>
+                    <div style="color: #6B7280; max-width: 300px; overflow: hidden; text-overflow: ellipsis;">
+                        ${type.description || '-'}
+                    </div>
+                </td>
+                <td>
+                    <div style="padding: 4px 8px; background-color: #F3F4F6; border-radius: 4px; font-size: 0.875rem; font-weight: 500; display: inline-block;">
+                        ${type.category_name || 'Sin categoría'}
+                    </div>
+                </td>
+                <td style="text-align: center; vertical-align: middle;">
+                    <span class="${statusClass}" style="font-weight: 500;">
+                        ${statusText}
+                    </span>
+                </td>
+                <td style="text-align: center;">
+                    <div style="display: flex; gap: 8px; justify-content: center;">
+                        <button type="button" class="btn-action" onclick="editExpenseTypeFromSettings('${type.id}')" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button type="button" class="btn-action btn-danger" onclick="deleteExpenseTypeFromSettings('${type.id}', '${type.name || ''}')" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            
+            tbody.appendChild(row);
+        });
+    }
+
+    function updateExpenseTypesPagination() {
+        const totalPages = Math.ceil(typesFilteredData.length / typesItemsPerPage);
+        const paginationContainer = document.getElementById('expenseTypesPagination');
+        const pageSizeContainer = document.getElementById('expenseTypesPageSizeContainer');
+        
+        if (!paginationContainer) return;
+        
+        // Selector de elementos por página
+        if (pageSizeContainer) {
+            pageSizeContainer.innerHTML = `
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 0.875rem; color: #6B7280;">Mostrar:</span>
+                    <select id="expenseTypesPageSizeSelector" style="padding: 4px 8px; border: 1px solid #D1D5DB; border-radius: 4px; font-size: 0.875rem;">
+                        <option value="10" ${typesItemsPerPage === 10 ? 'selected' : ''}>10</option>
+                        <option value="25" ${typesItemsPerPage === 25 ? 'selected' : ''}>25</option>
+                        <option value="50" ${typesItemsPerPage === 50 ? 'selected' : ''}>50</option>
+                    </select>
+                    <span style="font-size: 0.875rem; color: #6B7280;">por página</span>
+                </div>
+            `;
+            
+            const pageSizeSelector = document.getElementById('expenseTypesPageSizeSelector');
+            if (pageSizeSelector) {
+                pageSizeSelector.addEventListener('change', function() {
+                    typesItemsPerPage = parseInt(this.value);
+                    typesCurrentPage = 1;
+                    renderExpenseTypesTable();
+                    updateExpenseTypesPagination();
+                });
+            }
+        }
+        
+        // Paginación
+        if (totalPages <= 1) {
+            paginationContainer.innerHTML = '';
+            return;
+        }
+        
+        let paginationHTML = '<div style="display: flex; gap: 4px; align-items: center;">';
+        
+        // Botón anterior
+        if (typesCurrentPage > 1) {
+            paginationHTML += `<button class="pagination-btn" onclick="changeExpenseTypesPage(${typesCurrentPage - 1})">‹</button>`;
+        }
+        
+        // Números de página
+        for (let i = 1; i <= totalPages; i++) {
+            if (i === typesCurrentPage) {
+                paginationHTML += `<button class="pagination-btn active">${i}</button>`;
+            } else if (i === 1 || i === totalPages || (i >= typesCurrentPage - 1 && i <= typesCurrentPage + 1)) {
+                paginationHTML += `<button class="pagination-btn" onclick="changeExpenseTypesPage(${i})">${i}</button>`;
+            } else if (i === typesCurrentPage - 2 || i === typesCurrentPage + 2) {
+                paginationHTML += `<span style="padding: 0 4px;">...</span>`;
+            }
+        }
+        
+        // Botón siguiente
+        if (typesCurrentPage < totalPages) {
+            paginationHTML += `<button class="pagination-btn" onclick="changeExpenseTypesPage(${typesCurrentPage + 1})">›</button>`;
+        }
+        
+        paginationHTML += '</div>';
+        paginationContainer.innerHTML = paginationHTML;
+    }
+
+    // Función para cambiar página
+    window.changeExpenseTypesPage = function(page) {
+        typesCurrentPage = page;
+        renderExpenseTypesTable();
+        updateExpenseTypesPagination();
+    };
+
+    // Función para abrir modal de tipo de gasto
+    window.openExpenseTypeModal = function() {
+        const modalBody = `
+            <form id="expenseTypeForm">
+                <div class="modal-body">
+                    <input type="hidden" id="expenseTypeId" name="expenseTypeId" value="">
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="expenseTypeName">Nombre *</label>
+                        <input type="text" class="form-input" id="expenseTypeName" name="expenseTypeName" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="expenseTypeDescription">Descripción</label>
+                        <textarea class="form-input" id="expenseTypeDescription" name="expenseTypeDescription" rows="3" placeholder="Descripción del tipo de gasto"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label" for="expenseTypeCategory">Categoría *</label>
+                        <select class="form-input" id="expenseTypeCategory" name="expenseTypeCategory" required>
+                            <option value="">Seleccionar categoría...</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">
+                            <input type="checkbox" id="expenseTypeIsActive" name="expenseTypeIsActive" checked>
+                            Tipo activo
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="closeModal('formModal')" style="background-color: var(--secondary-color); color: white;">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Guardar Tipo
+                    </button>
+                </div>
+            </form>
+        `;
+        
+        document.getElementById('formModalTitle').textContent = 'Nuevo Tipo de Gasto';
+        document.getElementById('formModalBody').innerHTML = modalBody;
+        
+        // Cargar categorías en el select
+        updateExpenseTypeCategorySelect();
+        
+        openModal('formModal');
+        
+        // Event listener para el formulario
+        document.getElementById('expenseTypeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            saveExpenseTypeFromSettings();
+        });
+    };
+
+    // Función para guardar tipo de gasto
+    async function saveExpenseTypeFromSettings() {
+        const formData = new FormData();
+        const typeId = document.getElementById('expenseTypeId').value;
+        const typeName = document.getElementById('expenseTypeName').value.trim();
+        const typeDescription = document.getElementById('expenseTypeDescription').value.trim();
+        const typeCategory = document.getElementById('expenseTypeCategory').value;
+        const typeIsActive = document.getElementById('expenseTypeIsActive').checked;
+        
+        if (!typeName) {
+            showToast('El nombre del tipo es obligatorio', 'error');
+            return;
+        }
+        
+        if (!typeCategory) {
+            showToast('La categoría es obligatoria', 'error');
+            return;
+        }
+        
+        // Preparar datos
+        formData.append('name', typeName);
+        formData.append('description', typeDescription);
+        formData.append('category_id', typeCategory);
+        formData.append('is_active', typeIsActive ? '1' : '0');
+        
+        try {
+            let url, method;
+            if (typeId) {
+                // Editar
+                url = `api/expense_type/ExpenseTypeController.php?action=update&id=${typeId}`;
+                method = 'POST';
+            } else {
+                // Crear
+                url = 'api/expense_type/ExpenseTypeController.php?action=create';
+                method = 'POST';
+            }
+            
+            const response = await fetch(url, {
+                method: method,
+                body: formData
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showToast(typeId ? 'Tipo actualizado exitosamente' : 'Tipo creado exitosamente', 'success');
+                closeModal('formModal');
+                await loadExpenseTypes();
+            } else {
+                showToast(result.message || 'Error al guardar el tipo', 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error saving type:', error);
+            showToast('Error al guardar el tipo: ' + error.message, 'error');
+        }
+    }
+
+    // Función para editar tipo de gasto
+    window.editExpenseTypeFromSettings = async function(typeId) {
+        try {
+            const response = await fetch(`api/expense_type/ExpenseTypeController.php?action=get&id=${typeId}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const result = await response.json();
+            
+            if (result.success && result.data) {
+                const type = result.data;
+                
+                const modalBody = `
+                    <form id="expenseTypeForm">
+                        <div class="modal-body">
+                            <input type="hidden" id="expenseTypeId" name="expenseTypeId" value="${type.id}">
+                            
+                            <div class="form-group">
+                                <label class="form-label" for="expenseTypeName">Nombre *</label>
+                                <input type="text" class="form-input" id="expenseTypeName" name="expenseTypeName" value="${type.name || ''}" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label" for="expenseTypeDescription">Descripción</label>
+                                <textarea class="form-input" id="expenseTypeDescription" name="expenseTypeDescription" rows="3" placeholder="Descripción del tipo de gasto">${type.description || ''}</textarea>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label" for="expenseTypeCategory">Categoría *</label>
+                                <select class="form-input" id="expenseTypeCategory" name="expenseTypeCategory" required>
+                                    <option value="">Seleccionar categoría...</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label">
+                                    <input type="checkbox" id="expenseTypeIsActive" name="expenseTypeIsActive" ${type.is_active === '1' || type.is_active === 1 || type.is_active === true ? 'checked' : ''}>
+                                    Tipo activo
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="modal-footer">
+                            <button type="button" class="btn" onclick="closeModal('formModal')" style="background-color: var(--secondary-color); color: white;">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i>
+                                Actualizar Tipo
+                            </button>
+                        </div>
+                    </form>
+                `;
+                
+                document.getElementById('formModalTitle').textContent = 'Editar Tipo de Gasto';
+                document.getElementById('formModalBody').innerHTML = modalBody;
+                
+                // Cargar categorías y seleccionar la actual
+                updateExpenseTypeCategorySelect();
+                setTimeout(() => {
+                    document.getElementById('expenseTypeCategory').value = type.category_id || '';
+                }, 100);
+                
+                openModal('formModal');
+                
+                // Event listener para el formulario de edición
+                document.getElementById('expenseTypeForm').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    saveExpenseTypeFromSettings();
+                });
+            } else {
+                showToast(result.message || 'No se pudo cargar el tipo', 'error');
+            }
+            
+        } catch (error) {
+            console.error('Error loading type for edit:', error);
+            showToast('Error al cargar el tipo: ' + error.message, 'error');
+        }
+    };
+
+    // Función para eliminar tipo de gasto
+    window.deleteExpenseTypeFromSettings = async function(typeId, typeName) {
+        let message = `¿Está seguro de que desea eliminar el tipo "${typeName}"?`;
+        
+        document.getElementById('confirmDeleteMessage').textContent = message;
+        document.getElementById('confirmDeleteBtn').onclick = async function() {
+            try {
+                const response = await fetch(`api/expense_type/ExpenseTypeController.php?action=delete&id=${typeId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showToast('Tipo eliminado exitosamente', 'success');
+                    closeModal('confirmDeleteModal');
+                    await loadExpenseTypes();
+                } else {
+                    showToast(result.message || 'Error al eliminar el tipo', 'error');
+                }
+                
+            } catch (error) {
+                console.error('Error deleting type:', error);
+                showToast('Error al eliminar el tipo: ' + error.message, 'error');
+            }
+        };
+        
+        openModal('confirmDeleteModal');
+    };
+
+    // Event listener para búsqueda
+    document.getElementById('typesSearchInput').addEventListener('input', function() {
+        filterExpenseTypes();
+    });
+    
+    // Cargar datos iniciales
+    loadExpenseTypesCategories();
+    loadExpenseTypes();
+}
+
+// SECCIÓN TIPOS DE TRABAJOS - Basado en job_types.php funcional
+function loadJobTypesSection() {
+    // Variables específicas para job types
+    let jobTypesCurrentPage = 1;
+    let jobTypesPageSize = 10;
+    let jobTypesTotalCount = 0;
+    let jobTypesSortField = 'created_at';
+    let jobTypesSortDir = 'desc';
+    let editingJobTypeId = null;
+    
+    const content = `
+        <div class="card">
+            <div class="card-header" style="display: flex; justify-content: flex-end; align-items: center;">
+                <div style="flex: 1;">
+                    <input
+                        type="text"
+                        id="jobTypesSearchInput"
+                        class="form-input"
+                        placeholder="Buscar tipo de trabajo..."
+                        style="max-width: 300px;"
+                        autocomplete="off"
+                    >
+                </div>
+                <div>
+                    <button type="button" class="btn btn-primary" onclick="openJobTypeModal()">
+                        <i class="fas fa-plus"></i>
+                        Nuevo Tipo
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">
+                    <i class="fas fa-briefcase"></i>
+                    Tipos de Trabajo
+                </h3>
+                <p class="card-subtitle">Total: <span id="totalJobTypes">0</span> tipos registrados</p>
+            </div>
+            <div style="overflow-x: auto;">
+                <table class="data-table" id="jobTypesTable" style="min-width: 700px;">
+                    <thead>
+                        <tr>
+                            <th>Nombre</th>
+                            <th>Paga como Contratista</th>
+                            <th>Paga como Subcontratista</th>
+                            <th style="vertical-align: middle; text-align: center;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody id="jobTypesTableBody">
+                        <!-- Las filas se llenarán dinámicamente -->
+                    </tbody>
+                </table>
+                <div id="jobTypesTableFooter" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0 0 0;">
+                    <div id="jobTypesPageSizeContainer"></div>
+                    <div id="jobTypesPagination"></div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    document.getElementById('settingsContent').innerHTML = content;
+    
+    // Funciones internas para job types
+    function renderJobTypesPageSizeSelector() {
+        const container = document.getElementById('jobTypesPageSizeContainer');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        const label = document.createElement('label');
+        label.textContent = 'Mostrar:';
+        label.style = 'margin-right: 4px; font-weight: 500; color: var(--text-secondary);';
+        
+        const selector = document.createElement('select');
+        selector.id = 'jobTypesPageSizeSelector';
+        selector.className = 'form-input';
+        selector.style = 'width: auto; display: inline-block;';
+        
+        [5, 10, 20, 50, 100].forEach(size => {
+            const opt = document.createElement('option');
+            opt.value = size;
+            opt.textContent = `${size} por página`;
+            selector.appendChild(opt);
+        });
+        
+        selector.value = jobTypesPageSize;
+        selector.onchange = function() {
+            jobTypesPageSize = parseInt(this.value);
+            loadJobTypesData(1);
+        };
+        
+        container.appendChild(label);
+        container.appendChild(selector);
+    }
+    
+    function loadJobTypesData(page = 1) {
+        jobTypesCurrentPage = page;
+        setJobTypesTableLoading(true);
+        
+        const offset = (page - 1) * jobTypesPageSize;
+        const url = `api/job_type/JobTypeController.php?action=getAllJobTypes&limit=${jobTypesPageSize}&offset=${offset}&sort=${jobTypesSortField}&dir=${jobTypesSortDir}`;
+        
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                const types = data.data || data;
+                jobTypesTotalCount = data.total || types.length;
+                renderJobTypesTable(types);
+                renderJobTypesPagination();
+            })
+            .catch(err => {
+                console.error('Error loading job types:', err);
+                document.getElementById('jobTypesTableBody').innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--danger-color);">Error al cargar tipos de trabajo</td></tr>';
+            })
+            .finally(() => setJobTypesTableLoading(false));
+    }
+    
+    function setJobTypesTableLoading(loading) {
+        const tbody = document.getElementById('jobTypesTableBody');
+        if (loading) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="4" style="text-align: center; padding: 40px 0;">
+                        <div class="loading-spinner">
+                            <div class="spinner"></div>
+                        </div>
+                        <span style="display: block; margin-top: 8px; color: var(--text-secondary);">Cargando tipos...</span>
+                    </td>
+                </tr>
+            `;
+        }
+    }
+    
+    function renderJobTypesTable(types) {
+        const tbody = document.getElementById('jobTypesTableBody');
+        tbody.innerHTML = '';
+        
+        if (!types.length) {
+            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No hay tipos registrados</td></tr>';
+            document.getElementById('totalJobTypes').textContent = '0';
+            return;
+        }
+        
+        document.getElementById('totalJobTypes').textContent = jobTypesTotalCount;
+        
+        types.forEach(type => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${type.name}</td>
+                <td>$${parseFloat(type.pay_as_contractor).toLocaleString('es-MX', {minimumFractionDigits:2})}</td>
+                <td>$${parseFloat(type.pay_as_sub_contractor).toLocaleString('es-MX', {minimumFractionDigits:2})}</td>
+                <td style="vertical-align: middle; text-align: center;">
+                    <div style="display: flex; gap: 4px; justify-content: center;">
+                        <button type="button" class="btn-icon" onclick="editJobType('${type.id}')" title="Editar">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button type="button" class="btn-icon btn-danger" onclick="deleteJobType('${type.id}')" title="Eliminar">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+        
+        renderJobTypesPageSizeSelector();
+    }
+    
+    function renderJobTypesPagination() {
+        const container = document.getElementById('jobTypesPagination');
+        if (!container) return;
+        
+        container.innerHTML = '';
+        const totalPages = Math.ceil(jobTypesTotalCount / jobTypesPageSize);
+        
+        if (totalPages <= 1) {
+            container.style.display = 'none';
+            return;
+        }
+        
+        container.style.display = 'flex';
+        container.style.gap = '4px';
+        
+        for (let i = 1; i <= totalPages; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'btn' + (i === jobTypesCurrentPage ? ' btn-primary' : '');
+            btn.textContent = i;
+            btn.onclick = () => loadJobTypesData(i);
+            container.appendChild(btn);
+        }
+    }
+    
+    // Funciones globales para job types (deben estar en el scope global)
+    window.openJobTypeModal = function() {
+        const modalBody = `
+            <form id="jobTypeForm">
+                <div class="modal-body">
+                    <input type="hidden" id="jobTypeId" name="jobTypeId" value="${type.id}">
+                    <div class="form-group">
+                        <label class="form-label" for="jobTypeName">Nombre *</label>
+                        <input type="text" class="form-input" id="jobTypeName" name="jobTypeName" value="${type.name || ''}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="payAsContractor">Paga como Contratista</label>
+                        <input type="number" step="0.01" class="form-input" id="payAsContractor" name="payAsContractor" value="${type.pay_as_contractor || '0.00'}">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="payAsSubContractor">Paga como Subcontratista</label>
+                        <input type="number" step="0.01" class="form-input" id="payAsSubContractor" name="payAsSubContractor" value="${type.pay_as_sub_contractor || '0.00'}">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="closeModal('formModal')" style="background-color: var(--secondary-color); color: white;">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Actualizar Tipo
+                    </button>
+                </div>
+            </form>
+        `;
+        
+        document.getElementById('formModalTitle').textContent = 'Editar Tipo de Trabajo';
+        document.getElementById('formModalBody').innerHTML = modalBody;
+        openModal('formModal');
+        
+        // Event listener para el formulario
+        document.getElementById('jobTypeForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const data = {
+                name: document.getElementById('jobTypeName').value,
+                pay_as_contractor: document.getElementById('payAsContractor').value,
+                pay_as_sub_contractor: document.getElementById('payAsSubContractor').value
+            };
+            
+            let url = 'api/job_type/JobTypeController.php';
+            let method = 'POST';
+            let isEdit = false;
+            
+            if (editingJobTypeId) {
+                url += `?action=updateJobType&id=${editingJobTypeId}`;
+                method = 'PUT';
+                isEdit = true;
+            } else {
+                url += '?action=createJobType';
+            }
+            
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(result => {
+                closeModal('formModal');
+                if (result && result.error) {
+                    showToast('Error al guardar el tipo: ' + result.error, 'error');
+                } else {
+                    showToast(isEdit ? 'Tipo editado con éxito' : 'Tipo creado con éxito', 'success');
+                    loadJobTypesData(jobTypesCurrentPage);
+                }
+                editingJobTypeId = null;
+            })
+            .catch(err => {
+                console.error('Error saving job type:', err);
+                showToast('Error al guardar el tipo', 'error');
+            });
+        });
+    };
+    
+    window.editJobType = function(id) {
+        editingJobTypeId = id;
+        fetch(`api/job_type/JobTypeController.php?action=getJobTypeById&id=${id}`)
+            .then(res => res.json())
+            .then(type => {
+                const modalBody = `
+                    <form id="jobTypeForm">
+                        <input type="hidden" id="jobTypeId" name="jobTypeId" value="${type.id}">
+                        <div class="form-group">
+                            <label class="form-label" for="jobTypeName">Nombre *</label>
+                            <input type="text" class="form-input" id="jobTypeName" name="jobTypeName" value="${type.name || ''}" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="payAsContractor">Paga como Contratista</label>
+                            <input type="number" step="0.01" class="form-input" id="payAsContractor" name="payAsContractor" value="${type.pay_as_contractor || '0.00'}">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label" for="payAsSubContractor">Paga como Subcontratista</label>
+                            <input type="number" step="0.01" class="form-input" id="payAsSubContractor" name="payAsSubContractor" value="${type.pay_as_sub_contractor || '0.00'}">
+                        </div>
+                        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                            <button type="button" class="btn" onclick="closeModal('formModal')" style="background-color: var(--secondary-color); color: white;">
+                                Cancelar
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i>
+                                Actualizar Tipo
+                            </button>
+                        </div>
+                    </form>
+                `;
+                
+                document.getElementById('formModalTitle').textContent = 'Editar Tipo de Trabajo';
+                document.getElementById('formModalBody').innerHTML = modalBody;
+                openModal('formModal');
+                
+                // Event listener para el formulario de edición
+                document.getElementById('jobTypeForm').addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    
+                    const data = {
+                        name: document.getElementById('jobTypeName').value,
+                        pay_as_contractor: document.getElementById('payAsContractor').value,
+                        pay_as_sub_contractor: document.getElementById('payAsSubContractor').value
+                    };
+                    
+                    fetch(`api/job_type/JobTypeController.php?action=updateJobType&id=${editingJobTypeId}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    })
+                    .then(res => res.json())
+                    .then(result => {
+                        closeModal('formModal');
+                        if (result && result.error) {
+                            showToast('Error al actualizar el tipo: ' + result.error, 'error');
+                        } else {
+                            showToast('Tipo actualizado con éxito', 'success');
+                            loadJobTypesData(jobTypesCurrentPage);
+                        }
+                        editingJobTypeId = null;
+                    })
+                    .catch(err => {
+                        console.error('Error updating job type:', err);
+                        showToast('Error al actualizar el tipo', 'error');
+                    });
+                });
+            })
+            .catch(err => {
+                console.error('Error loading job type:', err);
+                showToast('Error al cargar el tipo', 'error');
+            });
+    };
+    
+    window.deleteJobType = function(id) {
+        // Usar el modal de confirmación existente
+        document.getElementById('confirmDeleteMessage').textContent = '¿Está seguro de que desea eliminar este tipo de trabajo?';
+        openModal('confirmDeleteModal');
+        
+        // Configurar el botón de confirmación
+        document.getElementById('confirmDeleteBtn').onclick = function() {
+            fetch(`api/job_type/JobTypeController.php?action=deleteJobType&id=${id}`, { 
+                method: 'DELETE' 
+            })
+            .then(res => res.json())
+            .then(result => {
+                closeModal('confirmDeleteModal');
+                if (result && result.error) {
+                    showToast('No se puede eliminar el tipo: ' + result.error, 'error');
+                } else {
+                    showToast('Tipo eliminado con éxito', 'success');
+                    // Verificar si necesitamos ir a página anterior
+                    const tbody = document.getElementById('jobTypesTableBody');
+                    const currentRows = tbody.querySelectorAll('tr').length;
+                    if (currentRows === 1 && jobTypesCurrentPage > 1) {
+                        loadJobTypesData(jobTypesCurrentPage - 1);
+                    } else {
+                        loadJobTypesData(jobTypesCurrentPage);
+                    }
+                }
+            })
+            .catch(err => {
+                console.error('Error deleting job type:', err);
+                showToast('Error al eliminar el tipo', 'error');
+                closeModal('confirmDeleteModal');
+            });
+        };
+    };
+    
+    window.sortJobTypes = function(field) {
+        if (jobTypesSortField === field) {
+            jobTypesSortDir = jobTypesSortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+            jobTypesSortField = field;
+            jobTypesSortDir = 'asc';
+        }
+        
+        // Actualizar iconos de ordenamiento
+        document.querySelectorAll('#jobTypesTable th i[id^="sortIcon"]').forEach(icon => {
+            icon.className = 'fas fa-sort';
+        });
+        
+        const icon = document.getElementById(`sortIcon${field.charAt(0).toUpperCase() + field.slice(1)}`);
+        if (icon) {
+            icon.className = `fas fa-sort-${jobTypesSortDir === 'asc' ? 'up' : 'down'}`;
+        }
+        
+        loadJobTypesData(1);
+    };
+    
+    // Búsqueda local
+    document.getElementById('jobTypesSearchInput').addEventListener('input', function() {
+        const search = this.value.trim().toLowerCase();
+        const rows = document.querySelectorAll('#jobTypesTableBody tr');
+        let count = 0;
+        
+        rows.forEach(row => {
+            // Verificar que no sea la fila de loading o de "no hay datos"
+            if (row.children.length < 4) {
+                return;
+            }
+            
+            const name = row.children[0]?.textContent.toLowerCase() || '';
+            if (name.includes(search)) {
+                row.style.display = '';
+                count++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        
+        // Solo actualizar el contador si hay filas reales
+        if (document.querySelectorAll('#jobTypesTableBody tr').length > 0 && 
+            !document.querySelector('#jobTypesTableBody tr td[colspan]')) {
+            document.getElementById('totalJobTypes').textContent = count;
+        }
+    });
+    
+    // Cargar datos iniciales
+    loadJobTypesData(1);
 }
 
 // --- Configuración ---
@@ -1202,6 +2684,36 @@ if (!document.getElementById('dynamicSettingsStyles')) {
         .btn-action.btn-success:hover {
             background: var(--success-color);
             color: white;
+        }
+        
+        .pagination-btn {
+            padding: 6px 10px;
+            border: 1px solid #D1D5DB;
+            background: white;
+            color: #374151;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+        }
+        
+        .pagination-btn:hover {
+            background: #F3F4F6;
+            border-color: #9CA3AF;
+        }
+        
+        .pagination-btn.active {
+            background: var(--primary-color);
+            border-color: var(--primary-color);
+            color: white;
+        }
+        
+        .text-success {
+            color: #10b981 !important;
+        }
+        
+        .text-danger {
+            color: #ef4444 !important;
         }
     `;
     document.head.appendChild(style);

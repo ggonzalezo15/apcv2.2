@@ -43,7 +43,7 @@ switch ($method) {
             $total = (int)$pdo->query('SELECT COUNT(*) FROM payment_types')->fetchColumn();
         }
         // Listar cuentas bancarias válidas para el select
-        $stmt3 = $pdo->query("SELECT id, name, bank_name, account_number FROM bank_accounts WHERE account_type IN ('checking','business') ORDER BY name");
+        $stmt3 = $pdo->query("SELECT id, name, bank_name, account_number FROM bank_accounts WHERE account_type != 'credito' ORDER BY name");
         $bankAccounts = $stmt3->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['data' => $data, 'total' => $total, 'bank_accounts' => $bankAccounts]);
         break;
@@ -63,7 +63,7 @@ switch ($method) {
             exit;
         }
         // Validar que la cuenta existe y es tipo checking/business
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM bank_accounts WHERE id=? AND account_type IN ('checking','business')");
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM bank_accounts WHERE id=? AND account_type != 'credito'");
         $stmt->execute([$bank_account_id]);
         if ($stmt->fetchColumn() == 0) {
             http_response_code(400);
@@ -91,7 +91,7 @@ switch ($method) {
             echo json_encode(['error' => 'Datos requeridos']);
             exit;
         }
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM bank_accounts WHERE id=? AND account_type IN ('checking','business')");
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM bank_accounts WHERE id=? AND account_type != 'credito'");
         $stmt->execute([$bank_account_id]);
         if ($stmt->fetchColumn() == 0) {
             http_response_code(400);

@@ -7,6 +7,9 @@ if (!isLoggedIn() || !checkSessionTimeout()) {
     exit;
 }
 
+// Generar token CSRF para las operaciones AJAX
+$csrfToken = generateCSRFToken();
+
 $pageTitle = 'Configuración';
 ?>
 
@@ -587,6 +590,11 @@ function openModal(modalId) {
 function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
 }
+</script>
+
+<script>
+// Token CSRF para operaciones AJAX
+window.CSRF_TOKEN = '<?php echo htmlspecialchars($csrfToken); ?>';
 </script>
 
 <!-- Incluir el archivo JavaScript con las funciones adicionales -->
