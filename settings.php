@@ -598,6 +598,6 @@ window.CSRF_TOKEN = '<?php echo htmlspecialchars($csrfToken); ?>';
 </script>
 
 <!-- Incluir el archivo JavaScript con las funciones adicionales -->
-<script src="assets/js/settings.js"></script>
+<script src="assets/js/settings.js?v=<?php echo time(); ?>"></script>
 
 <?php include 'includes/footer.php'; ?>

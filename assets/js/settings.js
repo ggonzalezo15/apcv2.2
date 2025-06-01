@@ -1470,12 +1470,12 @@ function loadExpenseTypesSection() {
             
             const result = await response.json();
             
-            if (result.success) {
+            if (result.error) {
+                showToast(result.error, 'error');
+            } else {
                 showToast(typeId ? 'Tipo actualizado exitosamente' : 'Tipo creado exitosamente', 'success');
                 closeModal('formModal');
                 await loadExpenseTypes();
-            } else {
-                showToast(result.message || 'Error al guardar el tipo', 'error');
             }
             
         } catch (error) {
@@ -1805,21 +1805,21 @@ function loadJobTypesSection() {
     
     // Funciones globales para job types (deben estar en el scope global)
     window.openJobTypeModal = function() {
-        const modalBody = `
+        // Generar el HTML del modal para crear un nuevo tipo de trabajo
+        const modalBodyHTML = `
             <form id="jobTypeForm">
                 <div class="modal-body">
-                    <input type="hidden" id="jobTypeId" name="jobTypeId" value="${type.id}">
                     <div class="form-group">
                         <label class="form-label" for="jobTypeName">Nombre *</label>
-                        <input type="text" class="form-input" id="jobTypeName" name="jobTypeName" value="${type.name || ''}" required>
+                        <input type="text" class="form-input" id="jobTypeName" name="jobTypeName" value="" required>
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="payAsContractor">Paga como Contratista</label>
-                        <input type="number" step="0.01" class="form-input" id="payAsContractor" name="payAsContractor" value="${type.pay_as_contractor || '0.00'}">
+                        <input type="number" step="0.01" class="form-input" id="payAsContractor" name="payAsContractor" value="0.00">
                     </div>
                     <div class="form-group">
                         <label class="form-label" for="payAsSubContractor">Paga como Subcontratista</label>
-                        <input type="number" step="0.01" class="form-input" id="payAsSubContractor" name="payAsSubContractor" value="${type.pay_as_sub_contractor || '0.00'}">
+                        <input type="number" step="0.01" class="form-input" id="payAsSubContractor" name="payAsSubContractor" value="0.00">
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -1828,82 +1828,101 @@ function loadJobTypesSection() {
                     </button>
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i>
-                        Actualizar Tipo
+                        Crear Tipo
                     </button>
                 </div>
             </form>
         `;
         
-        document.getElementById('formModalTitle').textContent = 'Editar Tipo de Trabajo';
-        document.getElementById('formModalBody').innerHTML = modalBody;
+        // Establecer el título del modal
+        const titleElement = document.getElementById('formModalTitle');
+        if (titleElement) {
+            titleElement.textContent = 'Crear Tipo de Trabajo';
+        }
+        
+        // Establecer el contenido del modal
+        const bodyElement = document.getElementById('formModalBody');
+        if (bodyElement) {
+            bodyElement.innerHTML = modalBodyHTML;
+        }
+        
+        // Abrir el modal
         openModal('formModal');
         
-        // Event listener para el formulario
-        document.getElementById('jobTypeForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const data = {
-                name: document.getElementById('jobTypeName').value,
-                pay_as_contractor: document.getElementById('payAsContractor').value,
-                pay_as_sub_contractor: document.getElementById('payAsSubContractor').value
-            };
-            
-            let url = 'api/job_type/JobTypeController.php';
-            let method = 'POST';
-            let isEdit = false;
-            
-            if (editingJobTypeId) {
-                url += `?action=updateJobType&id=${editingJobTypeId}`;
-                method = 'PUT';
-                isEdit = true;
-            } else {
-                url += '?action=createJobType';
-            }
-            
-            fetch(url, {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            })
-            .then(res => res.json())
-            .then(result => {
-                closeModal('formModal');
-                if (result && result.error) {
-                    showToast('Error al guardar el tipo: ' + result.error, 'error');
-                } else {
-                    showToast(isEdit ? 'Tipo editado con éxito' : 'Tipo creado con éxito', 'success');
-                    loadJobTypesData(jobTypesCurrentPage);
-                }
-                editingJobTypeId = null;
-            })
-            .catch(err => {
-                console.error('Error saving job type:', err);
-                showToast('Error al guardar el tipo', 'error');
+        // Agregar event listener para el formulario
+        const form = document.getElementById('jobTypeForm');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Recopilar datos del formulario
+                const formData = {
+                    name: document.getElementById('jobTypeName').value,
+                    pay_as_contractor: document.getElementById('payAsContractor').value,
+                    pay_as_sub_contractor: document.getElementById('payAsSubContractor').value
+                };
+                
+                // Enviar solicitud para crear el tipo
+                fetch('api/job_type/JobTypeController.php?action=createJobType', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(formData)
+                })
+                .then(response => response.json())
+                .then(result => {
+                    closeModal('formModal');
+                    if (result && result.error) {
+                        showToast('Error al guardar el tipo: ' + result.error, 'error');
+                    } else {
+                        showToast('Tipo creado con éxito', 'success');
+                        loadJobTypesData(jobTypesCurrentPage);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error saving job type:', error);
+                    showToast('Error al guardar el tipo', 'error');
+                });
             });
-        });
+        }
     };
     
     window.editJobType = function(id) {
         editingJobTypeId = id;
+        
+        // Cargar datos del tipo de trabajo
         fetch(`api/job_type/JobTypeController.php?action=getJobTypeById&id=${id}`)
-            .then(res => res.json())
-            .then(type => {
-                const modalBody = `
-                    <form id="jobTypeForm">
-                        <input type="hidden" id="jobTypeId" name="jobTypeId" value="${type.id}">
-                        <div class="form-group">
-                            <label class="form-label" for="jobTypeName">Nombre *</label>
-                            <input type="text" class="form-input" id="jobTypeName" name="jobTypeName" value="${type.name || ''}" required>
+            .then(response => response.json())
+            .then(jobTypeData => {
+                if (!jobTypeData || jobTypeData.error) {
+                    showToast('Error al cargar el tipo de trabajo', 'error');
+                    return;
+                }
+                
+                // Generar el HTML del modal para editar tipo de trabajo
+                const modalBodyHTML = `
+                    <form id="jobTypeEditForm">
+                        <div class="modal-body">
+                            <input type="hidden" id="jobTypeId" name="jobTypeId" value="${jobTypeData.id}">
+                            
+                            <div class="form-group">
+                                <label class="form-label" for="jobTypeName">Nombre *</label>
+                                <input type="text" class="form-input" id="jobTypeName" name="jobTypeName" value="${jobTypeData.name || ''}" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label" for="payAsContractor">Paga como Contratista</label>
+                                <input type="number" step="0.01" class="form-input" id="payAsContractor" name="payAsContractor" value="${jobTypeData.pay_as_contractor || '0.00'}" min="0">
+                                <small class="form-text">Monto que se paga cuando actúa como contratista</small>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label" for="payAsSubContractor">Paga como Subcontratista</label>
+                                <input type="number" step="0.01" class="form-input" id="payAsSubContractor" name="payAsSubContractor" value="${jobTypeData.pay_as_sub_contractor || '0.00'}" min="0">
+                                <small class="form-text">Monto que se paga cuando actúa como subcontratista</small>
+                            </div>
                         </div>
-                        <div class="form-group">
-                            <label class="form-label" for="payAsContractor">Paga como Contratista</label>
-                            <input type="number" step="0.01" class="form-input" id="payAsContractor" name="payAsContractor" value="${type.pay_as_contractor || '0.00'}">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label" for="payAsSubContractor">Paga como Subcontratista</label>
-                            <input type="number" step="0.01" class="form-input" id="payAsSubContractor" name="payAsSubContractor" value="${type.pay_as_sub_contractor || '0.00'}">
-                        </div>
-                        <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+                        
+                        <div class="modal-footer">
                             <button type="button" class="btn" onclick="closeModal('formModal')" style="background-color: var(--secondary-color); color: white;">
                                 Cancelar
                             </button>
@@ -1915,45 +1934,70 @@ function loadJobTypesSection() {
                     </form>
                 `;
                 
-                document.getElementById('formModalTitle').textContent = 'Editar Tipo de Trabajo';
-                document.getElementById('formModalBody').innerHTML = modalBody;
+                // Establecer el título del modal
+                const titleElement = document.getElementById('formModalTitle');
+                if (titleElement) {
+                    titleElement.textContent = 'Editar Tipo de Trabajo';
+                }
+                
+                // Establecer el contenido del modal
+                const bodyElement = document.getElementById('formModalBody');
+                if (bodyElement) {
+                    bodyElement.innerHTML = modalBodyHTML;
+                }
+                
+                // Abrir el modal
                 openModal('formModal');
                 
-                // Event listener para el formulario de edición
-                document.getElementById('jobTypeForm').addEventListener('submit', function(e) {
-                    e.preventDefault();
-                    
-                    const data = {
-                        name: document.getElementById('jobTypeName').value,
-                        pay_as_contractor: document.getElementById('payAsContractor').value,
-                        pay_as_sub_contractor: document.getElementById('payAsSubContractor').value
-                    };
-                    
-                    fetch(`api/job_type/JobTypeController.php?action=updateJobType&id=${editingJobTypeId}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(data)
-                    })
-                    .then(res => res.json())
-                    .then(result => {
-                        closeModal('formModal');
-                        if (result && result.error) {
-                            showToast('Error al actualizar el tipo: ' + result.error, 'error');
-                        } else {
-                            showToast('Tipo actualizado con éxito', 'success');
-                            loadJobTypesData(jobTypesCurrentPage);
+                // Agregar event listener para el formulario de edición
+                const form = document.getElementById('jobTypeEditForm');
+                if (form) {
+                    form.addEventListener('submit', function(e) {
+                        e.preventDefault();
+                        
+                        // Recopilar datos del formulario
+                        const formData = {
+                            name: document.getElementById('jobTypeName').value.trim(),
+                            pay_as_contractor: parseFloat(document.getElementById('payAsContractor').value) || 0,
+                            pay_as_sub_contractor: parseFloat(document.getElementById('payAsSubContractor').value) || 0
+                        };
+                        
+                        // Validar datos
+                        if (!formData.name) {
+                            showToast('El nombre del tipo de trabajo es obligatorio', 'error');
+                            return;
                         }
-                        editingJobTypeId = null;
-                    })
-                    .catch(err => {
-                        console.error('Error updating job type:', err);
-                        showToast('Error al actualizar el tipo', 'error');
+                        
+                        // Enviar solicitud para actualizar el tipo
+                        fetch(`api/job_type/JobTypeController.php?action=updateJobType&id=${editingJobTypeId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(formData)
+                        })
+                        .then(response => response.json())
+                        .then(result => {
+                            closeModal('formModal');
+                            if (result && result.error) {
+                                showToast('Error al actualizar el tipo: ' + result.error, 'error');
+                            } else {
+                                showToast('Tipo actualizado con éxito', 'success');
+                                loadJobTypesData(jobTypesCurrentPage);
+                            }
+                            editingJobTypeId = null;
+                        })
+                        .catch(error => {
+                            console.error('Error updating job type:', error);
+                            showToast('Error al actualizar el tipo', 'error');
+                            closeModal('formModal');
+                            editingJobTypeId = null;
+                        });
                     });
-                });
+                }
             })
-            .catch(err => {
-                console.error('Error loading job type:', err);
-                showToast('Error al cargar el tipo', 'error');
+            .catch(error => {
+                console.error('Error loading job type:', error);
+                showToast('Error al cargar el tipo de trabajo', 'error');
+                editingJobTypeId = null;
             });
     };
     
