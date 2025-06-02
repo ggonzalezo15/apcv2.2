@@ -1,0 +1,685 @@
+<?php
+require_once '../../config.php';
+
+header('Content-Type: application/json');
+
+$pdo = getConnection();
+$action = $_GET['action'] ?? '';
+
+switch ($action) {
+    case 'getAllExpenses':
+        getAllExpenses();
+        break;
+    case 'getExpenseById':
+        getExpenseById($_GET['id'] ?? '');
+        break;
+    case 'createExpense':
+        createExpense();
+        break;
+    case 'updateExpense':
+        updateExpense($_GET['id'] ?? '');
+        break;
+    case 'deleteExpense':
+        deleteExpense($_GET['id'] ?? '');
+        break;
+    case 'getTeams':
+        getTeams();
+        break;
+    case 'getVendors':
+        getVendors();
+        break;
+    case 'getBankAccounts':
+        getBankAccounts();
+        break;
+    case 'getExpenseTypes':
+        getExpenseTypes();
+        break;
+    case 'downloadAttachment':
+        downloadAttachment($_GET['id'] ?? '');
+        break;
+    case 'getExpenseAttachments':
+        getExpenseAttachments($_GET['id'] ?? '');
+        break;
+    default:
+        echo json_encode(['error' => 'Acción no válida']);
+}
+
+function getAllExpenses() {
+    global $pdo;
+    $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 0;
+    $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
+    $sort = $_GET['sort'] ?? 'expense_date';
+    $dir = strtolower($_GET['dir'] ?? 'desc') === 'asc' ? 'ASC' : 'DESC';
+    $team = $_GET['team'] ?? '';
+    $vendor = $_GET['vendor'] ?? '';
+    $search = $_GET['search'] ?? '';
+    $dateFrom = $_GET['dateFrom'] ?? '';
+    $dateTo = $_GET['dateTo'] ?? '';
+    
+    $allowedSort = ['expense_date', 'total_amount', 'created_at', 'team_name', 'vendor_name'];
+    if (!in_array($sort, $allowedSort)) $sort = 'expense_date';
+    
+    // Mapear campos de ordenamiento a la tabla correcta
+    $sortFieldMap = [
+        'expense_date' => 'e.expense_date',
+        'total_amount' => 'e.total_amount',
+        'created_at' => 'e.created_at',
+        'team_name' => 't.name',
+        'vendor_name' => 'v.name'
+    ];
+    
+    $sortField = $sortFieldMap[$sort];
+    
+    $whereConditions = [];
+    $params = [];
+    
+    if (!empty($team)) {
+        $whereConditions[] = "e.team_id = ?";
+        $params[] = $team;
+    }
+    
+    if (!empty($vendor)) {
+        $whereConditions[] = "e.vendor_id = ?";
+        $params[] = $vendor;
+    }
+    
+    if (!empty($search)) {
+        $whereConditions[] = "(e.description LIKE ? OR e.expense_number LIKE ? OR t.name LIKE ? OR v.name LIKE ?)";
+        $searchTerm = "%$search%";
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+        $params[] = $searchTerm;
+    }
+    
+    if (!empty($dateFrom)) {
+        $whereConditions[] = "e.expense_date >= ?";
+        $params[] = $dateFrom;
+    }
+    
+    if (!empty($dateTo)) {
+        $whereConditions[] = "e.expense_date <= ?";
+        $params[] = $dateTo;
+    }
+    
+    $whereClause = !empty($whereConditions) ? 'WHERE ' . implode(' AND ', $whereConditions) : '';
+    
+    $sql = "SELECT e.*, 
+                   t.name as team_name, 
+                   v.name as vendor_name,
+                   ba.name as bank_account_name,
+                   ba.account_type as bank_account_type,
+                   (SELECT COUNT(*) FROM expense_attachments ea WHERE ea.expense_id = e.id) as attachment_count
+            FROM expenses e
+            LEFT JOIN teams t ON e.team_id = t.id
+            LEFT JOIN vendors v ON e.vendor_id = v.id
+            LEFT JOIN bank_accounts ba ON e.bank_account_id = ba.id
+            $whereClause
+            ORDER BY $sortField $dir, e.id DESC";
+    
+    if ($limit > 0) {
+        $sql .= " LIMIT $limit OFFSET $offset";
+    }
+    
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Obtener el total de registros
+    $countSql = "SELECT COUNT(*) FROM expenses e 
+                 LEFT JOIN teams t ON e.team_id = t.id
+                 LEFT JOIN vendors v ON e.vendor_id = v.id
+                 $whereClause";
+    $countStmt = $pdo->prepare($countSql);
+    $countStmt->execute($params);
+    $total = $countStmt->fetchColumn();
+    
+    echo json_encode(['data' => $expenses, 'total' => (int)$total]);
+}
+
+function getExpenseById($id) {
+    global $pdo;
+    
+    // Obtener el gasto principal
+    $stmt = $pdo->prepare("
+        SELECT e.*, 
+               t.name as team_name, 
+               v.name as vendor_name
+        FROM expenses e
+        LEFT JOIN teams t ON e.team_id = t.id
+        LEFT JOIN vendors v ON e.vendor_id = v.id
+        WHERE e.id = ?
+    ");
+    $stmt->execute([$id]);
+    $expense = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$expense) {
+        echo json_encode(['error' => 'Gasto no encontrado']);
+        return;
+    }
+    
+    // Obtener las líneas de gasto
+    $stmt = $pdo->prepare("
+        SELECT el.*, et.name as expense_type_name, et.description as expense_type_description
+        FROM expense_lines el
+        LEFT JOIN expense_types et ON el.expense_type_id = et.id
+        WHERE el.expense_id = ?
+        ORDER BY el.created_at
+    ");
+    $stmt->execute([$id]);
+    $expense['lines'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Obtener los archivos adjuntos
+    $stmt = $pdo->prepare("
+        SELECT * FROM expense_attachments 
+        WHERE expense_id = ?
+        ORDER BY created_at
+    ");
+    $stmt->execute([$id]);
+    $expense['attachments'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    echo json_encode($expense);
+}
+
+function createExpense() {
+    global $pdo;
+    
+    try {
+        $pdo->beginTransaction();
+        
+        // Obtener datos del formulario
+        $data = $_POST;
+        $expenseId = generateUUID();
+        $expenseNumber = generateExpenseNumber();
+        
+        // Validar datos requeridos
+        if (empty($data['expense_date']) || empty($data['team_id']) || 
+            empty($data['vendor_id']) || empty($data['bank_account_id'])) {
+            throw new Exception('Faltan campos requeridos: fecha, equipo, proveedor y cuenta bancaria son obligatorios');
+        }
+        
+        // Procesar líneas de gastos
+        $lines = json_decode($data['lines'] ?? '[]', true);
+        if (empty($lines)) {
+            throw new Exception('Debe agregar al menos una línea de gasto');
+        }
+        
+        // Validar que todas las líneas tengan tipo de gasto
+        foreach ($lines as $index => $line) {
+            if (empty($line['expense_type_id'])) {
+                throw new Exception("La línea " . ($index + 1) . " debe tener un tipo de gasto seleccionado");
+            }
+        }
+        
+        // Calcular total
+        $totalAmount = 0;
+        foreach ($lines as $line) {
+            $totalAmount += floatval($line['amount'] ?? 0);
+        }
+        
+        // Insertar gasto principal
+        $stmt = $pdo->prepare("
+            INSERT INTO expenses (id, expense_number, team_id, vendor_id, bank_account_id, description, 
+                                total_amount, expense_date, created_at, updated_at, created_by) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), 1)
+        ");
+        $stmt->execute([
+            $expenseId,
+            $expenseNumber,
+            $data['team_id'],
+            $data['vendor_id'],
+            $data['bank_account_id'],
+            $data['description'] ?? '',
+            $totalAmount,
+            $data['expense_date']
+        ]);
+        
+        // Insertar líneas de gasto
+        foreach ($lines as $line) {
+            $lineId = generateUUID();
+            
+            $stmt = $pdo->prepare("
+                INSERT INTO expense_lines (id, expense_id, description, expense_type_id, amount, deducible, created_at, updated_at) 
+                VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+            ");
+            $stmt->execute([
+                $lineId,
+                $expenseId,
+                $line['description'] ?? '',
+                $line['expense_type_id'],
+                floatval($line['amount'] ?? 0),
+                isset($line['deducible']) ? ($line['deducible'] ? 1 : 0) : 0
+            ]);
+        }
+        
+        // Procesar archivos adjuntos
+        if (isset($_FILES['attachments'])) {
+            handleFileUploads($expenseId, $_FILES['attachments']);
+        }
+        
+        // Registrar transacción bancaria si se especificó cuenta
+        registerBankTransaction($expenseId, $data['bank_account_id'], $totalAmount, $data['expense_date'], "Gasto #{$expenseNumber}");
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Gasto creado exitosamente', 'id' => $expenseId, 'expense_number' => $expenseNumber]);
+        
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+}
+
+function updateExpense($id) {
+    global $pdo;
+    
+    try {
+        $pdo->beginTransaction();
+        
+        // Obtener datos del formulario
+        $data = $_POST;
+        
+        // Validar datos requeridos
+        if (empty($data['expense_date']) || empty($data['team_id']) || 
+            empty($data['vendor_id']) || empty($data['bank_account_id'])) {
+            throw new Exception('Faltan campos requeridos: fecha, equipo, proveedor y cuenta bancaria son obligatorios');
+        }
+        
+        // Validar que el gasto existe
+        $stmt = $pdo->prepare("SELECT * FROM expenses WHERE id = ?");
+        $stmt->execute([$id]);
+        $existingExpense = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$existingExpense) {
+            throw new Exception('Gasto no encontrado');
+        }
+        
+        // Procesar líneas de gastos
+        $lines = json_decode($data['lines'] ?? '[]', true);
+        if (empty($lines)) {
+            throw new Exception('Debe agregar al menos una línea de gasto');
+        }
+        
+        // Validar que todas las líneas tengan tipo de gasto
+        foreach ($lines as $index => $line) {
+            if (empty($line['expense_type_id'])) {
+                throw new Exception("La línea " . ($index + 1) . " debe tener un tipo de gasto seleccionado");
+            }
+        }
+        
+        // Calcular nuevo total
+        $totalAmount = 0;
+        foreach ($lines as $line) {
+            $totalAmount += floatval($line['amount'] ?? 0);
+        }
+        
+        // Actualizar gasto principal
+        $stmt = $pdo->prepare("
+            UPDATE expenses 
+            SET team_id = ?, vendor_id = ?, bank_account_id = ?, description = ?, 
+                total_amount = ?, expense_date = ?, updated_at = NOW()
+            WHERE id = ?
+        ");
+        $stmt->execute([
+            $data['team_id'],
+            $data['vendor_id'],
+            $data['bank_account_id'],
+            $data['description'] ?? '',
+            $totalAmount,
+            $data['expense_date'],
+            $id
+        ]);
+        
+        // Eliminar líneas existentes
+        $stmt = $pdo->prepare("DELETE FROM expense_lines WHERE expense_id = ?");
+        $stmt->execute([$id]);
+        
+        // Insertar nuevas líneas
+        foreach ($lines as $line) {
+            $lineId = generateUUID();
+            
+            $stmt = $pdo->prepare("
+                INSERT INTO expense_lines (id, expense_id, description, expense_type_id, amount, deducible, created_at, updated_at) 
+                VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+            ");
+            $stmt->execute([
+                $lineId,
+                $id,
+                $line['description'] ?? '',
+                $line['expense_type_id'],
+                floatval($line['amount'] ?? 0),
+                isset($line['deducible']) ? ($line['deducible'] ? 1 : 0) : 0
+            ]);
+        }
+        
+        // Procesar nuevos archivos adjuntos
+        if (isset($_FILES['attachments'])) {
+            handleFileUploads($id, $_FILES['attachments']);
+        }
+        
+        // Eliminar archivos adjuntos marcados para eliminación
+        if (isset($_POST['delete_attachments'])) {
+            $attachmentsToDelete = json_decode($_POST['delete_attachments'], true);
+            if ($attachmentsToDelete && is_array($attachmentsToDelete)) {
+                foreach ($attachmentsToDelete as $attachmentId) {
+                    deleteAttachment($attachmentId);
+                }
+            }
+        }
+        
+        // Actualizar transacción bancaria si cambió el monto
+        if ($existingExpense['total_amount'] != $totalAmount || $existingExpense['bank_account_id'] != $data['bank_account_id']) {
+            updateBankTransaction($id, $data['bank_account_id'], $totalAmount, $data['expense_date'], "Gasto #{$id}");
+        }
+        
+        $pdo->commit();
+        echo json_encode(['success' => true, 'message' => 'Gasto actualizado exitosamente']);
+        
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+}
+
+function deleteExpense($id) {
+    global $pdo;
+    
+    try {
+        $pdo->beginTransaction();
+        
+        // Verificar que el gasto existe
+        $stmt = $pdo->prepare("SELECT * FROM expenses WHERE id = ?");
+        $stmt->execute([$id]);
+        $expense = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$expense) {
+            throw new Exception('Gasto no encontrado');
+        }
+        
+        // Eliminar archivos adjuntos del sistema de archivos
+        $stmt = $pdo->prepare("SELECT file_path FROM expense_attachments WHERE expense_id = ?");
+        $stmt->execute([$id]);
+        $attachments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($attachments as $attachment) {
+            if (file_exists($attachment['file_path'])) {
+                unlink($attachment['file_path']);
+            }
+        }
+        
+        // Eliminar transacción bancaria asociada
+        $stmt = $pdo->prepare("DELETE FROM transactions WHERE expense_id = ?");
+        $stmt->execute([$id]);
+        
+        // Eliminar archivos adjuntos de la BD
+        $stmt = $pdo->prepare("DELETE FROM expense_attachments WHERE expense_id = ?");
+        $stmt->execute([$id]);
+        
+        // Eliminar líneas de gasto
+        $stmt = $pdo->prepare("DELETE FROM expense_lines WHERE expense_id = ?");
+        $stmt->execute([$id]);
+        
+        // Eliminar gasto principal
+        $stmt = $pdo->prepare("DELETE FROM expenses WHERE id = ?");
+        $stmt->execute([$id]);
+        
+        $pdo->commit();
+        echo json_encode(['message' => 'Gasto eliminado exitosamente']);
+        
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        echo json_encode(['error' => $e->getMessage()]);
+    }
+}
+
+function getTeams() {
+    global $pdo;
+    $stmt = $pdo->query("SELECT id, name FROM teams ORDER BY name");
+    echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function getVendors() {
+    global $pdo;
+    $stmt = $pdo->query("SELECT id, name FROM vendors ORDER BY name");
+    echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function getBankAccounts() {
+    global $pdo;
+    $stmt = $pdo->query("SELECT id, name, account_type, balance FROM bank_accounts ORDER BY name");
+    echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function getExpenseTypes() {
+    global $pdo;
+    $stmt = $pdo->query("SELECT id, name, description FROM expense_types ORDER BY name");
+    echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+}
+
+function handleFileUploads($expenseId, $files) {
+    global $pdo;
+    
+    $uploadDir = '../../uploads/expenses/';
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
+    
+    $allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+    $maxFileSize = 2 * 1024 * 1024; // 2MB
+    $maxFiles = 4;
+    
+    $fileCount = is_array($files['name']) ? count($files['name']) : 1;
+    
+    if ($fileCount > $maxFiles) {
+        throw new Exception("Máximo $maxFiles archivos permitidos");
+    }
+    
+    for ($i = 0; $i < $fileCount; $i++) {
+        $fileName = is_array($files['name']) ? $files['name'][$i] : $files['name'];
+        $fileTmpName = is_array($files['tmp_name']) ? $files['tmp_name'][$i] : $files['tmp_name'];
+        $fileSize = is_array($files['size']) ? $files['size'][$i] : $files['size'];
+        $fileType = is_array($files['type']) ? $files['type'][$i] : $files['type'];
+        $fileError = is_array($files['error']) ? $files['error'][$i] : $files['error'];
+        
+        if ($fileError !== UPLOAD_ERR_OK) {
+            continue;
+        }
+        
+        if ($fileSize > $maxFileSize) {
+            throw new Exception("El archivo $fileName excede el tamaño máximo de 2MB");
+        }
+        
+        if (!in_array($fileType, $allowedTypes)) {
+            throw new Exception("Tipo de archivo no permitido: $fileName");
+        }
+        
+        $fileExtension = pathinfo($fileName, PATHINFO_EXTENSION);
+        $newFileName = $expenseId . '_' . uniqid() . '.' . $fileExtension;
+        $filePath = $uploadDir . $newFileName;
+        
+        if (move_uploaded_file($fileTmpName, $filePath)) {
+            $attachmentId = generateUUID();
+            $stmt = $pdo->prepare("
+                INSERT INTO expense_attachments (id, expense_id, filename, original_filename, file_path, file_size, mime_type, created_at) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+            ");
+            $stmt->execute([
+                $attachmentId,
+                $expenseId,
+                $newFileName,
+                $fileName,
+                $filePath,
+                $fileSize,
+                $fileType
+            ]);
+        }
+    }
+}
+
+function registerBankTransaction($expenseId, $bankAccountId, $amount, $transactionDate, $description) {
+    global $pdo;
+    
+    // Obtener balance actual de la cuenta
+    $stmt = $pdo->prepare("SELECT balance FROM bank_accounts WHERE id = ?");
+    $stmt->execute([$bankAccountId]);
+    $currentBalance = $stmt->fetchColumn();
+    
+    if ($currentBalance === false) {
+        throw new Exception('Cuenta bancaria no encontrada');
+    }
+    
+    $newBalance = $currentBalance - $amount; // Restar porque es un gasto
+    
+    // Actualizar balance de la cuenta
+    $stmt = $pdo->prepare("UPDATE bank_accounts SET balance = ? WHERE id = ?");
+    $stmt->execute([$newBalance, $bankAccountId]);
+    
+    // Registrar transacción
+    $transactionId = generateUUID();
+    $stmt = $pdo->prepare("
+        INSERT INTO transactions (id, bank_account_id, expense_id, type, amount, balance_after, description, transaction_date, created_at) 
+        VALUES (?, ?, ?, 'expense', ?, ?, ?, ?, NOW())
+    ");
+    $stmt->execute([
+        $transactionId,
+        $bankAccountId,
+        $expenseId,
+        -$amount, // Negativo porque es un gasto
+        $newBalance,
+        "Gasto: $description",
+        $transactionDate
+    ]);
+}
+
+function updateBankTransaction($expenseId, $bankAccountId, $newAmount, $transactionDate, $description) {
+    global $pdo;
+    
+    // Obtener la transacción existente
+    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE expense_id = ?");
+    $stmt->execute([$expenseId]);
+    $existingTransaction = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($existingTransaction) {
+        // Revertir la transacción anterior
+        $stmt = $pdo->prepare("SELECT balance FROM bank_accounts WHERE id = ?");
+        $stmt->execute([$existingTransaction['bank_account_id']]);
+        $currentBalance = $stmt->fetchColumn();
+        
+        $revertedBalance = $currentBalance - $existingTransaction['amount']; // Sumar porque amount es negativo
+        
+        $stmt = $pdo->prepare("UPDATE bank_accounts SET balance = ? WHERE id = ?");
+        $stmt->execute([$revertedBalance, $existingTransaction['bank_account_id']]);
+        
+        // Eliminar transacción anterior
+        $stmt = $pdo->prepare("DELETE FROM transactions WHERE expense_id = ?");
+        $stmt->execute([$expenseId]);
+    }
+    
+    // Crear nueva transacción
+    registerBankTransaction($expenseId, $bankAccountId, $newAmount, $transactionDate, $description);
+}
+
+function generateUUID() {
+    return sprintf('%04x%04x-%04x-%04x-%04x-%04x%04x%04x',
+        mt_rand(0, 0xffff), mt_rand(0, 0xffff),
+        mt_rand(0, 0xffff),
+        mt_rand(0, 0x0fff) | 0x4000,
+        mt_rand(0, 0x3fff) | 0x8000,
+        mt_rand(0, 0xffff), mt_rand(0, 0xffff), mt_rand(0, 0xffff)
+    );
+}
+
+function generateExpenseNumber() {
+    global $pdo;
+    // Obtener el último número de gasto
+    $stmt = $pdo->query("SELECT MAX(CAST(SUBSTRING(expense_number, 4) AS UNSIGNED)) as last_num FROM expenses WHERE expense_number LIKE 'EXP%'");
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    $lastNum = $result['last_num'] ?? 0;
+    return 'EXP' . str_pad($lastNum + 1, 6, '0', STR_PAD_LEFT);
+}
+
+function deleteAttachment($attachmentId) {
+    global $pdo;
+    
+    try {
+        // Obtener información del archivo
+        $stmt = $pdo->prepare("SELECT file_path FROM expense_attachments WHERE id = ?");
+        $stmt->execute([$attachmentId]);
+        $attachment = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($attachment) {
+            // Eliminar archivo físico si existe
+            if (file_exists($attachment['file_path'])) {
+                unlink($attachment['file_path']);
+            }
+            
+            // Eliminar registro de la base de datos
+            $stmt = $pdo->prepare("DELETE FROM expense_attachments WHERE id = ?");
+            $stmt->execute([$attachmentId]);
+        }
+    } catch (Exception $e) {
+        error_log("Error eliminando archivo adjunto: " . $e->getMessage());
+    }
+}
+
+function downloadAttachment($attachmentId) {
+    global $pdo;
+    
+    try {
+        // Obtener información completa del archivo
+        $stmt = $pdo->prepare("SELECT * FROM expense_attachments WHERE id = ?");
+        $stmt->execute([$attachmentId]);
+        $attachment = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$attachment) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Archivo no encontrado']);
+            return;
+        }
+        
+        $filePath = '../../' . $attachment['file_path'];
+        
+        // Verificar que el archivo existe físicamente
+        if (!file_exists($filePath)) {
+            http_response_code(404);
+            echo json_encode(['error' => 'Archivo físico no encontrado']);
+            return;
+        }
+        
+        // Configurar headers para descarga/visualización
+        header('Content-Type: ' . $attachment['mime_type']);
+        header('Content-Length: ' . filesize($filePath));
+        header('Content-Disposition: inline; filename="' . $attachment['original_filename'] . '"');
+        header('Cache-Control: public, max-age=3600');
+        
+        // Enviar el archivo
+        readfile($filePath);
+        exit;
+        
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al descargar archivo: ' . $e->getMessage()]);
+    }
+}
+
+function getExpenseAttachments($expenseId) {
+    global $pdo;
+    
+    try {
+        // Obtener los archivos adjuntos del gasto
+        $stmt = $pdo->prepare("
+            SELECT id, original_filename, mime_type, file_size, created_at 
+            FROM expense_attachments 
+            WHERE expense_id = ? 
+            ORDER BY created_at
+        ");
+        $stmt->execute([$expenseId]);
+        $attachments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode($attachments);
+        
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al obtener archivos: ' . $e->getMessage()]);
+    }
+}
+?> 
