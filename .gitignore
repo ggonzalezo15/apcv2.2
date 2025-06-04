@@ -1,0 +1,14 @@
+# Archivos de prueba y testing - no deben ser parte del repositorio
+explore_structures.php
+fix_expense_structure.php
+test_expenses.php
+test_frontend_simple.html
+test_new_expense_structure.php
+test_updated_expenses.php
+update_expense_lines_structure.php
+
+# Otros archivos comunes que no deben ser rastreados
+*.log
+*.tmp
+.DS_Store
+Thumbs.db 
