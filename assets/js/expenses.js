@@ -457,11 +457,12 @@ function renderExpensesTable(expenses) {
                </div>`
             : '<span class="text-muted">—</span>';
         
-        // Notas (truncadas si son muy largas)
-        const notes = expense.notes && expense.notes.trim() 
-            ? (expense.notes.length > 50 
-                ? `<span title="${escapeHtml(expense.notes)}">${escapeHtml(expense.notes.substring(0, 50))}...</span>`
-                : escapeHtml(expense.notes))
+        // Notas del gasto (campo notes de la tabla expenses)
+        const notesText = expense.notes || '';
+        const notes = notesText && notesText.trim() 
+            ? (notesText.length > 60 
+                ? `<span title="${escapeHtml(notesText)}" class="notes-preview">${escapeHtml(notesText.substring(0, 60))}...</span>`
+                : `<span class="notes-preview">${escapeHtml(notesText)}</span>`)
             : '<span class="text-muted">—</span>';
         
         return `
@@ -767,7 +768,7 @@ function collectFormData() {
         vendor_id: document.getElementById('vendor').value,
         bank_account_id: document.getElementById('bankAccount').value,
         expense_date: document.getElementById('expenseDate').value,
-        description: document.getElementById('notes').value.trim(),
+        notes: document.getElementById('notes').value.trim(),
         lines: lines
     };
 }
@@ -898,9 +899,9 @@ function populateViewModal(expense) {
     const notesSection = document.getElementById('viewNotesSection');
     const notesContainer = document.getElementById('viewNotes');
     
-    if (expense.description && expense.description.trim()) {
+    if (expense.notes && expense.notes.trim()) {
         notesSection.style.display = 'block';
-        notesContainer.textContent = expense.description;
+        notesContainer.textContent = expense.notes;
     } else {
         notesSection.style.display = 'none';
     }
@@ -987,7 +988,7 @@ function populateExpenseForm(expense) {
     document.getElementById('team').value = expense.team_id;
     document.getElementById('vendor').value = expense.vendor_id;
     document.getElementById('bankAccount').value = expense.bank_account_id;
-    document.getElementById('notes').value = expense.description || '';
+    document.getElementById('notes').value = expense.notes || '';
     
     // Limpiar archivos adjuntos y archivos marcados para eliminación
     document.getElementById('attachments').value = '';
@@ -1071,16 +1072,34 @@ function deleteExpenseConfirmed() {
     })
     .then(res => res.json())
     .then(data => {
-        if (data.success) {
-            showToast('Gasto eliminado', 'success');
-            closeModal('deleteModal');
-            loadExpenses();
+        // Cerrar el modal siempre, independientemente del resultado
+        closeModal('deleteModal');
+        
+        if (data && data.success) {
+            // Éxito
+            showToast(data.message || 'Gasto eliminado exitosamente', 'success');
+            
+            // Recargar datos después de un breve delay para que se vea el toast
+            setTimeout(() => {
+                // Verificar si necesitamos ir a página anterior
+                const currentRows = document.querySelectorAll('#expensesTableBody tr:not(.no-data)').length;
+                if (currentRows === 1 && currentPage > 1) {
+                    // Si solo hay un elemento y no estamos en la página 1, ir a la anterior
+                    loadExpenses(currentPage - 1);
+                } else {
+                    // Recargar la página actual
+                    loadExpenses(currentPage);
+                }
+            }, 200);
         } else {
-            showToast(data.message || 'Error al eliminar gasto', 'error');
+            // Error desde el servidor
+            showToast(data.error || 'No se pudo eliminar el gasto', 'error');
         }
     })
-    .catch(() => {
-        showToast('Error de conexión', 'error');
+    .catch(error => {
+        console.error('Error eliminando gasto:', error);
+        closeModal('deleteModal');
+        showToast('Error de conexión al eliminar el gasto', 'error');
     });
 }
 

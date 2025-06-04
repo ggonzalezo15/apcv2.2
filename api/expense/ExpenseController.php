@@ -84,7 +84,7 @@ function getAllExpenses() {
     }
     
     if (!empty($search)) {
-        $whereConditions[] = "(e.description LIKE ? OR e.expense_number LIKE ? OR t.name LIKE ? OR v.name LIKE ?)";
+        $whereConditions[] = "(e.notes LIKE ? OR e.expense_number LIKE ? OR t.name LIKE ? OR v.name LIKE ?)";
         $searchTerm = "%$search%";
         $params[] = $searchTerm;
         $params[] = $searchTerm;
@@ -219,7 +219,7 @@ function createExpense() {
         
         // Insertar gasto principal
         $stmt = $pdo->prepare("
-            INSERT INTO expenses (id, expense_number, team_id, vendor_id, bank_account_id, description, 
+            INSERT INTO expenses (id, expense_number, team_id, vendor_id, bank_account_id, notes, 
                                 total_amount, expense_date, created_at, updated_at, created_by) 
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW(), 1)
         ");
@@ -229,7 +229,7 @@ function createExpense() {
             $data['team_id'],
             $data['vendor_id'],
             $data['bank_account_id'],
-            $data['description'] ?? '',
+            $data['notes'] ?? '',
             $totalAmount,
             $data['expense_date']
         ]);
@@ -315,7 +315,7 @@ function updateExpense($id) {
         // Actualizar gasto principal
         $stmt = $pdo->prepare("
             UPDATE expenses 
-            SET team_id = ?, vendor_id = ?, bank_account_id = ?, description = ?, 
+            SET team_id = ?, vendor_id = ?, bank_account_id = ?, notes = ?, 
                 total_amount = ?, expense_date = ?, updated_at = NOW()
             WHERE id = ?
         ");
@@ -323,7 +323,7 @@ function updateExpense($id) {
             $data['team_id'],
             $data['vendor_id'],
             $data['bank_account_id'],
-            $data['description'] ?? '',
+            $data['notes'] ?? '',
             $totalAmount,
             $data['expense_date'],
             $id
@@ -395,6 +395,27 @@ function deleteExpense($id) {
             throw new Exception('Gasto no encontrado');
         }
         
+        // Revertir transacción bancaria antes de eliminar
+        $stmt = $pdo->prepare("SELECT * FROM transactions WHERE expense_id = ?");
+        $stmt->execute([$id]);
+        $transaction = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($transaction) {
+            // Obtener balance actual de la cuenta
+            $stmt = $pdo->prepare("SELECT balance FROM bank_accounts WHERE id = ?");
+            $stmt->execute([$transaction['bank_account_id']]);
+            $currentBalance = $stmt->fetchColumn();
+            
+            if ($currentBalance !== false) {
+                // Revertir el gasto: restar el amount (que es negativo, por lo que se suma)
+                $revertedBalance = $currentBalance - $transaction['amount'];
+                
+                // Actualizar balance de la cuenta
+                $stmt = $pdo->prepare("UPDATE bank_accounts SET balance = ? WHERE id = ?");
+                $stmt->execute([$revertedBalance, $transaction['bank_account_id']]);
+            }
+        }
+        
         // Eliminar archivos adjuntos del sistema de archivos
         $stmt = $pdo->prepare("SELECT file_path FROM expense_attachments WHERE expense_id = ?");
         $stmt->execute([$id]);
@@ -423,11 +444,11 @@ function deleteExpense($id) {
         $stmt->execute([$id]);
         
         $pdo->commit();
-        echo json_encode(['message' => 'Gasto eliminado exitosamente']);
+        echo json_encode(['success' => true, 'message' => 'Gasto eliminado exitosamente']);
         
     } catch (Exception $e) {
         $pdo->rollBack();
-        echo json_encode(['error' => $e->getMessage()]);
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
     }
 }
 
@@ -494,10 +515,13 @@ function handleFileUploads($expenseId, $files) {
         
         $fileExtension = pathinfo($fileName, PATHINFO_EXTENSION);
         $newFileName = $expenseId . '_' . uniqid() . '.' . $fileExtension;
-        $filePath = $uploadDir . $newFileName;
+        $fullUploadPath = $uploadDir . $newFileName;
         
-        if (move_uploaded_file($fileTmpName, $filePath)) {
+        if (move_uploaded_file($fileTmpName, $fullUploadPath)) {
             $attachmentId = generateUUID();
+            // Guardar solo la ruta relativa desde la raíz del proyecto
+            $relativeFilePath = 'uploads/expenses/' . $newFileName;
+            
             $stmt = $pdo->prepare("
                 INSERT INTO expense_attachments (id, expense_id, filename, original_filename, file_path, file_size, mime_type, created_at) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
@@ -507,7 +531,7 @@ function handleFileUploads($expenseId, $files) {
                 $expenseId,
                 $newFileName,
                 $fileName,
-                $filePath,
+                $relativeFilePath,
                 $fileSize,
                 $fileType
             ]);
@@ -636,6 +660,7 @@ function downloadAttachment($attachmentId) {
             return;
         }
         
+        // La ruta en BD ya es relativa, solo agregar ../../ desde el directorio api/expense/
         $filePath = '../../' . $attachment['file_path'];
         
         // Verificar que el archivo existe físicamente
