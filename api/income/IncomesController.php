@@ -11,7 +11,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 }
 
 $pdo = getConnection();
-$action = $_GET['action'] ?? $_POST['action'] ?? '';
+
+// Obtener datos JSON si existen
+$jsonData = json_decode(file_get_contents('php://input'), true);
+$action = $_GET['action'] ?? $_POST['action'] ?? ($jsonData['action'] ?? '');
 
 try {
     switch ($action) {
@@ -29,7 +32,7 @@ try {
             updateIncome();
             break;
         case 'deleteIncome':
-            deleteIncome($_POST['id'] ?? '');
+            deleteIncome($_POST['id'] ?? ($jsonData['id'] ?? ''));
             break;
             
         // ===== DATOS AUXILIARES =====
