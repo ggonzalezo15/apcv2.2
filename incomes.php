@@ -62,11 +62,9 @@ $pageTitle = 'Gestión de Ingresos';
                                 </label>
                                 <select id="statusFilter" class="form-input">
                                     <option value="">Todos los estados</option>
-                                    <option value="draft">Borrador</option>
                                     <option value="pending">Pendiente</option>
-                                    <option value="partial_paid">Parcialmente Pagado</option>
                                     <option value="paid">Pagado</option>
-                                    <option value="cancelled">Cancelado</option>
+                                    <option value="overpaid">Sobrepago</option>
                                 </select>
                             </div>
                             
