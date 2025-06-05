@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pruebas - API de Ingresos</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            margin: 0; 
+            background: #f8fafc; 
+            color: #1f2937; 
+        }
+        .container { 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        .section {
+            background: white;
+            margin-bottom: 30px;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid #e5e7eb;
+        }
+        .section-title {
+            color: #1f2937;
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            border-bottom: 3px solid #3b82f6;
+            padding-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+        }
+        .btn:hover {
+            background: #2563eb;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        .btn.success {
+            background: #10b981;
+            box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+        }
+        .btn.success:hover {
+            background: #059669;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+        .btn.warning {
+            background: #f59e0b;
+            box-shadow: 0 2px 4px rgba(245, 158, 11, 0.3);
+        }
+        .btn.warning:hover {
+            background: #d97706;
+            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+        }
+        .output {
+            background: #1f2937;
+            color: #f9fafb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #374151;
+        }
+        .loading {
+            color: #6b7280;
+            font-style: italic;
+            text-align: center;
+            padding: 20px;
+        }
+        .error {
+            color: #ef4444;
+            background: #fef2f2;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #fecaca;
+            margin: 10px 0;
+        }
+        .success {
+            color: #10b981;
+            background: #ecfdf5;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #a7f3d0;
+            margin: 10px 0;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .data-table th,
+        .data-table td {
+            border: 1px solid #e5e7eb;
+            padding: 12px 15px;
+            text-align: left;
+            font-size: 14px;
+        }
+        .data-table th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #374151;
+        }
+        .data-table tr:nth-child(even) {
+            background: #f9fafb;
+        }
+        .data-table tr:hover {
+            background: #f3f4f6;
+        }
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            color: white;
+            text-transform: uppercase;
+        }
+        .status-pending { background: #f59e0b; }
+        .status-in_progress { background: #3b82f6; }
+        .status-completed { background: #10b981; }
+        .status-cancelled { background: #ef4444; }
+        .progress-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .progress-bar {
+            width: 80px;
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #10b981;
+            transition: width 0.3s ease;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        .stat-label {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .input-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .input-field {
+            padding: 12px 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+            flex: 1;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .icon {
+            width: 20px;
+            height: 20px;
+            display: inline-block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧪 Panel de Pruebas - API de Ingresos</h1>
+            <p>Interfaz simple para probar las funcionalidades del módulo de ingresos</p>
+        </div>
+
+        <!-- Pruebas de API -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="icon">🔧</span>
+                Pruebas de Endpoints de API
+            </h2>
+            <div class="buttons">
+                <button class="btn" onclick="testAPI('getAllIncomes')">
+                    📋 Obtener Todos los Ingresos
+                </button>
+                <button class="btn" onclick="testAPI('getTeams')">
+                    👥 Obtener Equipos
+                </button>
+                <button class="btn" onclick="testAPI('getJobTypes')">
+                    💼 Obtener Tipos de Trabajo
+                </button>
+                <button class="btn success" onclick="testAPI('createTestIncome')">
+                    ➕ Crear Proyecto de Prueba
+                </button>
+            </div>
+            <div id="apiOutput" class="output">
+                💡 Haz clic en cualquier botón para probar los endpoints de la API...
+            </div>
+        </div>
+
+        <!-- Vista de Datos -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="icon">📊</span>
+                Visualización de Datos
+            </h2>
+            <div class="buttons">
+                <button class="btn" onclick="loadIncomesTable()">
+                    🔄 Cargar Lista de Proyectos
+                </button>
+                <button class="btn warning" onclick="clearData()">
+                    🗑️ Limpiar Datos
+                </button>
+            </div>
+            <div id="dataContainer">
+                <!-- Se carga dinámicamente -->
+            </div>
+        </div>
+
+        <!-- Detalles Específicos -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="icon">🔍</span>
+                Consulta de Detalles
+            </h2>
+            <div class="input-group">
+                <input type="text" id="incomeId" class="input-field" placeholder="Ingresa el ID del proyecto..." />
+                <button class="btn" onclick="loadIncomeDetails()">
+                    🔍 Cargar Detalles
+                </button>
+            </div>
+            <div id="detailsOutput" class="output">
+                📝 Ingresa un ID de proyecto para ver información detallada...
+            </div>
+        </div>
+
+        <!-- Estadísticas -->
+        <div class="section">
+            <h2 class="section-title">
+                <span class="icon">📈</span>
+                Estadísticas Generales
+            </h2>
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-label">Total de Proyectos</div>
+                    <div class="stat-value" id="totalProjects">-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Ingresos Totales</div>
+                    <div class="stat-value" id="totalIncome">$-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Pagos Recibidos</div>
+                    <div class="stat-value" id="totalPaid">$-</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Por Cobrar</div>
+                    <div class="stat-value" id="totalPending">$-</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_URL = 'api/income/IncomeController.php';
+        
+        // Función para probar endpoints de la API
+        async function testAPI(action, params = {}) {
+            const output = document.getElementById('apiOutput');
+            output.innerHTML = '<div class="loading">⏳ Cargando datos desde la API...</div>';
+            
+            try {
+                const url = new URL(API_URL, window.location.origin);
+                url.searchParams.set('action', action);
+                
+                Object.keys(params).forEach(key => {
+                    url.searchParams.set(key, params[key]);
+                });
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                output.innerHTML = `
+                    <div class="success">✅ Respuesta exitosa del servidor</div>
+                    <pre style="color: #10b981; margin: 10px 0;">Endpoint: ${action}</pre>
+                    <pre style="color: #f59e0b; margin: 10px 0;">URL: ${url}</pre>
+                    <pre style="color: #e5e7eb;">${JSON.stringify(data, null, 2)}</pre>
+                `;
+                
+                // Si obtenemos ingresos, actualizar estadísticas
+                if (action === 'getAllIncomes' && data.success) {
+                    updateStatistics(data.data);
+                }
+                
+            } catch (error) {
+                output.innerHTML = `
+                    <div class="error">❌ Error de conexión: ${error.message}</div>
+                    <pre style="color: #ef4444;">Detalles: ${error.stack}</pre>
+                `;
+            }
+        }
+        
+        // Cargar y mostrar datos en tabla
+        async function loadIncomesTable() {
+            const container = document.getElementById('dataContainer');
+            container.innerHTML = '<div class="loading">⏳ Cargando lista de proyectos...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}?action=getAllIncomes`);
+                const result = await response.json();
+                
+                if (result.success && result.data.length > 0) {
+                    const incomes = result.data;
+                    
+                    let html = `
+                        <div class="success">📊 Se encontraron ${incomes.length} proyectos</div>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Nombre del Proyecto</th>
+                                    <th>Equipo</th>
+                                    <th>Tipo de Trabajo</th>
+                                    <th>Monto Total</th>
+                                    <th>Pagado</th>
+                                    <th>Progreso</th>
+                                    <th>Estado</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    incomes.forEach(income => {
+                        html += `
+                            <tr>
+                                <td><strong>${income.name}</strong></td>
+                                <td>${income.team_name || 'Sin asignar'}</td>
+                                <td>${income.job_type_name || 'Sin definir'}</td>
+                                <td>$${parseFloat(income.total_amount).toLocaleString()}</td>
+                                <td>$${parseFloat(income.total_paid).toLocaleString()}</td>
+                                <td>
+                                    <div class="progress-container">
+                                        <div class="progress-bar">
+                                            <div class="progress-fill" style="width: ${income.payment_progress}%"></div>
+                                        </div>
+                                        <span>${income.payment_progress}%</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="status-badge status-${income.status}">
+                                        ${income.status}
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn" style="padding: 6px 12px; font-size: 12px;" 
+                                            onclick="document.getElementById('incomeId').value='${income.id}'; loadIncomeDetails();">
+                                        👁️ Ver
+                                    </button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</tbody></table>';
+                    container.innerHTML = html;
+                    
+                    // Actualizar estadísticas
+                    updateStatistics(incomes);
+                    
+                } else if (result.success && result.data.length === 0) {
+                    container.innerHTML = `
+                        <div class="error">📭 No se encontraron proyectos en la base de datos</div>
+                        <p>Prueba crear un proyecto de prueba usando el botón "Crear Proyecto de Prueba"</p>
+                    `;
+                } else {
+                    container.innerHTML = `<div class="error">❌ Error: ${result.error}</div>`;
+                }
+            } catch (error) {
+                container.innerHTML = `<div class="error">❌ Error de conexión: ${error.message}</div>`;
+            }
+        }
+        
+        // Cargar detalles de un proyecto específico
+        async function loadIncomeDetails() {
+            const incomeId = document.getElementById('incomeId').value.trim();
+            const output = document.getElementById('detailsOutput');
+            
+            if (!incomeId) {
+                output.innerHTML = '<div class="error">⚠️ Por favor, ingresa un ID de proyecto válido</div>';
+                return;
+            }
+            
+            output.innerHTML = '<div class="loading">⏳ Cargando detalles del proyecto...</div>';
+            
+            try {
+                const response = await fetch(`${API_URL}?action=getIncomeWithDetails&id=${incomeId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    const data = result.data;
+                    const income = data.income;
+                    const payments = data.payments;
+                    const lines = data.lines;
+                    const stats = data.statistics;
+                    
+                    let html = `
+                        <div class="success">✅ Detalles del proyecto cargados exitosamente</div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; color: #e5e7eb;">
+                            <div>
+                                <h4 style="color: #10b981;">📋 Información General</h4>
+                                <p><strong>ID:</strong> ${income.id}</p>
+                                <p><strong>Nombre:</strong> ${income.name}</p>
+                                <p><strong>Descripción:</strong> ${income.description || 'No especificada'}</p>
+                                <p><strong>Equipo:</strong> ${income.team_name || 'Sin asignar'}</p>
+                                <p><strong>Tipo:</strong> ${income.job_type_name || 'Sin definir'}</p>
+                                <p><strong>Estado:</strong> <span style="color: #f59e0b;">${income.status}</span></p>
+                                <p><strong>Fechas:</strong> ${income.start_date || 'N/A'} → ${income.end_date || 'N/A'}</p>
+                            </div>
+                            <div>
+                                <h4 style="color: #3b82f6;">💰 Información Financiera</h4>
+                                <p><strong>Monto Total:</strong> <span style="color: #10b981;">$${parseFloat(income.total_amount).toLocaleString()}</span></p>
+                                <p><strong>Total Pagado:</strong> <span style="color: #10b981;">$${stats.total_paid.toLocaleString()}</span></p>
+                                <p><strong>Por Cobrar:</strong> <span style="color: #f59e0b;">$${stats.remaining_amount.toLocaleString()}</span></p>
+                                <p><strong>Progreso de Pagos:</strong> <span style="color: #3b82f6;">${stats.payment_progress}%</span></p>
+                                <p><strong>Número de Pagos:</strong> ${stats.payments_count}</p>
+                                <p><strong>Líneas de Detalle:</strong> ${stats.lines_count}</p>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Mostrar pagos si existen
+                    if (payments && payments.length > 0) {
+                        html += `
+                            <h4 style="color: #10b981; margin-top: 30px;">💳 Historial de Pagos (${payments.length})</h4>
+                            <div style="color: #d1d5db;">
+                        `;
+                        payments.forEach((payment, index) => {
+                            html += `
+                                <div style="background: #374151; padding: 10px; margin: 5px 0; border-radius: 4px;">
+                                    <strong>Pago #${index + 1}:</strong> 
+                                    $${parseFloat(payment.amount).toLocaleString()} | 
+                                    ${payment.payment_date} | 
+                                    ${payment.payment_type_name || 'Tipo no especificado'} | 
+                                    ${payment.bank_account_name || 'Cuenta no especificada'}
+                                    ${payment.reference_number ? `| Ref: ${payment.reference_number}` : ''}
+                                    ${payment.notes ? `| Notas: ${payment.notes}` : ''}
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                    }
+                    
+                    // Mostrar líneas si existen
+                    if (lines && lines.length > 0) {
+                        html += `
+                            <h4 style="color: #3b82f6; margin-top: 30px;">📝 Líneas de Detalle (${lines.length})</h4>
+                            <div style="color: #d1d5db;">
+                        `;
+                        lines.forEach((line, index) => {
+                            html += `
+                                <div style="background: #374151; padding: 10px; margin: 5px 0; border-radius: 4px;">
+                                    <strong>Línea #${index + 1}:</strong> 
+                                    ${line.description} | 
+                                    Cantidad: ${parseFloat(line.quantity).toFixed(2)} | 
+                                    Precio unitario: $${parseFloat(line.unit_price).toLocaleString()} | 
+                                    Total: $${parseFloat(line.total_amount).toLocaleString()}
+                                </div>
+                            `;
+                        });
+                        html += '</div>';
+                    }
+                    
+                    output.innerHTML = html;
+                    
+                } else {
+                    output.innerHTML = `<div class="error">❌ Error: ${result.error}</div>`;
+                }
+            } catch (error) {
+                output.innerHTML = `<div class="error">❌ Error de conexión: ${error.message}</div>`;
+            }
+        }
+        
+        // Actualizar estadísticas
+        function updateStatistics(incomes) {
+            const totalProjects = incomes.length;
+            const totalIncome = incomes.reduce((sum, income) => sum + parseFloat(income.total_amount), 0);
+            const totalPaid = incomes.reduce((sum, income) => sum + parseFloat(income.total_paid), 0);
+            const totalPending = totalIncome - totalPaid;
+            
+            document.getElementById('totalProjects').textContent = totalProjects.toLocaleString();
+            document.getElementById('totalIncome').textContent = '$' + totalIncome.toLocaleString();
+            document.getElementById('totalPaid').textContent = '$' + totalPaid.toLocaleString();
+            document.getElementById('totalPending').textContent = '$' + totalPending.toLocaleString();
+        }
+        
+        // Limpiar datos
+        function clearData() {
+            document.getElementById('dataContainer').innerHTML = '🧹 Datos limpiados. Haz clic en "Cargar Lista de Proyectos" para recargar.';
+            document.getElementById('detailsOutput').innerHTML = '📝 Ingresa un ID de proyecto para ver información detallada...';
+            document.getElementById('incomeId').value = '';
+            
+            // Resetear estadísticas
+            document.getElementById('totalProjects').textContent = '-';
+            document.getElementById('totalIncome').textContent = '$-';
+            document.getElementById('totalPaid').textContent = '$-';
+            document.getElementById('totalPending').textContent = '$-';
+        }
+        
+        // Cargar datos iniciales al cargar la página
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 Panel de pruebas cargado. Iniciando carga de datos...');
+            loadIncomesTable();
+        });
+    </script>
+</body>
+</html> 
