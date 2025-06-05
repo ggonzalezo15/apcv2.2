@@ -172,11 +172,11 @@ $pageTitle = 'Gestión de Gastos';
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label" for="expenseDate">Fecha *</label>
-                            <input type="text" class="form-input" id="expenseDate" name="expenseDate" placeholder="Seleccionar fecha..." required readonly>
+                            <input type="text" class="form-input" id="expenseDate" name="expenseDate" placeholder="Seleccionar fecha..." required readonly onchange="validateMainField(this, 'date')" onblur="validateMainField(this, 'date')">
                         </div>
                         <div class="form-group">
                             <label class="form-label">Equipo *</label>
-                            <select id="team" class="form-input" required>
+                            <select id="team" class="form-input" required onchange="validateMainField(this, 'team')" onblur="validateMainField(this, 'team')">
                                 <option value="">Seleccionar equipo...</option>
                             </select>
                         </div>
@@ -184,13 +184,13 @@ $pageTitle = 'Gestión de Gastos';
                     <div class="form-row">
                         <div class="form-group">
                             <label class="form-label">Proveedor *</label>
-                            <select id="vendor" class="form-input" required>
+                            <select id="vendor" class="form-input" required onchange="validateMainField(this, 'vendor')" onblur="validateMainField(this, 'vendor')">
                                 <option value="">Seleccionar proveedor...</option>
                             </select>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Cuenta Bancaria *</label>
-                            <select id="bankAccount" class="form-input" required>
+                            <select id="bankAccount" class="form-input" required onchange="validateMainField(this, 'bankAccount')" onblur="validateMainField(this, 'bankAccount')">
                                 <option value="">Seleccionar cuenta...</option>
                             </select>
                         </div>
@@ -1816,6 +1816,28 @@ $pageTitle = 'Gestión de Gastos';
 .flatpickr-calendar {
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1001 !important; /* Asegurar que esté por encima del dropdown */
+}
+
+/* Evitar que el dropdown se cierre al interactuar con flatpickr */
+.filter-dropdown .flatpickr-calendar {
+    position: fixed !important;
+}
+
+.filter-dropdown .date-picker {
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 12px;
+    width: 100%;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.filter-dropdown .date-picker:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
 }
 
 /* Responsive para filtros */
@@ -1845,6 +1867,88 @@ $pageTitle = 'Gestión de Gastos';
     .filter-actions button {
         width: 100%;
     }
+}
+
+/* Estilos para validación de campos */
+.form-input.error {
+    border-color: var(--danger-color) !important;
+    background-color: #fef2f2;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1) !important;
+}
+
+.form-input.success {
+    border-color: #10b981;
+    background-color: #f0fdf4;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1);
+}
+
+.field-error-message {
+    color: var(--danger-color);
+    font-size: 12px;
+    font-weight: 500;
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    animation: slideIn 0.3s ease;
+}
+
+.field-error-message:before {
+    content: "⚠";
+    font-size: 14px;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Validación específica para líneas de gasto */
+.expense-line .form-input.error {
+    border-color: var(--danger-color);
+    background-color: #fef2f2;
+}
+
+.expense-line .form-input.success {
+    border-color: #10b981;
+    background-color: #f0fdf4;
+}
+
+/* Indicadores de campos obligatorios */
+.form-label::after {
+    content: "";
+}
+
+.form-label[for="expenseDate"]::after,
+.form-label:has(+ select#team)::after,
+.form-label:has(+ select#vendor)::after,
+.form-label:has(+ select#bankAccount)::after {
+    content: " *";
+    color: var(--danger-color);
+    font-weight: bold;
+}
+
+/* Mejorar apariencia de campos requeridos */
+.form-input:required {
+    border-left: 3px solid #e5e7eb;
+}
+
+.form-input:required:focus {
+    border-left-color: var(--primary-color);
+}
+
+.form-input.error:required {
+    border-left-color: var(--danger-color);
+}
+
+.form-input.success:required {
+    border-left-color: #10b981;
 }
 
 /* Filtros activos */

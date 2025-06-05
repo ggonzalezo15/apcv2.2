@@ -192,10 +192,18 @@ function createExpense() {
         $expenseId = generateUUID();
         $expenseNumber = generateExpenseNumber();
         
-        // Validar datos requeridos
-        if (empty($data['expense_date']) || empty($data['team_id']) || 
-            empty($data['vendor_id']) || empty($data['bank_account_id'])) {
-            throw new Exception('Faltan campos requeridos: fecha, equipo, proveedor y cuenta bancaria son obligatorios');
+        // Validar datos requeridos principales
+        if (empty($data['expense_date'])) {
+            throw new Exception('La fecha del gasto es obligatoria');
+        }
+        if (empty($data['team_id'])) {
+            throw new Exception('El equipo es obligatorio');
+        }
+        if (empty($data['vendor_id'])) {
+            throw new Exception('El proveedor es obligatorio');
+        }
+        if (empty($data['bank_account_id'])) {
+            throw new Exception('La cuenta bancaria es obligatoria');
         }
         
         // Procesar líneas de gastos
@@ -204,10 +212,53 @@ function createExpense() {
             throw new Exception('Debe agregar al menos una línea de gasto');
         }
         
-        // Validar que todas las líneas tengan tipo de gasto
+        // Validar cada línea de gasto
         foreach ($lines as $index => $line) {
+            $lineNumber = $index + 1;
+            
+            // Validar descripción
+            if (empty($line['description']) || trim($line['description']) === '') {
+                throw new Exception("La línea {$lineNumber} debe tener una descripción");
+            }
+            
+            // Validar tipo de gasto
             if (empty($line['expense_type_id'])) {
-                throw new Exception("La línea " . ($index + 1) . " debe tener un tipo de gasto seleccionado");
+                throw new Exception("La línea {$lineNumber} debe tener un tipo de gasto seleccionado");
+            }
+            
+            // Validar importe
+            $amount = floatval($line['amount'] ?? 0);
+            if ($amount < 0.01) {
+                throw new Exception("El importe de la línea {$lineNumber} debe ser mayor a $0.01");
+            }
+        }
+        
+        // Validar que las entidades relacionadas existan en la base de datos
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM teams WHERE id = ?");
+        $stmt->execute([$data['team_id']]);
+        if ($stmt->fetchColumn() == 0) {
+            throw new Exception('El equipo seleccionado no existe');
+        }
+        
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM vendors WHERE id = ?");
+        $stmt->execute([$data['vendor_id']]);
+        if ($stmt->fetchColumn() == 0) {
+            throw new Exception('El proveedor seleccionado no existe');
+        }
+        
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM bank_accounts WHERE id = ?");
+        $stmt->execute([$data['bank_account_id']]);
+        if ($stmt->fetchColumn() == 0) {
+            throw new Exception('La cuenta bancaria seleccionada no existe');
+        }
+        
+        // Validar que los tipos de gasto existan
+        foreach ($lines as $index => $line) {
+            $lineNumber = $index + 1;
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM expense_types WHERE id = ?");
+            $stmt->execute([$line['expense_type_id']]);
+            if ($stmt->fetchColumn() == 0) {
+                throw new Exception("El tipo de gasto seleccionado en la línea {$lineNumber} no existe");
             }
         }
         
@@ -278,10 +329,18 @@ function updateExpense($id) {
         // Obtener datos del formulario
         $data = $_POST;
         
-        // Validar datos requeridos
-        if (empty($data['expense_date']) || empty($data['team_id']) || 
-            empty($data['vendor_id']) || empty($data['bank_account_id'])) {
-            throw new Exception('Faltan campos requeridos: fecha, equipo, proveedor y cuenta bancaria son obligatorios');
+        // Validar datos requeridos principales
+        if (empty($data['expense_date'])) {
+            throw new Exception('La fecha del gasto es obligatoria');
+        }
+        if (empty($data['team_id'])) {
+            throw new Exception('El equipo es obligatorio');
+        }
+        if (empty($data['vendor_id'])) {
+            throw new Exception('El proveedor es obligatorio');
+        }
+        if (empty($data['bank_account_id'])) {
+            throw new Exception('La cuenta bancaria es obligatoria');
         }
         
         // Validar que el gasto existe
@@ -299,10 +358,53 @@ function updateExpense($id) {
             throw new Exception('Debe agregar al menos una línea de gasto');
         }
         
-        // Validar que todas las líneas tengan tipo de gasto
+        // Validar cada línea de gasto
         foreach ($lines as $index => $line) {
+            $lineNumber = $index + 1;
+            
+            // Validar descripción
+            if (empty($line['description']) || trim($line['description']) === '') {
+                throw new Exception("La línea {$lineNumber} debe tener una descripción");
+            }
+            
+            // Validar tipo de gasto
             if (empty($line['expense_type_id'])) {
-                throw new Exception("La línea " . ($index + 1) . " debe tener un tipo de gasto seleccionado");
+                throw new Exception("La línea {$lineNumber} debe tener un tipo de gasto seleccionado");
+            }
+            
+            // Validar importe
+            $amount = floatval($line['amount'] ?? 0);
+            if ($amount < 0.01) {
+                throw new Exception("El importe de la línea {$lineNumber} debe ser mayor a $0.01");
+            }
+        }
+        
+        // Validar que las entidades relacionadas existan en la base de datos
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM teams WHERE id = ?");
+        $stmt->execute([$data['team_id']]);
+        if ($stmt->fetchColumn() == 0) {
+            throw new Exception('El equipo seleccionado no existe');
+        }
+        
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM vendors WHERE id = ?");
+        $stmt->execute([$data['vendor_id']]);
+        if ($stmt->fetchColumn() == 0) {
+            throw new Exception('El proveedor seleccionado no existe');
+        }
+        
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM bank_accounts WHERE id = ?");
+        $stmt->execute([$data['bank_account_id']]);
+        if ($stmt->fetchColumn() == 0) {
+            throw new Exception('La cuenta bancaria seleccionada no existe');
+        }
+        
+        // Validar que los tipos de gasto existan
+        foreach ($lines as $index => $line) {
+            $lineNumber = $index + 1;
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM expense_types WHERE id = ?");
+            $stmt->execute([$line['expense_type_id']]);
+            if ($stmt->fetchColumn() == 0) {
+                throw new Exception("El tipo de gasto seleccionado en la línea {$lineNumber} no existe");
             }
         }
         

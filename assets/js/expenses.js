@@ -42,6 +42,7 @@ document.addEventListener('DOMContentLoaded', function() {
     loadExpenses();
     setupEventListeners();
     initializeFlatpickr();
+    updateActiveFiltersDisplay(); // Mostrar filtros activos al cargar
     
     // Configurar ordenamiento después de un delay para asegurar que el DOM esté listo
     setTimeout(() => {
@@ -63,25 +64,53 @@ function initializeFlatpickr() {
         clickOpens: true
     });
     
-    // Date pickers para filtros
-    flatpickr("#dateFromFilter", {
+    // Date pickers para filtros con variables globales
+    window.dateFromPicker = flatpickr("#dateFromFilter", {
         dateFormat: "Y-m-d",
         locale: "es",
-        allowInput: false,
+        allowInput: true,
         clickOpens: true,
+        static: true,
         onChange: function(selectedDates, dateStr) {
+            tempFilters.dateFrom = dateStr;
+            
+            // Actualizar el mínimo del date picker "hasta"
+            if (dateStr && window.dateToPicker) {
+                window.dateToPicker.set('minDate', dateStr);
+                
+                // Si la fecha "hasta" es anterior a la nueva fecha "desde", limpiarla
+                if (tempFilters.dateTo && tempFilters.dateTo < dateStr) {
+                    window.dateToPicker.clear();
+                    tempFilters.dateTo = '';
+                }
+            }
+        },
+        onClose: function(selectedDates, dateStr) {
             tempFilters.dateFrom = dateStr;
         }
     });
     
-    flatpickr("#dateToFilter", {
+    window.dateToPicker = flatpickr("#dateToFilter", {
         dateFormat: "Y-m-d", 
         locale: "es",
-        allowInput: false,
+        allowInput: true,
         clickOpens: true,
+        static: true,
         onChange: function(selectedDates, dateStr) {
             tempFilters.dateTo = dateStr;
+        },
+        onClose: function(selectedDates, dateStr) {
+            tempFilters.dateTo = dateStr;
         }
+    });
+    
+    // Agregar event listeners adicionales como backup
+    document.getElementById('dateFromFilter').addEventListener('change', function() {
+        tempFilters.dateFrom = this.value;
+    });
+    
+    document.getElementById('dateToFilter').addEventListener('change', function() {
+        tempFilters.dateTo = this.value;
     });
 }
 
@@ -201,7 +230,14 @@ function setupEventListeners() {
     // Cerrar dropdown de filtros al hacer click fuera
     document.addEventListener('click', function(e) {
         const dropdown = document.getElementById('filterDropdown');
-        if (!e.target.closest('.filter-dropdown-container') && dropdown && dropdown.classList.contains('show')) {
+        const filterContainer = e.target.closest('.filter-dropdown-container');
+        const flatpickrCalendar = e.target.closest('.flatpickr-calendar');
+        const flatpickrInput = e.target.closest('.flatpickr-input');
+        const flatpickrElement = e.target.closest('.flatpickr-wrapper');
+        const datePickerInput = e.target.classList.contains('date-picker') || e.target.closest('.date-picker');
+        
+        // No cerrar si se hace clic dentro del dropdown, en elementos de flatpickr
+        if (!filterContainer && !flatpickrCalendar && !flatpickrInput && !flatpickrElement && !datePickerInput && dropdown && dropdown.classList.contains('show')) {
             dropdown.classList.remove('show');
             revertTempFilters();
         }
@@ -389,6 +425,8 @@ function loadExpenses(page = 1) {
     if (currentFilters.dateFrom) url += `&dateFrom=${encodeURIComponent(currentFilters.dateFrom)}`;
     if (currentFilters.dateTo) url += `&dateTo=${encodeURIComponent(currentFilters.dateTo)}`;
     
+
+    
     fetch(url)
         .then(res => res.json())
         .then(data => {
@@ -543,11 +581,11 @@ function addExpenseLine() {
     
     const lineHtml = `
         <div class="expense-line" data-line-id="${lineId}">
-            <input type="text" class="form-input line-description" placeholder="Descripción del gasto..." required>
-            <select class="form-input line-expense-type" required>
+            <input type="text" class="form-input line-description" placeholder="Descripción del gasto..." required onblur="validateLineField(this, 'description')">
+            <select class="form-input line-expense-type" required onchange="validateLineField(this, 'expense_type')">
                 ${expenseTypeOptions}
             </select>
-            <input type="number" class="form-input line-amount" min="0.01" step="0.01" placeholder="0.00" required onchange="calculateTotal()">
+            <input type="number" class="form-input line-amount" min="0.01" step="0.01" placeholder="0.00" required onchange="calculateTotal(); validateLineField(this, 'amount')" onblur="validateLineField(this, 'amount')">
             <label class="deducible-switch">
                 <input type="checkbox" class="line-deducible">
                 <span class="switch-slider"></span>
@@ -577,6 +615,171 @@ function calculateTotal() {
         total += amount;
     });
     document.getElementById('totalAmount').textContent = `$${total.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+}
+
+// Función para validar campos de línea en tiempo real
+function validateLineField(element, fieldType) {
+    const line = element.closest('.expense-line');
+    let isValid = true;
+    let errorMessage = '';
+    
+    // Remover clases de error previas
+    element.classList.remove('error', 'success');
+    
+    switch (fieldType) {
+        case 'description':
+            const description = element.value.trim();
+            if (!description) {
+                isValid = false;
+                errorMessage = 'La descripción es obligatoria';
+            }
+            break;
+            
+        case 'expense_type':
+            if (!element.value) {
+                isValid = false;
+                errorMessage = 'Seleccione un tipo de gasto';
+            }
+            break;
+            
+        case 'amount':
+            const amount = parseFloat(element.value);
+            if (isNaN(amount) || amount < 0.01) {
+                isValid = false;
+                errorMessage = 'El importe debe ser mayor a $0.01';
+            }
+            break;
+    }
+    
+    // Aplicar estilos según validación
+    if (isValid) {
+        element.classList.add('success');
+        // Remover mensaje de error si existe
+        const existingError = line.querySelector('.field-error-message');
+        if (existingError) {
+            existingError.remove();
+        }
+    } else {
+        element.classList.add('error');
+        // Mostrar mensaje de error
+        showFieldError(element, errorMessage);
+    }
+    
+    return isValid;
+}
+
+// Función para mostrar mensaje de error en campo específico
+function showFieldError(element, message) {
+    // Remover mensaje de error anterior si existe
+    const existingError = element.parentNode.querySelector('.field-error-message');
+    if (existingError) {
+        existingError.remove();
+    }
+    
+    // Crear nuevo mensaje de error
+    const errorDiv = document.createElement('div');
+    errorDiv.className = 'field-error-message';
+    errorDiv.textContent = message;
+    
+    // Insertar después del elemento
+    element.parentNode.insertBefore(errorDiv, element.nextSibling);
+    
+    // Remover automáticamente después de 3 segundos
+    setTimeout(() => {
+        if (errorDiv.parentNode) {
+            errorDiv.remove();
+        }
+    }, 3000);
+}
+
+// Función para validar campos principales del formulario
+function validateMainField(element, fieldType) {
+    let isValid = true;
+    let errorMessage = '';
+    
+    // Remover clases de error previas
+    element.classList.remove('error', 'success');
+    
+    switch (fieldType) {
+        case 'date':
+            if (!element.value) {
+                isValid = false;
+                errorMessage = 'La fecha es obligatoria';
+            }
+            break;
+            
+        case 'team':
+            if (!element.value) {
+                isValid = false;
+                errorMessage = 'Seleccione un equipo';
+            }
+            break;
+            
+        case 'vendor':
+            if (!element.value) {
+                isValid = false;
+                errorMessage = 'Seleccione un proveedor';
+            }
+            break;
+            
+        case 'bankAccount':
+            if (!element.value) {
+                isValid = false;
+                errorMessage = 'Seleccione una cuenta bancaria';
+            }
+            break;
+    }
+    
+    // Aplicar estilos según validación
+    if (isValid) {
+        element.classList.add('success');
+        // Remover mensaje de error si existe
+        const existingError = element.parentNode.querySelector('.field-error-message');
+        if (existingError) {
+            existingError.remove();
+        }
+    } else {
+        element.classList.add('error');
+        // Mostrar mensaje de error
+        showFieldError(element, errorMessage);
+    }
+    
+    return isValid;
+}
+
+// Función para validar todos los campos del formulario
+function validateAllFields() {
+    let allValid = true;
+    
+    // Validar campos principales
+    const dateField = document.getElementById('expenseDate');
+    const teamField = document.getElementById('team');
+    const vendorField = document.getElementById('vendor');
+    const bankAccountField = document.getElementById('bankAccount');
+    
+    if (!validateMainField(dateField, 'date')) allValid = false;
+    if (!validateMainField(teamField, 'team')) allValid = false;
+    if (!validateMainField(vendorField, 'vendor')) allValid = false;
+    if (!validateMainField(bankAccountField, 'bankAccount')) allValid = false;
+    
+    // Validar líneas de gasto
+    const expenseLines = document.querySelectorAll('.expense-line');
+    if (expenseLines.length === 0) {
+        showToast('Debe agregar al menos una línea de gasto', 'error');
+        allValid = false;
+    } else {
+        expenseLines.forEach((line, index) => {
+            const description = line.querySelector('.line-description');
+            const expenseType = line.querySelector('.line-expense-type');
+            const amount = line.querySelector('.line-amount');
+            
+            if (!validateLineField(description, 'description')) allValid = false;
+            if (!validateLineField(expenseType, 'expense_type')) allValid = false;
+            if (!validateLineField(amount, 'amount')) allValid = false;
+        });
+    }
+    
+    return allValid;
 }
 
 // --- Manejo de archivos adjuntos ---
@@ -687,6 +890,12 @@ function removeExistingAttachment(attachmentId) {
 function handleExpenseSubmit(e) {
     e.preventDefault();
     
+    // Hacer una validación final de todos los campos antes de enviar
+    if (!validateAllFields()) {
+        showToast('Por favor, corrija los errores en el formulario antes de continuar', 'error');
+        return;
+    }
+    
     const formData = collectFormData();
     if (!validateFormData(formData)) return;
     
@@ -774,6 +983,7 @@ function collectFormData() {
 }
 
 function validateFormData(data) {
+    // Validar campos obligatorios principales
     if (!data.team_id) {
         showToast('Seleccione un equipo', 'error');
         return false;
@@ -790,16 +1000,34 @@ function validateFormData(data) {
         showToast('Ingrese la fecha del gasto', 'error');
         return false;
     }
+    
+    // Validar que haya al menos una línea de gasto
     if (!data.lines || data.lines.length === 0) {
         showToast('Agregue al menos una línea de gasto', 'error');
         return false;
     }
     
-    // Validar que todas las líneas tengan tipo de gasto
+    // Validar cada línea de gasto
     for (let i = 0; i < data.lines.length; i++) {
         const line = data.lines[i];
+        const lineNumber = i + 1;
+        
+        // Validar descripción (obligatoria)
+        if (!line.description || line.description.trim() === '') {
+            showToast(`La línea ${lineNumber} debe tener una descripción`, 'error');
+            return false;
+        }
+        
+        // Validar tipo de gasto (obligatorio)
         if (!line.expense_type_id) {
-            showToast(`Seleccione el tipo de gasto para la línea ${i + 1}`, 'error');
+            showToast(`Seleccione el tipo de gasto para la línea ${lineNumber}`, 'error');
+            return false;
+        }
+        
+        // Validar importe (obligatorio y mínimo 0.01)
+        const amount = parseFloat(line.amount);
+        if (isNaN(amount) || amount < 0.01) {
+            showToast(`El importe de la línea ${lineNumber} debe ser mayor a $0.01`, 'error');
             return false;
         }
     }
@@ -1035,11 +1263,11 @@ function populateLines(lines) {
             
             const lineHtml = `
                 <div class="expense-line" data-line-id="${lineId}">
-                    <input type="text" class="form-input line-description" value="${escapeHtml(line.description || '')}" placeholder="Descripción del gasto..." required>
-                    <select class="form-input line-expense-type" required>
+                    <input type="text" class="form-input line-description" value="${escapeHtml(line.description || '')}" placeholder="Descripción del gasto..." required onblur="validateLineField(this, 'description')">
+                    <select class="form-input line-expense-type" required onchange="validateLineField(this, 'expense_type')">
                         ${expenseTypeOptions}
                     </select>
-                    <input type="number" class="form-input line-amount" value="${line.amount || 0}" min="0.01" step="0.01" placeholder="0.00" required onchange="calculateTotal()">
+                    <input type="number" class="form-input line-amount" value="${line.amount || 0}" min="0.01" step="0.01" placeholder="0.00" required onchange="calculateTotal(); validateLineField(this, 'amount')" onblur="validateLineField(this, 'amount')">
                     <label class="deducible-switch">
                         <input type="checkbox" class="line-deducible" ${deducibleChecked}>
                         <span class="switch-slider"></span>
@@ -1106,8 +1334,22 @@ function deleteExpenseConfirmed() {
 // --- Utilidades ---
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
+    
+    // Usar split para evitar problemas de zona horaria
+    const parts = dateString.split('-');
+    if (parts.length === 3) {
+        const year = parts[0];
+        const month = parts[1];
+        const day = parts[2];
+        return `${day}/${month}/${year}`;
+    }
+    
+    // Fallback al método original si el formato no es YYYY-MM-DD
     const date = new Date(dateString);
-    return date.toLocaleDateString('es-MX');
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
 }
 
 function escapeHtml(text) {
@@ -1236,18 +1478,25 @@ function syncTempFilters() {
     document.getElementById('teamFilter').value = tempFilters.team;
     document.getElementById('vendorFilter').value = tempFilters.vendor;
     
-    // Actualizar date pickers
-    if (tempFilters.dateFrom) {
-        flatpickr("#dateFromFilter").setDate(tempFilters.dateFrom, false);
-    } else {
-        flatpickr("#dateFromFilter").clear();
-    }
-    
-    if (tempFilters.dateTo) {
-        flatpickr("#dateToFilter").setDate(tempFilters.dateTo, false);
-    } else {
-        flatpickr("#dateToFilter").clear();
-    }
+    // Actualizar date pickers con timeout para asegurar que se inicialicen correctamente
+    setTimeout(() => {
+        if (tempFilters.dateFrom) {
+            window.dateFromPicker.setDate(tempFilters.dateFrom, false);
+        } else {
+            window.dateFromPicker.clear();
+        }
+        
+        if (tempFilters.dateTo) {
+            window.dateToPicker.setDate(tempFilters.dateTo, false);
+        } else {
+            window.dateToPicker.clear();
+        }
+        
+        // Configurar restricciones si hay fecha desde
+        if (tempFilters.dateFrom && window.dateToPicker) {
+            window.dateToPicker.set('minDate', tempFilters.dateFrom);
+        }
+    }, 100);
 }
 
 function revertTempFilters() {
@@ -1263,15 +1512,22 @@ function revertTempFilters() {
     
     // Actualizar date pickers
     if (currentFilters.dateFrom) {
-        flatpickr("#dateFromFilter").setDate(currentFilters.dateFrom, false);
+        window.dateFromPicker.setDate(currentFilters.dateFrom, false);
     } else {
-        flatpickr("#dateFromFilter").clear();
+        window.dateFromPicker.clear();
     }
     
     if (currentFilters.dateTo) {
-        flatpickr("#dateToFilter").setDate(currentFilters.dateTo, false);
+        window.dateToPicker.setDate(currentFilters.dateTo, false);
     } else {
-        flatpickr("#dateToFilter").clear();
+        window.dateToPicker.clear();
+    }
+    
+    // Configurar restricciones si hay fecha desde
+    if (currentFilters.dateFrom && window.dateToPicker) {
+        window.dateToPicker.set('minDate', currentFilters.dateFrom);
+    } else if (window.dateToPicker) {
+        window.dateToPicker.set('minDate', null);
     }
 }
 
@@ -1291,14 +1547,29 @@ function updateActiveFiltersDisplay() {
         filtersData.push({ type: 'vendor', label: `Proveedor: ${vendorName}`, value: currentFilters.vendor });
     }
     
-    if (currentFilters.dateFrom) {
-        count++;
-        filtersData.push({ type: 'dateFrom', label: `Desde: ${currentFilters.dateFrom}`, value: currentFilters.dateFrom });
-    }
-    
-    if (currentFilters.dateTo) {
-        count++;
-        filtersData.push({ type: 'dateTo', label: `Hasta: ${currentFilters.dateTo}`, value: currentFilters.dateTo });
+    // Si hay ambas fechas, crear un solo botón de rango
+    if (currentFilters.dateFrom && currentFilters.dateTo) {
+        count++; // Contar como un solo filtro
+        const formattedDateFrom = formatDate(currentFilters.dateFrom);
+        const formattedDateTo = formatDate(currentFilters.dateTo);
+        filtersData.push({ 
+            type: 'dateRange', 
+            label: ` ${formattedDateFrom} → ${formattedDateTo}`, 
+            value: `${currentFilters.dateFrom}|${currentFilters.dateTo}` 
+        });
+    } else {
+        // Si solo hay una fecha, mostrar botones individuales
+        if (currentFilters.dateFrom) {
+            count++;
+            const formattedDateFrom = formatDate(currentFilters.dateFrom);
+            filtersData.push({ type: 'dateFrom', label: ` Desde: ${formattedDateFrom}`, value: currentFilters.dateFrom });
+        }
+        
+        if (currentFilters.dateTo) {
+            count++;
+            const formattedDateTo = formatDate(currentFilters.dateTo);
+            filtersData.push({ type: 'dateTo', label: ` Hasta: ${formattedDateTo}`, value: currentFilters.dateTo });
+        }
     }
     
     // Actualizar contador
@@ -1329,39 +1600,80 @@ function updateActiveFiltersDisplay() {
 }
 
 function removeFilter(filterType) {
+    let messageText = '';
+    
     switch(filterType) {
         case 'team':
             currentFilters.team = '';
             tempFilters.team = '';
             document.getElementById('teamFilter').value = '';
+            messageText = 'Filtro de equipo eliminado';
             break;
         case 'vendor':
             currentFilters.vendor = '';
             tempFilters.vendor = '';
             document.getElementById('vendorFilter').value = '';
+            messageText = 'Filtro de proveedor eliminado';
             break;
         case 'dateFrom':
             currentFilters.dateFrom = '';
             tempFilters.dateFrom = '';
-            flatpickr("#dateFromFilter").clear();
+            window.dateFromPicker.clear();
+            // Quitar restricción de fecha mínima del picker "hasta"
+            if (window.dateToPicker) {
+                window.dateToPicker.set('minDate', null);
+            }
+            messageText = 'Fecha "desde" eliminada';
             break;
         case 'dateTo':
             currentFilters.dateTo = '';
             tempFilters.dateTo = '';
-            flatpickr("#dateToFilter").clear();
+            window.dateToPicker.clear();
+            messageText = 'Fecha "hasta" eliminada';
+            break;
+        case 'dateRange':
+            // Eliminar ambas fechas cuando se elimina el rango
+            currentFilters.dateFrom = '';
+            currentFilters.dateTo = '';
+            tempFilters.dateFrom = '';
+            tempFilters.dateTo = '';
+            window.dateFromPicker.clear();
+            window.dateToPicker.clear();
+            // Quitar restricción de fecha mínima
+            if (window.dateToPicker) {
+                window.dateToPicker.set('minDate', null);
+            }
+            messageText = 'Rango de fechas eliminado';
             break;
     }
     
     updateActiveFiltersDisplay();
     loadExpenses(1);
+    
+    if (messageText) {
+        showToast(messageText, 'info');
+    }
 }
 
 function applyFilters() {
+    // Validar fechas antes de aplicar
+    if (tempFilters.dateFrom && tempFilters.dateTo) {
+        const dateFrom = new Date(tempFilters.dateFrom);
+        const dateTo = new Date(tempFilters.dateTo);
+        
+        if (dateFrom > dateTo) {
+            showToast('La fecha "desde" no puede ser mayor que la fecha "hasta"', 'error');
+            return;
+        }
+    }
+    
     // Aplicar filtros temporales a los filtros actuales
     currentFilters.team = tempFilters.team;
     currentFilters.vendor = tempFilters.vendor;
     currentFilters.dateFrom = tempFilters.dateFrom;
     currentFilters.dateTo = tempFilters.dateTo;
+    
+
     
     // Actualizar display de filtros activos
     updateActiveFiltersDisplay();
@@ -1372,6 +1684,7 @@ function applyFilters() {
     // Cerrar dropdown
     document.getElementById('filterDropdown').classList.remove('show');
 }
+
 
 function clearAllFilters() {
     // Limpiar filtros actuales
@@ -1396,9 +1709,22 @@ function clearAllFilters() {
     document.getElementById('teamFilter').value = '';
     document.getElementById('vendorFilter').value = '';
     
-    // Limpiar date pickers
-    flatpickr("#dateFromFilter").clear();
-    flatpickr("#dateToFilter").clear();
+    // Limpiar y establecer fecha actual en date pickers
+    const today = new Date().toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    
+    window.dateFromPicker.clear();
+    window.dateToPicker.clear();
+    
+    // Quitar todas las restricciones de fecha
+    if (window.dateToPicker) {
+        window.dateToPicker.set('minDate', null);
+    }
+    
+    // Establecer fecha actual como sugerencia
+    setTimeout(() => {
+        window.dateFromPicker.setDate(today, false);
+        window.dateToPicker.setDate(today, false);
+    }, 100);
     
     updateActiveFiltersDisplay();
     loadExpenses(1);
