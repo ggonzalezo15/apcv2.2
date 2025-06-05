@@ -33,7 +33,11 @@ $pageTitle = 'Gestión de Contratistas';
                         autocomplete="off"
                     >
                 </div>
-                <div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-success" onclick="openModal('paymentModal')">
+                        <i class="fas fa-money-bill-wave"></i>
+                        Registrar Pago
+                    </button>
                     <button type="button" class="btn btn-primary" onclick="openModal('contractorModal')">
                         <i class="fas fa-plus"></i>
                         Nuevo Contratista
@@ -152,6 +156,68 @@ $pageTitle = 'Gestión de Contratistas';
             <button type="button" class="btn" onclick="closeModal('confirmDeleteModal')">Cancelar</button>
             <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Eliminar</button>
         </div>
+    </div>
+</div>
+
+<!-- Modal para registro de pago -->
+<div class="modal" id="paymentModal">
+    <div class="modal-overlay" onclick="closeModal('paymentModal')"></div>
+    <div class="modal-content" style="max-width: 600px;">
+        <div class="modal-header">
+            <h2 id="paymentModalTitle">Registrar Pago a Contratista</h2>
+            <button type="button" class="modal-close" onclick="closeModal('paymentModal')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="paymentForm">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label class="form-label" for="paymentContractorId">Contratista *</label>
+                    <select class="form-input" id="paymentContractorId" name="contractorId" required>
+                        <option value="">Seleccionar contratista...</option>
+                        <!-- Se llena dinámicamente -->
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="paymentBankAccountId">Cuenta Bancaria *</label>
+                    <select class="form-input" id="paymentBankAccountId" name="bankAccountId" required>
+                        <option value="">Seleccionar cuenta...</option>
+                        <!-- Se llena dinámicamente -->
+                    </select>
+                    <small class="form-help">Solo se muestran cuentas bancarias (no crédito)</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="paymentAmount">Monto *</label>
+                    <input type="number" class="form-input" id="paymentAmount" name="amount" step="0.01" min="0.01" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="paymentDate">Fecha de Pago *</label>
+                    <input type="date" class="form-input" id="paymentDate" name="paymentDate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="paymentReferenceNumber">Número de Referencia</label>
+                    <input type="text" class="form-input" id="paymentReferenceNumber" name="referenceNumber" placeholder="Ej: TRF001, CHQ1234">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label" for="paymentNotes">Notas</label>
+                    <textarea class="form-input" id="paymentNotes" name="notes" rows="3" placeholder="Notas adicionales sobre el pago..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn" onclick="closeModal('paymentModal')" style="background-color: var(--secondary-color); color: white;">
+                    Cancelar
+                </button>
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-save"></i>
+                    Registrar Pago
+                </button>
+            </div>
+        </form>
     </div>
 </div>
 

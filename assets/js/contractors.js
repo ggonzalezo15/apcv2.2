@@ -1,11 +1,18 @@
 // --- Configuración ---
 const API_URL = 'api/contractor/ContractorController.php';
+const API_PAYMENT_URL = 'api/contractor/ContractorPaymentController.php';
 let editingContractorId = null;
 let sortField = 'created_at';
 let sortDir = 'desc';
 
 // --- Cargar contratistas al iniciar ---
-document.addEventListener('DOMContentLoaded', loadContractors);
+document.addEventListener('DOMContentLoaded', function() {
+    loadContractors();
+    loadContractorsForPayment();
+    loadBankAccountsForPayment();
+    // Establecer fecha actual por defecto
+    document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
+});
 
 // --- Paginación ---
 let currentPage = 1;
@@ -86,6 +93,9 @@ function renderContractorsTable(contractors) {
             <td>${contractor.address || ''}</td>
             <td style="vertical-align: middle; text-align: center;">
                 <div style="display: flex; gap: 4px; justify-content: center; align-items: center;">
+                    <button type="button" class="btn-icon" onclick="viewContractor('${contractor.id}')" title="Ver detalles">
+                        <i class="fas fa-eye"></i>
+                    </button>
                     <button type="button" class="btn-icon" onclick="editContractor('${contractor.id}')" title="Editar">
                         <i class="fas fa-edit"></i>
                     </button>
@@ -129,6 +139,10 @@ function closeModal(modalId) {
         document.getElementById('contractorForm').reset();
         document.getElementById('modalTitle').textContent = 'Nuevo Contratista';
         editingContractorId = null;
+    } else if (modalId === 'paymentModal') {
+        document.getElementById('paymentForm').reset();
+        // Restablecer fecha actual
+        document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
     }
 }
 
@@ -156,6 +170,10 @@ function showToast(message, type = 'success') {
     }
     toast.style.display = 'flex';
     setTimeout(() => { toast.style.display = 'none'; }, 3200);
+}
+
+function viewContractor(id) {
+    window.location.href = `contractor_details.php?id=${id}`;
 }
 
 function editContractor(id) {
@@ -301,4 +319,79 @@ document.addEventListener('keydown', function(e) {
             }
         });
     }
+});
+
+// --- Funciones para manejo de pagos ---
+
+function loadContractorsForPayment() {
+    fetch(`${API_URL}?action=getAllContractors`)
+        .then(res => res.json())
+        .then(data => {
+            const contractors = data.data || data;
+            const select = document.getElementById('paymentContractorId');
+            select.innerHTML = '<option value="">Seleccionar contratista...</option>';
+            contractors.forEach(contractor => {
+                const option = document.createElement('option');
+                option.value = contractor.id;
+                option.textContent = contractor.name;
+                select.appendChild(option);
+            });
+        })
+        .catch(err => {
+            console.error('Error cargando contratistas para pago:', err);
+        });
+}
+
+function loadBankAccountsForPayment() {
+    fetch(`${API_PAYMENT_URL}?action=getBankAccountsForPayments`)
+        .then(res => res.json())
+        .then(accounts => {
+            const select = document.getElementById('paymentBankAccountId');
+            select.innerHTML = '<option value="">Seleccionar cuenta...</option>';
+            accounts.forEach(account => {
+                const option = document.createElement('option');
+                option.value = account.id;
+                option.textContent = `${account.name} (${account.bank_name}) - $${parseFloat(account.balance).toFixed(2)}`;
+                select.appendChild(option);
+            });
+        })
+        .catch(err => {
+            console.error('Error cargando cuentas bancarias:', err);
+        });
+}
+
+// Event listener para el formulario de pagos
+document.getElementById('paymentForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const data = {
+        contractor_id: document.getElementById('paymentContractorId').value,
+        bank_account_id: document.getElementById('paymentBankAccountId').value,
+        amount: document.getElementById('paymentAmount').value,
+        payment_date: document.getElementById('paymentDate').value,
+        reference_number: document.getElementById('paymentReferenceNumber').value,
+        notes: document.getElementById('paymentNotes').value,
+        created_by: 'current_user' // Aquí podrías obtener el usuario actual
+    };
+    
+    fetch(`${API_PAYMENT_URL}?action=createContractorPayment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+    })
+    .then(res => res.json())
+    .then(result => {
+        closeModal('paymentModal');
+        if (result.success) {
+            showToast(result.message, 'success');
+            // Actualizar balances si es necesario
+            loadBankAccountsForPayment();
+        } else {
+            showToast(result.error || 'Error al registrar el pago', 'error');
+        }
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        showToast('Error de conexión', 'error');
+    });
 });
