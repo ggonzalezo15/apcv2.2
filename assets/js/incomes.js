@@ -773,9 +773,47 @@ function showLoading(show) {
 }
 
 function showNotification(message, type = 'info') {
-    // Implementar sistema de notificaciones
+    // Crear el toast
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    
+    // Iconos según el tipo
+    const icons = {
+        success: 'fas fa-check-circle',
+        error: 'fas fa-exclamation-circle',
+        warning: 'fas fa-exclamation-triangle',
+        info: 'fas fa-info-circle'
+    };
+    
+    toast.innerHTML = `
+        <div class="toast-content">
+            <i class="${icons[type] || icons.info}"></i>
+            <span class="toast-message">${message}</span>
+        </div>
+        <button class="toast-close" onclick="this.parentElement.remove()">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    
+    // Agregar al container de toasts
+    let toastContainer = document.getElementById('toast-container');
+    if (!toastContainer) {
+        toastContainer = document.createElement('div');
+        toastContainer.id = 'toast-container';
+        toastContainer.className = 'toast-container';
+        document.body.appendChild(toastContainer);
+    }
+    
+    toastContainer.appendChild(toast);
+    
+    // Auto-hide después de 5 segundos
+    setTimeout(() => {
+        if (toast.parentElement) {
+            toast.remove();
+        }
+    }, 5000);
+    
     console.log(`${type.toUpperCase()}: ${message}`);
-    alert(message); // Temporal
 }
 
 // Funciones de modal (deben existir globalmente)
@@ -827,9 +865,40 @@ function viewIncome(id) {
     // Implementar vista de ingreso
 }
 
-function deleteIncome(id) {
-    if (confirm('¿Está seguro de que desea eliminar este ingreso?')) {
-        console.log('Eliminar ingreso:', id);
-        // Implementar eliminación
+async function deleteIncome(id) {
+    if (!id) {
+        showNotification('ID del ingreso requerida', 'error');
+        return;
+    }
+    
+    if (confirm('¿Está seguro de que desea eliminar este ingreso? Esta acción no se puede deshacer.')) {
+        try {
+            showLoading(true);
+            
+            const response = await fetch('api/income/IncomesController.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'deleteIncome',
+                    id: id
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                showNotification('Ingreso eliminado exitosamente', 'success');
+                loadIncomes(); // Recargar la tabla
+            } else {
+                throw new Error(result.error || 'Error eliminando el ingreso');
+            }
+        } catch (error) {
+            console.error('❌ Error eliminando ingreso:', error);
+            showNotification('Error eliminando el ingreso: ' + error.message, 'error');
+        } finally {
+            showLoading(false);
+        }
     }
 } 

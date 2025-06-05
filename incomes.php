@@ -1116,39 +1116,105 @@ $pageTitle = 'Gestión de Ingresos';
 
 <!-- Estilos para Toast notifications -->
 <style>
-.toast {
+.toast-container {
     position: fixed;
     top: 20px;
     right: 20px;
-    padding: 12px 20px;
-    border-radius: 6px;
+    z-index: 10000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.toast {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-width: 300px;
+    max-width: 400px;
+    padding: 12px 16px;
+    border-radius: 8px;
     color: white;
     font-weight: 500;
     opacity: 0;
     transform: translateX(100%);
     transition: all 0.3s ease;
-    z-index: 10000;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    animation: slideInToast 0.3s ease forwards;
 }
 
-.toast.show {
+@keyframes slideInToast {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.toast-content {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.toast-content i {
+    font-size: 16px;
+}
+
+.toast-message {
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.toast-close {
+    background: none;
+    border: none;
+    color: white;
+    cursor: pointer;
+    padding: 4px;
+    margin-left: 12px;
+    border-radius: 4px;
+    opacity: 0.8;
+    transition: all 0.2s ease;
+}
+
+.toast-close:hover {
     opacity: 1;
-    transform: translateX(0);
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .toast-success {
-    background: #10b981;
+    background: linear-gradient(135deg, #10b981, #059669);
 }
 
 .toast-error {
-    background: #ef4444;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
 }
 
 .toast-info {
-    background: #3b82f6;
+    background: linear-gradient(135deg, #3b82f6, #2563eb);
 }
 
 .toast-warning {
-    background: #f59e0b;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+/* Responsive para móviles */
+@media (max-width: 768px) {
+    .toast-container {
+        left: 10px;
+        right: 10px;
+        top: 10px;
+    }
+    
+    .toast {
+        min-width: auto;
+        max-width: none;
+    }
 }
 </style>
 
