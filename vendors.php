@@ -50,14 +50,13 @@ $pageTitle = 'Gestión de Proveedores';
                 <p class="card-subtitle">Total: <span id="totalVendors">0</span> proveedores registrados</p>
             </div>
             <div style="overflow-x: auto;">
-                <table class="data-table" id="vendorsTable" style="min-width: 800px;">
+                <table class="data-table" id="vendorsTable" style="min-width: 700px;">
                     <thead>
                         <tr>
                             <th>Nombre</th>
                             <th>Email</th>
                             <th>Teléfono</th>
                             <th>Dirección</th>
-                            <th>RFC</th>
                             <th style="vertical-align: middle; text-align: center;">Acciones</th>
                         </tr>
                     </thead>
@@ -102,10 +101,6 @@ $pageTitle = 'Gestión de Proveedores';
                 <div class="form-group">
                     <label class="form-label" for="vendorAddress">Dirección</label>
                     <textarea class="form-input" id="vendorAddress" name="vendorAddress" rows="2"></textarea>
-                </div>
-                <div class="form-group">
-                    <label class="form-label" for="vendorTaxId">RFC</label>
-                    <input type="text" class="form-input" id="vendorTaxId" name="vendorTaxId">
                 </div>
             </div>
             <div class="modal-footer">

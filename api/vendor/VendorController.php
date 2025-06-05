@@ -32,7 +32,7 @@ function getAllVendors() {
     $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
     $sort = $_GET['sort'] ?? 'created_at';
     $dir = strtolower($_GET['dir'] ?? 'desc') === 'asc' ? 'ASC' : 'DESC';
-    $allowedSort = ['name', 'email', 'phone', 'tax_id', 'created_at', 'updated_at', 'id'];
+    $allowedSort = ['name', 'email', 'phone', 'created_at', 'updated_at', 'id'];
     if (!in_array($sort, $allowedSort)) $sort = 'created_at';
     $sql = "SELECT * FROM vendors ORDER BY $sort $dir, id DESC";
     if ($limit > 0) {
@@ -60,14 +60,13 @@ function createVendor() {
     global $pdo;
     $data = json_decode(file_get_contents("php://input"), true);
     $uuid = uniqid('', true);
-    $stmt = $pdo->prepare("INSERT INTO vendors (id, name, email, phone, address, tax_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())");
+    $stmt = $pdo->prepare("INSERT INTO vendors (id, name, email, phone, address, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
     $stmt->execute([
         $uuid,
         $data['name'],
         $data['email'] ?? null,
         $data['phone'] ?? null,
-        $data['address'] ?? null,
-        $data['tax_id'] ?? null
+        $data['address'] ?? null
     ]);
     echo json_encode(["message" => "Vendor created", "id" => $uuid]);
 }
@@ -75,13 +74,12 @@ function createVendor() {
 function updateVendor($id) {
     global $pdo;
     $data = json_decode(file_get_contents("php://input"), true);
-    $stmt = $pdo->prepare("UPDATE vendors SET name = ?, email = ?, phone = ?, address = ?, tax_id = ?, updated_at = NOW() WHERE id = ?");
+    $stmt = $pdo->prepare("UPDATE vendors SET name = ?, email = ?, phone = ?, address = ?, updated_at = NOW() WHERE id = ?");
     $stmt->execute([
         $data['name'],
         $data['email'] ?? null,
         $data['phone'] ?? null,
         $data['address'] ?? null,
-        $data['tax_id'] ?? null,
         $id
     ]);
     echo json_encode(["message" => "Vendor updated"]);

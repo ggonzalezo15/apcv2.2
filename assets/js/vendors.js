@@ -52,16 +52,16 @@ function loadVendors(page = 1) {
             renderVendorsTable(vendors);
             renderPagination();
         })
-        .catch(() => {
-            document.getElementById('vendorsTableBody').innerHTML = '<tr><td colspan="6">Error al cargar proveedores</td></tr>';
-        })
+            .catch(() => {
+        document.getElementById('vendorsTableBody').innerHTML = '<tr><td colspan="5">Error al cargar proveedores</td></tr>';
+    })
         .finally(() => setTableLoading(false));
 }
 
 function setTableLoading(loading) {
     const tbody = document.getElementById('vendorsTableBody');
     if (loading) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:40px 0;">
+        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:40px 0;">
             <div class="loading-spinner"></div>
             <span style="display:block; margin-top:8px; color:var(--text-secondary);">Cargando proveedores...</span>
         </td></tr>`;
@@ -72,7 +72,7 @@ function renderVendorsTable(vendors) {
     const tbody = document.getElementById('vendorsTableBody');
     tbody.innerHTML = '';
     if (!vendors.length) {
-        tbody.innerHTML = '<tr><td colspan="6">No hay proveedores registrados</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5">No hay proveedores registrados</td></tr>';
         document.getElementById('totalVendors').textContent = '0';
         return;
     }
@@ -84,7 +84,6 @@ function renderVendorsTable(vendors) {
             <td>${vendor.email || ''}</td>
             <td>${vendor.phone || ''}</td>
             <td>${vendor.address || ''}</td>
-            <td>${vendor.tax_id || ''}</td>
             <td style="vertical-align: middle; text-align: center;">
                 <div style="display: flex; gap: 4px; justify-content: center; align-items: center;">
                     <button type="button" class="btn-icon" onclick="editVendor('${vendor.id}')" title="Editar">
@@ -168,7 +167,6 @@ function editVendor(id) {
             document.getElementById('vendorEmail').value = vendor.email || '';
             document.getElementById('vendorPhone').value = vendor.phone || '';
             document.getElementById('vendorAddress').value = vendor.address || '';
-            document.getElementById('vendorTaxId').value = vendor.tax_id || '';
             editingVendorId = vendor.id;
             openModal('vendorModal');
         });
@@ -224,8 +222,7 @@ document.getElementById('vendorForm').addEventListener('submit', function(e) {
         name: document.getElementById('vendorName').value,
         email: document.getElementById('vendorEmail').value,
         phone: document.getElementById('vendorPhone').value,
-        address: document.getElementById('vendorAddress').value,
-        tax_id: document.getElementById('vendorTaxId').value
+        address: document.getElementById('vendorAddress').value
     };
     let url = API_URL;
     let method = 'POST';
@@ -278,10 +275,10 @@ document.getElementById('searchInput').addEventListener('input', function() {
 document.addEventListener('DOMContentLoaded', function() {
     const ths = document.querySelectorAll('#vendorsTable thead th');
     ths.forEach((th, idx) => {
-        if (idx < 5) { // Solo para columnas principales
+        if (idx < 4) { // Solo para columnas principales
             th.style.cursor = 'pointer';
             th.addEventListener('click', function() {
-                const fields = ['name', 'email', 'phone', 'address', 'tax_id'];
+                const fields = ['name', 'email', 'phone', 'address'];
                 const field = fields[idx];
                 if (sortField === field) {
                     sortDir = sortDir === 'asc' ? 'desc' : 'asc';
@@ -305,3 +302,5 @@ document.addEventListener('keydown', function(e) {
         });
     }
 });
+
+
