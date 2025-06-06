@@ -64,13 +64,13 @@ function initializeFlatpickr() {
         clickOpens: true
     });
     
-    // Date pickers para filtros con variables globales
+    // Date pickers para filtros con configuración mejorada
     window.dateFromPicker = flatpickr("#dateFromFilter", {
         dateFormat: "Y-m-d",
         locale: "es",
         allowInput: true,
         clickOpens: true,
-        static: true,
+        appendTo: document.body, // Renderizar en el body para evitar problemas con el dropdown
         onChange: function(selectedDates, dateStr) {
             tempFilters.dateFrom = dateStr;
             
@@ -87,6 +87,10 @@ function initializeFlatpickr() {
         },
         onClose: function(selectedDates, dateStr) {
             tempFilters.dateFrom = dateStr;
+        },
+        onOpen: function(selectedDates, dateStr, instance) {
+            // Asegurar que el calendario esté por encima del dropdown
+            instance.calendarContainer.style.zIndex = '9999';
         }
     });
     
@@ -95,12 +99,16 @@ function initializeFlatpickr() {
         locale: "es",
         allowInput: true,
         clickOpens: true,
-        static: true,
+        appendTo: document.body, // Renderizar en el body para evitar problemas con el dropdown
         onChange: function(selectedDates, dateStr) {
             tempFilters.dateTo = dateStr;
         },
         onClose: function(selectedDates, dateStr) {
             tempFilters.dateTo = dateStr;
+        },
+        onOpen: function(selectedDates, dateStr, instance) {
+            // Asegurar que el calendario esté por encima del dropdown
+            instance.calendarContainer.style.zIndex = '9999';
         }
     });
     
@@ -112,6 +120,22 @@ function initializeFlatpickr() {
     document.getElementById('dateToFilter').addEventListener('change', function() {
         tempFilters.dateTo = this.value;
     });
+    
+    // Forzar que los inputs sean clickeables
+    setTimeout(() => {
+        const dateFromInput = document.getElementById('dateFromFilter');
+        const dateToInput = document.getElementById('dateToFilter');
+        
+        if (dateFromInput) {
+            dateFromInput.removeAttribute('readonly');
+            dateFromInput.style.cursor = 'pointer';
+        }
+        
+        if (dateToInput) {
+            dateToInput.removeAttribute('readonly');
+            dateToInput.style.cursor = 'pointer';
+        }
+    }, 100);
 }
 
 // --- Configurar ordenamiento de tabla ---
@@ -510,7 +534,7 @@ function renderExpensesTable(expenses) {
                 <td>${escapeHtml(expense.vendor_name || 'N/A')}</td>
                 <td>${escapeHtml(bankAccount)}</td>
                 <td>$${parseFloat(expense.total_amount || 0).toLocaleString('es-MX', {minimumFractionDigits: 2})}</td>
-                <td style="text-align: center;">${attachmentIcon}</td>
+                <td style="text-align: left;">${attachmentIcon}</td>
                 <td style="max-width: 200px;">${notes}</td>
                 <td class="table-actions">
                     <button onclick="viewExpense('${expense.id}')" class="btn-action" title="Ver detalles">
