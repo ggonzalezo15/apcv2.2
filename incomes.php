@@ -1120,6 +1120,24 @@ $pageTitle = 'Gestión de Ingresos';
     font-size: 14px;
 }
 
+/* Estilos para ordenamiento de tabla */
+.sort-icon {
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    transition: color 0.2s ease;
+}
+
+.sortable-table th.sortable.sort-asc .sort-icon:before {
+    content: "\f0de"; /* fa-sort-up */
+    color: var(--primary-color);
+}
+
+.sortable-table th.sortable.sort-desc .sort-icon:before {
+    content: "\f0dd"; /* fa-sort-down */
+    color: var(--primary-color);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .filter-dropdown {
