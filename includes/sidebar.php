@@ -12,8 +12,8 @@
             <ul class="nav-list">
                 <li class="nav-item">
                     <a href="dashboard.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'dashboard.php' ? 'active' : ''; ?>">
-                        <i class="fas fa-home"></i>
-                        <span class="nav-text">Inicio</span>
+                        <i class="fas fa-chart-line"></i>
+                        <span class="nav-text">Dashboard</span>
                     </a>
                 </li>
                
@@ -66,9 +66,17 @@
                 <!-- Administración -->
               
                 <li class="nav-item">
-                    <a href="reports.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : ''; ?>">
+                    <a href="settings.php?tab=reports" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'settings.php' && isset($_GET['tab']) && $_GET['tab'] == 'reports') ? 'active' : ''; ?>">
                         <i class="fas fa-chart-bar"></i>
-                        <span class="nav-text">Reportes</span>
+                        <span class="nav-text">Informes</span>
+                    </a>
+                </li>
+                
+                <!-- Separador -->
+                <li class="nav-item" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">
+                    <a href="settings.php" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'settings.php' && (!isset($_GET['tab']) || $_GET['tab'] != 'reports')) ? 'active' : ''; ?>">
+                        <i class="fas fa-cog"></i>
+                        <span class="nav-text">Configuración</span>
                     </a>
                 </li>
             </ul>

@@ -7,7 +7,9 @@ if (!isLoggedIn() || !checkSessionTimeout()) {
     exit;
 }
 
-$pageTitle = 'Reportes';
+// NOTA: El contenido de reportes se ha integrado en Settings > Informes
+// Este archivo se mantiene para funciones futuras específicas de reportes
+$pageTitle = 'Reportes - Funciones Específicas';
 ?>
 
 <?php include 'includes/header.php'; ?>
@@ -19,9 +21,32 @@ $pageTitle = 'Reportes';
         <div class="content-header">
             <h1 class="content-title">
                 <i class="fas fa-chart-bar"></i>
-                Reportes
+                Reportes Específicos
             </h1>
-            <p class="content-subtitle">Analiza el rendimiento y estadísticas del sistema</p>
+            <p class="content-subtitle">Este archivo está reservado para funciones específicas de reportes</p>
+        </div>
+        
+        <!-- Aviso de migración -->
+        <div class="card" style="margin-bottom: 30px; border-left: 4px solid var(--info-color);">
+            <div style="padding: 20px; background: var(--bg-info);">
+                <h3 style="margin: 0 0 12px 0; color: var(--info-color); display: flex; align-items: center; gap: 10px;">
+                    <i class="fas fa-info-circle"></i>
+                    Contenido Migrado
+                </h3>
+                <p style="margin: 0 0 16px 0; color: var(--text-primary);">
+                    El contenido principal de reportes se ha integrado en la sección <strong>Informes</strong> dentro de Configuración.
+                </p>
+                <div style="display: flex; gap: 12px;">
+                    <a href="settings.php?tab=reports" class="btn" style="background: var(--info-color); color: white; text-decoration: none;">
+                        <i class="fas fa-chart-bar"></i>
+                        Ver Informes Integrados
+                    </a>
+                    <a href="settings.php" class="btn" style="background: var(--secondary-color); color: white; text-decoration: none;">
+                        <i class="fas fa-cog"></i>
+                        Ir a Configuración
+                    </a>
+                </div>
+            </div>
         </div>
         
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-bottom: 30px;">

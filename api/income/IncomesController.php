@@ -306,6 +306,9 @@ function getIncome($id) {
 function createIncome() {
     global $pdo;
     
+    // Incluir sistema de auditoría
+    require_once '../../audit_system.php';
+    
     $data = json_decode(file_get_contents('php://input'), true);
     
     if (!$data) {
@@ -414,6 +417,14 @@ function createIncome() {
         
         $pdo->commit();
         
+        // Registrar en el log de auditoría
+        try {
+            $audit = new AuditSystem();
+            $audit->logIncomeCreated($incomeId, $data);
+        } catch (Exception $e) {
+            error_log("Error registrando auditoría: " . $e->getMessage());
+        }
+        
         echo json_encode([
             'success' => true,
             'message' => 'Ingreso creado exitosamente',
@@ -429,6 +440,9 @@ function createIncome() {
 function updateIncome() {
     global $pdo;
     
+    // Incluir sistema de auditoría
+    require_once '../../audit_system.php';
+    
     $data = json_decode(file_get_contents('php://input'), true);
     
     if (!$data || empty($data['id'])) {
@@ -436,6 +450,16 @@ function updateIncome() {
     }
     
     $incomeId = $data['id'];
+    
+    // Obtener datos anteriores para auditoría
+    $oldData = [];
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM incomes WHERE id = ?");
+        $stmt->execute([$incomeId]);
+        $oldData = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        // Continuar sin datos antiguos
+    }
     
     $pdo->beginTransaction();
     
@@ -542,6 +566,14 @@ function updateIncome() {
         
         $pdo->commit();
         
+        // Registrar en el log de auditoría
+        try {
+            $audit = new AuditSystem();
+            $audit->logIncomeUpdated($incomeId, $oldData, $data);
+        } catch (Exception $e) {
+            error_log("Error registrando auditoría: " . $e->getMessage());
+        }
+        
         echo json_encode([
             'success' => true,
             'message' => 'Ingreso actualizado exitosamente'
@@ -556,8 +588,21 @@ function updateIncome() {
 function deleteIncome($id) {
     global $pdo;
     
+    // Incluir sistema de auditoría
+    require_once '../../audit_system.php';
+    
     if (empty($id)) {
         throw new Exception('ID de ingreso requerido');
+    }
+    
+    // Obtener datos antes de eliminar para auditoría
+    $deletedData = [];
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM incomes WHERE id = ?");
+        $stmt->execute([$id]);
+        $deletedData = $stmt->fetch(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        // Continuar sin datos
     }
     
     $pdo->beginTransaction();
@@ -575,6 +620,14 @@ function deleteIncome($id) {
         }
         
         $pdo->commit();
+        
+        // Registrar en el log de auditoría
+        try {
+            $audit = new AuditSystem();
+            $audit->logIncomeDeleted($id, $deletedData);
+        } catch (Exception $e) {
+            error_log("Error registrando auditoría: " . $e->getMessage());
+        }
         
         echo json_encode([
             'success' => true,
