@@ -353,6 +353,78 @@ function getRecentActivity($pdo, $limit = 5) {
     return array_slice($activities, 0, $limit);
 }
 
+function getPendingIncomes($pdo, $limit = 5) {
+    $pendingIncomes = [];
+    
+    try {
+        $stmt = $pdo->prepare("
+            SELECT 
+                i.id, 
+                i.invoice_number, 
+                i.date, 
+                i.total_income, 
+                COALESCE(SUM(ip.amount), 0) as total_paid,
+                (i.total_income - COALESCE(SUM(ip.amount), 0)) as pending_amount,
+                t.name as team_name,
+                GROUP_CONCAT(DISTINCT c.name SEPARATOR ', ') as contractors
+            FROM 
+                incomes i
+            LEFT JOIN 
+                income_payments ip ON i.id = ip.income_id
+            LEFT JOIN 
+                teams t ON i.team_id = t.id
+            LEFT JOIN 
+                income_contractors ic ON i.id = ic.income_id
+            LEFT JOIN 
+                contractors c ON ic.contractor_id = c.id
+            WHERE 
+                (i.total_income - COALESCE(SUM(ip.amount), 0)) > 0
+            GROUP BY 
+                i.id
+            ORDER BY 
+                i.date DESC
+            LIMIT ?
+        ");
+        $stmt->execute([$limit]);
+        $pendingIncomes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Error obteniendo ingresos pendientes: " . $e->getMessage());
+        
+        // Intento alternativo si la consulta anterior falla
+        try {
+            $stmt = $pdo->prepare("
+                SELECT 
+                    i.id, 
+                    i.invoice_number, 
+                    i.date, 
+                    i.total_income,
+                    COALESCE(SUM(ip.amount), 0) as total_paid,
+                    (i.total_income - COALESCE(SUM(ip.amount), 0)) as pending_amount,
+                    t.name as team_name
+                FROM 
+                    incomes i
+                LEFT JOIN 
+                    income_payments ip ON i.id = ip.income_id
+                LEFT JOIN 
+                    teams t ON i.team_id = t.id
+                GROUP BY 
+                    i.id
+                HAVING 
+                    pending_amount > 0
+                ORDER BY 
+                    i.date DESC
+                LIMIT ?
+            ");
+            $stmt->execute([$limit]);
+            $pendingIncomes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e2) {
+            error_log("Error en consulta alternativa de ingresos pendientes: " . $e2->getMessage());
+        }
+    }
+    
+    return $pendingIncomes;
+}
+
 function getDailyData($pdo, $startDate, $endDate) {
     
     // Crear array de fechas en el rango
@@ -413,12 +485,14 @@ try {
     $financialSummary = getFinancialSummary($pdo, $startDate, $endDate);
     $bankAccounts = getBankAccountBalances($pdo);
     $recentActivity = getRecentActivity($pdo);
+    $pendingIncomes = getPendingIncomes($pdo, 5);
     $dailyData = getDailyData($pdo, $startDate, $endDate);
 } catch (Exception $e) {
     // En caso de error, inicializar con valores por defecto
     $financialSummary = ['income' => 0, 'expenses' => 0, 'balance' => 0];
     $bankAccounts = [];
     $recentActivity = [];
+    $pendingIncomes = [];
     $dailyData = [];
     error_log("Error en dashboard: " . $e->getMessage());
 }
@@ -468,81 +542,199 @@ try {
                     <button onclick="setMonthPeriod('previous')" class="btn btn-secondary">Mes Anterior</button>
                 </div>
             </div>
-        </div>
-
-        <!-- Resumen Financiero -->
-        <div class="dashboard-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 24px; margin-bottom: 30px;">
-            <!-- Ingresos -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">
-                        <i class="fas fa-arrow-up" style="color: var(--success-color);"></i>
+            
+            <!-- Resumen Financiero -->
+            <div class="financial-summary" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; border-top: 1px solid var(--border-color); background-color: var(--border-color);">
+                <!-- Ingresos -->
+                <div style="background-color: var(--background-primary); padding: 15px; text-align: center;">
+                    <div style="font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px;">
+                        <i class="fas fa-arrow-up" style="color: var(--success-color); margin-right: 5px;"></i>
                         Ingresos
-                    </h3>
-                </div>
-                <div style="text-align: center; padding: 20px 0;">
-                    <div style="font-size: 28px; font-weight: bold; color: var(--success-color); margin-bottom: 8px;">
+                    </div>
+                    <div style="font-size: 20px; font-weight: bold; color: var(--success-color);">
                         $<?php echo number_format($financialSummary['income'], 2); ?>
                     </div>
-                    <div style="color: var(--text-secondary); font-size: 14px;">
-                        Del <?php echo date('d/m/Y', strtotime($startDate)); ?> al <?php echo date('d/m/Y', strtotime($endDate)); ?>
-                    </div>
                 </div>
-            </div>
-            
-            <!-- Gastos -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">
-                        <i class="fas fa-arrow-down" style="color: var(--danger-color);"></i>
+                
+                <!-- Gastos -->
+                <div style="background-color: var(--background-primary); padding: 15px; text-align: center;">
+                    <div style="font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px;">
+                        <i class="fas fa-arrow-down" style="color: var(--danger-color); margin-right: 5px;"></i>
                         Gastos
-                    </h3>
-                </div>
-                <div style="text-align: center; padding: 20px 0;">
-                    <div style="font-size: 28px; font-weight: bold; color: var(--danger-color); margin-bottom: 8px;">
+                    </div>
+                    <div style="font-size: 20px; font-weight: bold; color: var(--danger-color);">
                         $<?php echo number_format($financialSummary['expenses'], 2); ?>
                     </div>
-                    <div style="color: var(--text-secondary); font-size: 14px;">
-                        Del <?php echo date('d/m/Y', strtotime($startDate)); ?> al <?php echo date('d/m/Y', strtotime($endDate)); ?>
-                    </div>
                 </div>
-            </div>
-            
-            <!-- Balance -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">
-                        <i class="fas fa-balance-scale" style="color: <?php echo $financialSummary['balance'] >= 0 ? 'var(--success-color)' : 'var(--danger-color)'; ?>;"></i>
+                
+                <!-- Balance -->
+                <div style="background-color: var(--background-primary); padding: 15px; text-align: center;">
+                    <div style="font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px;">
+                        <i class="fas fa-balance-scale" style="color: <?php echo $financialSummary['balance'] >= 0 ? 'var(--success-color)' : 'var(--danger-color)'; ?>; margin-right: 5px;"></i>
                         Balance
-                    </h3>
-                </div>
-                <div style="text-align: center; padding: 20px 0;">
-                    <div style="font-size: 28px; font-weight: bold; color: <?php echo $financialSummary['balance'] >= 0 ? 'var(--success-color)' : 'var(--danger-color)'; ?>; margin-bottom: 8px;">
+                    </div>
+                    <div style="font-size: 20px; font-weight: bold; color: <?php echo $financialSummary['balance'] >= 0 ? 'var(--success-color)' : 'var(--danger-color)'; ?>;">
                         $<?php echo number_format($financialSummary['balance'], 2); ?>
                     </div>
-                    <div style="color: var(--text-secondary); font-size: 14px;">
-                        <?php echo $financialSummary['balance'] >= 0 ? 'Superávit' : 'Déficit'; ?>
-                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Gráfico de Ingresos vs Gastos -->
-        <div class="card" style="margin-bottom: 30px;">
-            <div class="card-header">
-                <h3 class="card-title">
-                    <i class="fas fa-chart-bar"></i>
-                    Ingresos vs Gastos - Periodo Seleccionado
-                </h3>
+        <!-- Nueva fila de 3 cards -->
+        <div class="dashboard-cards" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-bottom: 30px;">
+            <!-- Gráfico de Ingresos vs Gastos -->
+            <div class="card dashboard-card" style="grid-column: 1;">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-chart-bar"></i>
+                        Ingresos vs Gastos
+                    </h3>
+                </div>
+                
+                <div style="padding: 20px;">
+                    <canvas id="incomeExpenseChart" width="400" height="200"></canvas>
+                </div>
+            </div>
+
+            <!-- Ingresos Pendientes -->
+            <div class="card dashboard-card" style="grid-column: 2;">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-hourglass-half" style="color: var(--warning-color);"></i>
+                        Ingresos Pendientes
+                    </h3>
+                </div>
+                
+                <div style="padding: 10px 0; max-height: 300px; overflow-y: auto;">
+                    <?php if (!empty($pendingIncomes)): ?>
+                        <?php foreach ($pendingIncomes as $income): ?>
+                            <a href="incomes.php?action=edit&id=<?php echo urlencode($income['id']); ?>" class="activity-link" style="display: block; padding: 12px 16px; border-bottom: 1px solid var(--border-color); text-decoration: none; color: inherit; transition: background-color 0.2s;">
+                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                                    <div style="font-weight: 500;">
+                                        <?php echo htmlspecialchars($income['invoice_number'] ?: 'Factura sin número'); ?>
+                                    </div>
+                                    <div style="font-weight: 700; color: var(--warning-color);">
+                                        $<?php echo number_format($income['pending_amount'], 2); ?>
+                                    </div>
+                                </div>
+                                
+                                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; font-size: 12px; color: var(--text-secondary);">
+                                    <span style="display: flex; align-items: center; gap: 4px;">
+                                        <i class="fas fa-calendar-alt" style="font-size: 10px;"></i>
+                                        <?php echo date('d/m/Y', strtotime($income['date'])); ?>
+                                    </span>
+                                    
+                                    <?php if (!empty($income['team_name'])): ?>
+                                    <span style="display: flex; align-items: center; gap: 4px;">
+                                        <i class="fas fa-users" style="font-size: 10px;"></i>
+                                        <?php echo htmlspecialchars($income['team_name']); ?>
+                                    </span>
+                                    <?php endif; ?>
+                                    
+                                    <?php if (!empty($income['contractors'])): ?>
+                                    <span style="display: flex; align-items: center; gap: 4px;">
+                                        <i class="fas fa-user-tie" style="font-size: 10px;"></i>
+                                        <?php echo htmlspecialchars($income['contractors']); ?>
+                                    </span>
+                                    <?php endif; ?>
+                                </div>
+                                
+                                <div style="position: relative; height: 4px; background-color: var(--background-secondary); border-radius: 2px; margin-top: 8px;">
+                                    <?php 
+                                    $percent = 0;
+                                    if ($income['total_income'] > 0) {
+                                        $percent = 100 * ($income['total_paid'] / $income['total_income']);
+                                    }
+                                    ?>
+                                    <div style="position: absolute; top: 0; left: 0; height: 100%; width: <?php echo $percent; ?>%; background-color: var(--success-color); border-radius: 2px;"></div>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-top: 4px;">
+                                    <span>Pagado: $<?php echo number_format($income['total_paid'], 2); ?></span>
+                                    <span>Total: $<?php echo number_format($income['total_income'], 2); ?></span>
+                                </div>
+                            </a>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                            <i class="fas fa-check-circle" style="font-size: 32px; margin-bottom: 12px; color: var(--success-color);"></i>
+                            <p>No hay ingresos pendientes</p>
+                        </div>
+                    <?php endif; ?>
+                </div>
             </div>
             
-            <div style="padding: 20px;">
-                <canvas id="incomeExpenseChart" width="400" height="200"></canvas>
+            <!-- Actividad Reciente -->
+            <div class="card dashboard-card" style="grid-column: 3;">
+                <div class="card-header">
+                    <h3 class="card-title">
+                        <i class="fas fa-history"></i>
+                        Actividad Reciente
+                    </h3>
+                </div>
+                
+                <div style="padding: 10px 0; max-height: 300px; overflow-y: auto;">
+                    <?php foreach ($recentActivity as $activity): 
+                        // Determinar el enlace y el tipo de actividad
+                        $link = '#';
+                        $linkClass = '';
+                        if (isset($activity['income_id']) && $activity['income_id']) {
+                            $link = "incomes.php?action=edit&id=" . urlencode($activity['income_id']);
+                            $linkClass = 'activity-link';
+                        } elseif (isset($activity['expense_id']) && $activity['expense_id']) {
+                            $link = "expenses.php?action=edit&id=" . urlencode($activity['expense_id']);
+                            $linkClass = 'activity-link';
+                        }
+                    ?>
+                    <div style="border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;">
+                        <<?php echo $link != '#' ? 'a' : 'div'; ?> 
+                        href="<?php echo $link; ?>" 
+                        class="<?php echo $linkClass; ?>"
+                        style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; text-decoration: none; color: inherit; 
+                               <?php echo $link != '#' ? 'cursor: pointer;' : ''; ?>"
+                        <?php if ($link != '#'): ?>
+                        onmouseover="this.style.backgroundColor='var(--hover-color, #f8f9fa)'"
+                        onmouseout="this.style.backgroundColor='transparent'"
+                        <?php endif; ?>
+                        >
+                            <!-- Icono de acción -->
+                            <div style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+                                        background: <?php echo (strpos($activity['type'], 'income') !== false) ? 'var(--success-color)' : 'var(--danger-color)'; ?>; font-size: 16px;">
+                                <?php if (isset($activity['action_icon'])): ?>
+                                    <?php echo $activity['action_icon']; ?>
+                                <?php else: ?>
+                                    <i class="fas fa-<?php echo (strpos($activity['type'], 'income') !== false) ? 'arrow-up' : 'arrow-down'; ?>" style="color: white; font-size: 12px;"></i>
+                                <?php endif; ?>
+                            </div>
+                            
+                            <!-- Contenido de la actividad -->
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="font-weight: 500; font-size: 14px; margin-bottom: 6px; line-height: 1.4;">
+                                    <?php echo htmlspecialchars($activity['description']); ?>
+                                </div>
+                                
+                                <div style="display: flex; flex-wrap: wrap; font-size: 11px; color: var(--text-muted);">
+                                    <span style="display: flex; align-items: center; gap: 2px; margin-right: 8px;">
+                                        <i class="fas fa-clock" style="font-size: 10px;"></i>
+                                        <?php echo date('d/m/Y H:i', strtotime($activity['date'])); ?>
+                                    </span>
+                                </div>
+                            </div>
+                        </<?php echo $link != '#' ? 'a' : 'div'; ?>>
+                    </div>
+                    <?php endforeach; ?>
+                    
+                    <?php if (empty($recentActivity)): ?>
+                    <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                        <i class="fas fa-info-circle" style="font-size: 32px; margin-bottom: 12px;"></i>
+                        <p>No hay actividad reciente</p>
+                    </div>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
 
-        <!-- Grid de Cuentas Bancarias y Actividad Reciente -->
-        <div class="dashboard-content" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-top: 30px;">
+        <!-- Grid de Cuentas Bancarias -->
+        <div class="dashboard-content" style="display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 30px;">
             <!-- Balances de Cuentas -->
             <div class="card">
                 <div class="card-header">
@@ -584,147 +776,6 @@ try {
                     <?php endif; ?>
                 </div>
             </div>
-            
-            <!-- Actividad Reciente -->
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">
-                        <i class="fas fa-history"></i>
-                        Actividad Reciente
-                    </h3>
-                    <small style="color: var(--text-secondary); font-weight: normal;">
-                        Últimas 5 actividades del sistema (independiente del período seleccionado)
-                    </small>
-                </div>
-                
-                <div style="padding: 10px 0;">
-                    <?php foreach ($recentActivity as $activity): 
-                        // Determinar el enlace y el tipo de actividad
-                        $link = '#';
-                        $linkClass = '';
-                        if (isset($activity['income_id']) && $activity['income_id']) {
-                            $link = "incomes.php?action=edit&id=" . urlencode($activity['income_id']);
-                            $linkClass = 'activity-link';
-                        } elseif (isset($activity['expense_id']) && $activity['expense_id']) {
-                            $link = "expenses.php?action=edit&id=" . urlencode($activity['expense_id']);
-                            $linkClass = 'activity-link';
-                        }
-                    ?>
-                    <div style="border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;">
-                        <<?php echo $link != '#' ? 'a' : 'div'; ?> 
-                        href="<?php echo $link; ?>" 
-                        class="<?php echo $linkClass; ?>"
-                        style="display: flex; align-items: flex-start; gap: 12px; padding: 16px 20px; text-decoration: none; color: inherit; 
-                               <?php echo $link != '#' ? 'cursor: pointer;' : ''; ?>"
-                        <?php if ($link != '#'): ?>
-                        onmouseover="this.style.backgroundColor='var(--hover-color, #f8f9fa)'"
-                        onmouseout="this.style.backgroundColor='transparent'"
-                        <?php endif; ?>
-                        >
-                            <!-- Icono de acción -->
-                            <div style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-                                        background: <?php echo (strpos($activity['type'], 'income') !== false) ? 'var(--success-color)' : 'var(--danger-color)'; ?>; font-size: 16px;">
-                                <?php if (isset($activity['action_icon'])): ?>
-                                    <?php echo $activity['action_icon']; ?>
-                                <?php else: ?>
-                                    <i class="fas fa-<?php echo (strpos($activity['type'], 'income') !== false) ? 'arrow-up' : 'arrow-down'; ?>" style="color: white; font-size: 12px;"></i>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <!-- Contenido de la actividad -->
-                            <div style="flex: 1; min-width: 0;">
-                                <div style="font-weight: 500; font-size: 14px; margin-bottom: 6px; line-height: 1.4;">
-                                    <?php echo htmlspecialchars($activity['description']); ?>
-                                </div>
-                                
-                                <!-- Información detallada -->
-                                <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">
-                                    <?php if (isset($activity['team_name']) && $activity['team_name'] != 'Sin equipo'): ?>
-                                    <span style="display: flex; align-items: center; gap: 2px;">
-                                        <i class="fas fa-users" style="font-size: 10px;"></i>
-                                        <?php echo htmlspecialchars($activity['team_name']); ?>
-                                    </span>
-                                    <?php endif; ?>
-                                    
-                                    <?php if (isset($activity['contractors']) && !empty(trim($activity['contractors']))): ?>
-                                    <span style="display: flex; align-items: center; gap: 2px;">
-                                        <i class="fas fa-user-tie" style="font-size: 10px;"></i>
-                                        <?php echo htmlspecialchars($activity['contractors']); ?>
-                                    </span>
-                                    <?php endif; ?>
-                                    
-                                    <?php if (isset($activity['vendor_name']) && $activity['vendor_name'] != 'Sin proveedor'): ?>
-                                    <span style="display: flex; align-items: center; gap: 2px;">
-                                        <i class="fas fa-store" style="font-size: 10px;"></i>
-                                        <?php echo htmlspecialchars($activity['vendor_name']); ?>
-                                    </span>
-                                    <?php endif; ?>
-                                    
-                                    <?php if (isset($activity['account_name']) && $activity['account_name'] != 'Sin cuenta'): ?>
-                                    <span style="display: flex; align-items: center; gap: 2px;">
-                                        <i class="fas fa-university" style="font-size: 10px;"></i>
-                                        <?php echo htmlspecialchars($activity['account_name']); ?>
-                                    </span>
-                                    <?php endif; ?>
-                                </div>
-                                
-                                <!-- Meta información -->
-                                <div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 11px; color: var(--text-muted);">
-                                    <span style="display: flex; align-items: center; gap: 2px;">
-                                        <i class="fas fa-clock" style="font-size: 10px;"></i>
-                                        <?php echo date('d/m/Y H:i', strtotime($activity['date'])); ?>
-                                    </span>
-                                    
-                                    <?php if (isset($activity['entity_name'])): ?>
-                                    <span style="display: flex; align-items: center; gap: 2px;">
-                                        <i class="fas fa-tag" style="font-size: 10px;"></i>
-                                        <?php echo htmlspecialchars($activity['entity_name']); ?>
-                                    </span>
-                                    <?php endif; ?>
-                                    
-                                    <?php if ($link != '#'): ?>
-                                    <span style="display: flex; align-items: center; gap: 2px; color: var(--primary-color);">
-                                        <i class="fas fa-external-link-alt" style="font-size: 10px;"></i>
-                                        Ver detalles
-                                    </span>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            
-                            <!-- Monto (si está disponible) -->
-                            <?php if (isset($activity['amount']) && $activity['amount']): ?>
-                            <div style="text-align: right; flex-shrink: 0;">
-                                <div style="font-weight: bold; color: <?php echo (strpos($activity['type'], 'income') !== false) ? 'var(--success-color)' : 'var(--danger-color)'; ?>; font-size: 16px;">
-                                    $<?php echo number_format($activity['amount'], 2); ?>
-                                </div>
-                            </div>
-                            <?php endif; ?>
-                        </<?php echo $link != '#' ? 'a' : 'div'; ?>>
-                    </div>
-                    <?php endforeach; ?>
-                    
-                    <?php if (empty($recentActivity)): ?>
-                    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                        <div style="font-size: 32px; margin-bottom: 12px;">📝</div>
-                        <p style="margin-bottom: 8px;">No hay actividad reciente</p>
-                        <p style="font-size: 12px; color: var(--text-muted);">Las actividades se registrarán automáticamente</p>
-                    </div>
-                    <?php endif; ?>
-                </div>
-                
-                <div style="padding: 16px 20px; border-top: 1px solid var(--border-color); text-align: center;">
-                    <div style="display: flex; gap: 12px; justify-content: center;">
-                        <a href="incomes.php" class="btn btn-success" style="font-size: 14px; padding: 8px 16px;">
-                            <i class="fas fa-plus"></i>
-                            Nuevo Ingreso
-                        </a>
-                        <a href="expenses.php" class="btn btn-danger" style="font-size: 14px; padding: 8px 16px;">
-                            <i class="fas fa-plus"></i>
-                            Nuevo Gasto
-                        </a>
-                    </div>
-                </div>
-            </div>
         </div>
     </main>
     
@@ -740,51 +791,34 @@ try {
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
 
 <script>
-// Datos para el gráfico
-const dailyData = <?php echo json_encode($dailyData); ?>;
-
-// Configurar Flatpickr
-document.addEventListener('DOMContentLoaded', function() {
-    // Configurar flatpickr para ambos campos de fecha
-    const startDatePicker = flatpickr("#startDate", {
-        dateFormat: "Y-m-d",
-        locale: "es",
-        allowInput: true,
-        appendTo: document.body,
-        onOpen: function(selectedDates, dateStr, instance) {
-            instance.calendarContainer.style.zIndex = 9999;
-        }
-    });
-
-    const endDatePicker = flatpickr("#endDate", {
-        dateFormat: "Y-m-d", 
-        locale: "es",
-        allowInput: true,
-        appendTo: document.body,
-        onOpen: function(selectedDates, dateStr, instance) {
-            instance.calendarContainer.style.zIndex = 9999;
-        }
-    });
+// Inicializar Flatpickr para los selectores de fecha
+flatpickr('.flatpickr-date', {
+    dateFormat: 'Y-m-d',
+    allowInput: true
 });
 
-// Configurar el gráfico de barras
+// Gráfico de Ingresos vs Gastos
 const ctx = document.getElementById('incomeExpenseChart').getContext('2d');
-const chart = new Chart(ctx, {
+const incomeExpenseChart = new Chart(ctx, {
     type: 'bar',
     data: {
-        labels: dailyData.map(d => {
-            const date = new Date(d.date);
-            return date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
-        }),
+        labels: <?php echo json_encode(array_map(function($d) {
+            // Formatear fecha para mejor visualización
+            return date('d/m', strtotime($d['date']));
+        }, $dailyData)); ?>,
         datasets: [{
             label: 'Ingresos',
-            data: dailyData.map(d => parseFloat(d.income)),
-            backgroundColor: 'rgba(34, 197, 94, 0.8)',
-            borderColor: 'rgb(34, 197, 94)',
+            data: <?php echo json_encode(array_map(function($d) {
+                return floatval($d['income']);
+            }, $dailyData)); ?>,
+            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+            borderColor: 'rgb(16, 185, 129)',
             borderWidth: 1
         }, {
             label: 'Gastos',
-            data: dailyData.map(d => parseFloat(d.expenses)),
+            data: <?php echo json_encode(array_map(function($d) {
+                return floatval($d['expenses']);
+            }, $dailyData)); ?>,
             backgroundColor: 'rgba(239, 68, 68, 0.8)',
             borderColor: 'rgb(239, 68, 68)',
             borderWidth: 1
@@ -816,7 +850,14 @@ const chart = new Chart(ctx, {
                 }
             },
             legend: {
-                position: 'top'
+                position: 'top',
+                labels: {
+                    boxWidth: 12,
+                    padding: 10,
+                    font: {
+                        size: 11
+                    }
+                }
             }
         },
         interaction: {
@@ -900,14 +941,54 @@ function setMonthPeriod(type) {
     window.location.href = `dashboard.php?start_date=${startDateStr}&end_date=${endDateStr}`;
 }
 
-// Permitir actualización con Enter en los campos de fecha
+// Actualizar altura del gráfico basado en el contenedor
+function adjustChartHeight() {
+    const container = document.querySelector('.card[style*="grid-column: 1"]');
+    const chartCanvas = document.getElementById('incomeExpenseChart');
+    
+    // En modo móvil (responsive), usar altura fija
+    if (window.innerWidth <= 1200) {
+        if (chartCanvas) {
+            chartCanvas.style.height = '300px';
+            incomeExpenseChart.resize();
+        }
+        return;
+    }
+    
+    // En pantallas grandes, ajustar altura según las otras cards
+    if (container && chartCanvas) {
+        const activityCard = document.querySelector('.card[style*="grid-column: 3"]');
+        if (activityCard) {
+            const activityHeight = activityCard.querySelector('div[style*="max-height"]').offsetHeight;
+            if (activityHeight > 0) {
+                chartCanvas.style.height = activityHeight + 'px';
+            } else {
+                chartCanvas.style.height = '300px';
+            }
+        } else {
+            chartCanvas.style.height = '300px';
+        }
+        incomeExpenseChart.resize();
+    }
+}
+
+// Llamar al ajuste después de que la página se cargue completamente
 document.addEventListener('DOMContentLoaded', function() {
+    // Código existente de eventos para fechas
     document.getElementById('startDate').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') updatePeriod();
     });
 
     document.getElementById('endDate').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') updatePeriod();
+    });
+    
+    // Ajustar altura del gráfico
+    setTimeout(adjustChartHeight, 500);
+    
+    // Ajustar altura al cambiar el tamaño de la ventana
+    window.addEventListener('resize', function() {
+        setTimeout(adjustChartHeight, 300);
     });
 });
 </script>
@@ -1051,7 +1132,56 @@ document.addEventListener('DOMContentLoaded', function() {
 }
 
 @media (max-width: 640px) {
-    .dashboard-grid {
+    .dashboard-cards {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .dashboard-content {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Estilos responsivos */
+@media (max-width: 1200px) {
+    .dashboard-cards {
+        grid-template-columns: 1fr !important;
+        gap: 20px !important;
+    }
+    
+    .dashboard-cards .card {
+        grid-column: 1 !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-cards {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .dashboard-cards .card {
+        grid-column: 1 !important;
+    }
+    
+    .financial-summary {
+        grid-template-columns: 1fr !important;
+    }
+    
+    .dashboard-nav {
+        flex-direction: column;
+        align-items: stretch !important;
+    }
+    
+    .dashboard-nav > div {
+        width: 100%;
+    }
+    
+    .btn-group {
+        justify-content: center;
+    }
+}
+
+@media (max-width: 640px) {
+    .dashboard-cards {
         grid-template-columns: 1fr !important;
     }
     
