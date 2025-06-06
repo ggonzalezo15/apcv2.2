@@ -114,7 +114,7 @@ $pageTitle = 'Gestión de Ingresos';
                 <p class="card-subtitle">Total: <span id="totalIncomes">0</span> ingresos registrados</p>
             </div>
             <div style="overflow-x: auto;">
-                <table class="data-table sortable-table" id="incomesTable">
+                <table class="data-table sortable-table" id="incomesTable" style="min-width: 1200px;">
                     <thead>
                         <tr>
                             <th class="sortable" data-sort="invoice_number">
@@ -133,15 +133,15 @@ $pageTitle = 'Gestión de Ingresos';
                                 Contratistas
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th class="sortable" data-sort="balance" style="text-align: right;">
+                            <th class="sortable" data-sort="balance" style="text-align: center;">
                                 Balance
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th class="sortable" data-sort="total_fees" style="text-align: right;">
+                            <th class="sortable" data-sort="total_fees" style="text-align: center;">
                                 Fee
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th class="sortable" data-sort="status">
+                            <th class="sortable" data-sort="status" style="text-align: center;">
                                 Status
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
@@ -1042,8 +1042,8 @@ $pageTitle = 'Gestión de Ingresos';
 #incomesTable th:nth-child(3), #incomesTable td:nth-child(3) { width: 12%; }  /* Equipo */
 #incomesTable th:nth-child(4), #incomesTable td:nth-child(4) { width: 10%; }  /* Contratistas */
 #incomesTable th:nth-child(5), #incomesTable td:nth-child(5) { width: 10%; }  /* Balance */
-#incomesTable th:nth-child(6), #incomesTable td:nth-child(6) { width: 12%; }  /* Fee */
-#incomesTable th:nth-child(7), #incomesTable td:nth-child(7) { width: 12%; }  /* Status */
+#incomesTable th:nth-child(6), #incomesTable td:nth-child(6) { width: 10%; }  /* Fee */
+#incomesTable th:nth-child(7), #incomesTable td:nth-child(7) { width: 10%; }  /* Status */
 #incomesTable th:nth-child(8), #incomesTable td:nth-child(8) { width: 12%; }  /* Acciones */
 
 #incomesTable td:nth-child(4) {
@@ -1081,6 +1081,43 @@ $pageTitle = 'Gestión de Ingresos';
 .badge-secondary {
     background-color: #6b7280;
     color: white;
+}
+
+/* Paginación */
+.pagination-btn {
+    background: white;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    margin: 0 2px;
+    transition: all 0.2s ease;
+    min-width: 40px;
+    text-align: center;
+}
+
+.pagination-btn:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.pagination-btn.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination-ellipsis {
+    padding: 8px 4px;
+    color: var(--text-secondary);
+    font-size: 14px;
 }
 
 /* Responsive */
