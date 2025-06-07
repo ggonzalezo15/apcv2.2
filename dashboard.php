@@ -487,6 +487,79 @@ try {
     $recentActivity = getRecentActivity($pdo);
     $pendingIncomes = getPendingIncomes($pdo, 5);
     $dailyData = getDailyData($pdo, $startDate, $endDate);
+    
+    // Determinar qué botón de período está activo
+    $today = new DateTime();
+    $startDateObj = new DateTime($startDate);
+    $endDateObj = new DateTime($endDate);
+    
+    // Por defecto, ninguno está activo
+    $isCurrentWeek = false;
+    $isPreviousWeek = false;
+    $isCurrentMonth = false;
+    $isPreviousMonth = false;
+    
+    // Método más simple y directo para determinar el período activo
+    // Lunes de la semana actual
+    $currentWeekStart = new DateTime('monday this week');
+    $currentWeekStart->setTime(0, 0, 0);
+    // Domingo de la semana actual
+    $currentWeekEnd = clone $currentWeekStart;
+    $currentWeekEnd->modify('+6 days');
+    $currentWeekEnd->setTime(23, 59, 59);
+
+    // Verificar si es la semana actual (comparando las fechas como strings)
+    if ($startDate == $currentWeekStart->format('Y-m-d') && 
+        $endDate == $currentWeekEnd->format('Y-m-d')) {
+        $isCurrentWeek = true;
+    }
+
+    // Lunes de la semana anterior
+    $previousWeekStart = clone $currentWeekStart;
+    $previousWeekStart->modify('-7 days');
+    // Domingo de la semana anterior
+    $previousWeekEnd = clone $currentWeekEnd;
+    $previousWeekEnd->modify('-7 days');
+
+    // Verificar si es la semana anterior (comparando las fechas como strings)
+    if ($startDate == $previousWeekStart->format('Y-m-d') && 
+        $endDate == $previousWeekEnd->format('Y-m-d')) {
+        $isPreviousWeek = true;
+    }
+
+    // Primer día del mes actual
+    $currentMonthStart = new DateTime('first day of this month');
+    $currentMonthStart->setTime(0, 0, 0);
+    // Último día del mes actual
+    $currentMonthEnd = new DateTime('last day of this month');
+    $currentMonthEnd->setTime(23, 59, 59);
+
+    // Verificar si es el mes actual (comparando las fechas como strings)
+    if ($startDate == $currentMonthStart->format('Y-m-d') && 
+        $endDate == $currentMonthEnd->format('Y-m-d')) {
+        $isCurrentMonth = true;
+    }
+
+    // Primer día del mes anterior
+    $previousMonthStart = new DateTime('first day of last month');
+    $previousMonthStart->setTime(0, 0, 0);
+    // Último día del mes anterior
+    $previousMonthEnd = new DateTime('last day of last month');
+    $previousMonthEnd->setTime(23, 59, 59);
+
+    // Verificar si es el mes anterior (comparando las fechas como strings)
+    if ($startDate == $previousMonthStart->format('Y-m-d') && 
+        $endDate == $previousMonthEnd->format('Y-m-d')) {
+        $isPreviousMonth = true;
+    }
+
+    // Añadir depuración
+    error_log("DEBUG - Fechas actuales: $startDate a $endDate");
+    error_log("DEBUG - Semana actual: " . $currentWeekStart->format('Y-m-d') . " a " . $currentWeekEnd->format('Y-m-d') . " - Activo: " . ($isCurrentWeek ? 'Sí' : 'No'));
+    error_log("DEBUG - Semana anterior: " . $previousWeekStart->format('Y-m-d') . " a " . $previousWeekEnd->format('Y-m-d') . " - Activo: " . ($isPreviousWeek ? 'Sí' : 'No'));
+    error_log("DEBUG - Mes actual: " . $currentMonthStart->format('Y-m-d') . " a " . $currentMonthEnd->format('Y-m-d') . " - Activo: " . ($isCurrentMonth ? 'Sí' : 'No'));
+    error_log("DEBUG - Mes anterior: " . $previousMonthStart->format('Y-m-d') . " a " . $previousMonthEnd->format('Y-m-d') . " - Activo: " . ($isPreviousMonth ? 'Sí' : 'No'));
+
 } catch (Exception $e) {
     // En caso de error, inicializar con valores por defecto
     $financialSummary = ['income' => 0, 'expenses' => 0, 'balance' => 0];
@@ -494,6 +567,10 @@ try {
     $recentActivity = [];
     $pendingIncomes = [];
     $dailyData = [];
+    $isCurrentWeek = false;
+    $isPreviousWeek = false;
+    $isCurrentMonth = false;
+    $isPreviousMonth = false;
     error_log("Error en dashboard: " . $e->getMessage());
 }
 ?>
@@ -514,8 +591,8 @@ try {
         
         <!-- Navegación de Fechas -->
         <div class="card" style="margin-bottom: 24px;">
-            <div class="dashboard-nav" style="padding: 20px; display: flex; align-items: center; gap: 20px; flex-wrap: wrap;">
-                <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+            <div class="dashboard-nav" style="padding: 20px; display: flex; flex-direction: column; gap: 15px;">
+                <div style="display: flex; align-items: center; flex-wrap: wrap; gap: 12px;">
                     <label style="font-weight: 500; color: var(--text-primary);">
                         <i class="fas fa-calendar-alt" style="margin-right: 6px; color: var(--primary-color);"></i>
                         Periodo:
@@ -529,17 +606,18 @@ try {
                         <input type="text" id="endDate" value="<?php echo $endDate; ?>" class="form-input flatpickr-date" placeholder="Fecha fin" style="width: auto; min-width: 150px; padding-right: 30px;">
                         <i class="fas fa-calendar" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); pointer-events: none;"></i>
                     </div>
-                    <button onclick="updatePeriod()" class="btn btn-primary">
+                    <button onclick="updatePeriod()" class="btn btn-primary" style="min-width: 120px; width: auto;">
                         <i class="fas fa-refresh"></i>
                         Actualizar
                     </button>
                 </div>
                 
+                <!-- Botones de período -->
                 <div class="btn-group" style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <button onclick="setWeekPeriod('current')" class="btn btn-secondary">Esta Semana</button>
-                    <button onclick="setWeekPeriod('previous')" class="btn btn-secondary">Semana Anterior</button>
-                    <button onclick="setMonthPeriod('current')" class="btn btn-secondary">Este Mes</button>
-                    <button onclick="setMonthPeriod('previous')" class="btn btn-secondary">Mes Anterior</button>
+                    <button id="btnCurrentWeek" onclick="setWeekPeriod('current')" class="btn <?php echo $isCurrentWeek ? 'btn-secondary' : 'btn-outline-secondary'; ?>">Esta Semana</button>
+                    <button id="btnPreviousWeek" onclick="setWeekPeriod('previous')" class="btn <?php echo $isPreviousWeek ? 'btn-secondary' : 'btn-outline-secondary'; ?>">Semana Anterior</button>
+                    <button id="btnCurrentMonth" onclick="setMonthPeriod('current')" class="btn <?php echo $isCurrentMonth ? 'btn-secondary' : 'btn-outline-secondary'; ?>">Este Mes</button>
+                    <button id="btnPreviousMonth" onclick="setMonthPeriod('previous')" class="btn <?php echo $isPreviousMonth ? 'btn-secondary' : 'btn-outline-secondary'; ?>">Mes Anterior</button>
                 </div>
             </div>
             
@@ -591,8 +669,8 @@ try {
                     </h3>
                 </div>
                 
-                <div style="padding: 20px;">
-                    <canvas id="incomeExpenseChart" width="400" height="200"></canvas>
+                <div style="padding: 20px; height: calc(100% - 56px); display: flex; flex-direction: column;">
+                    <canvas id="incomeExpenseChart" style="width: 100%; max-height: 300px;"></canvas>
                 </div>
             </div>
 
@@ -605,10 +683,16 @@ try {
                     </h3>
                 </div>
                 
-                <div style="padding: 10px 0; max-height: 300px; overflow-y: auto;">
+                <div style="padding: 10px 0 0 0; height: 100%; display: flex; flex-direction: column;">
+                    <div style="flex: 1;">
                     <?php if (!empty($pendingIncomes)): ?>
-                        <?php foreach ($pendingIncomes as $income): ?>
-                            <a href="incomes.php?action=edit&id=<?php echo urlencode($income['id']); ?>" class="activity-link" style="display: block; padding: 12px 16px; border-bottom: 1px solid var(--border-color); text-decoration: none; color: inherit; transition: background-color 0.2s;">
+                        <?php 
+                        // Mostrar los 5 ingresos pendientes más recientes
+                        $limitedPendingIncomes = array_slice($pendingIncomes, 0, 5);
+                        foreach ($limitedPendingIncomes as $income): 
+                            $isLastItem = ($limitedPendingIncomes[count($limitedPendingIncomes)-1] === $income);
+                        ?>
+                            <a href="incomes.php?action=edit&id=<?php echo urlencode($income['id']); ?>" class="activity-link" style="display: block; padding: 12px 16px; <?php echo $isLastItem ? '' : 'border-bottom: 1px solid var(--border-color);'; ?> text-decoration: none; color: inherit; transition: background-color 0.2s;">
                                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
                                     <div style="font-weight: 500;">
                                         <?php echo htmlspecialchars($income['invoice_number'] ?: 'Factura sin número'); ?>
@@ -660,6 +744,7 @@ try {
                             <p>No hay ingresos pendientes</p>
                         </div>
                     <?php endif; ?>
+                    </div>
                 </div>
             </div>
             
@@ -672,63 +757,68 @@ try {
                     </h3>
                 </div>
                 
-                <div style="padding: 10px 0; max-height: 300px; overflow-y: auto;">
-                    <?php foreach ($recentActivity as $activity): 
-                        // Determinar el enlace y el tipo de actividad
-                        $link = '#';
-                        $linkClass = '';
-                        if (isset($activity['income_id']) && $activity['income_id']) {
-                            $link = "incomes.php?action=edit&id=" . urlencode($activity['income_id']);
-                            $linkClass = 'activity-link';
-                        } elseif (isset($activity['expense_id']) && $activity['expense_id']) {
-                            $link = "expenses.php?action=edit&id=" . urlencode($activity['expense_id']);
-                            $linkClass = 'activity-link';
-                        }
-                    ?>
-                    <div style="border-bottom: 1px solid var(--border-color); transition: background-color 0.2s;">
-                        <<?php echo $link != '#' ? 'a' : 'div'; ?> 
-                        href="<?php echo $link; ?>" 
-                        class="<?php echo $linkClass; ?>"
-                        style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; text-decoration: none; color: inherit; 
-                               <?php echo $link != '#' ? 'cursor: pointer;' : ''; ?>"
-                        <?php if ($link != '#'): ?>
-                        onmouseover="this.style.backgroundColor='var(--hover-color, #f8f9fa)'"
-                        onmouseout="this.style.backgroundColor='transparent'"
-                        <?php endif; ?>
-                        >
-                            <!-- Icono de acción -->
-                            <div style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-                                        background: <?php echo (strpos($activity['type'], 'income') !== false) ? 'var(--success-color)' : 'var(--danger-color)'; ?>; font-size: 16px;">
-                                <?php if (isset($activity['action_icon'])): ?>
-                                    <?php echo $activity['action_icon']; ?>
-                                <?php else: ?>
-                                    <i class="fas fa-<?php echo (strpos($activity['type'], 'income') !== false) ? 'arrow-up' : 'arrow-down'; ?>" style="color: white; font-size: 12px;"></i>
-                                <?php endif; ?>
-                            </div>
-                            
-                            <!-- Contenido de la actividad -->
-                            <div style="flex: 1; min-width: 0;">
-                                <div style="font-weight: 500; font-size: 14px; margin-bottom: 6px; line-height: 1.4;">
-                                    <?php echo htmlspecialchars($activity['description']); ?>
+                <div style="padding: 10px 0 0 0; height: 100%; display: flex; flex-direction: column;">
+                    <div style="flex: 1;">
+                        <?php 
+                        // Mostrar las 5 últimas actividades
+                        $limitedActivity = array_slice($recentActivity, 0, 5);
+                        foreach ($limitedActivity as $activity): 
+                            // Determinar el enlace y el tipo de actividad
+                            $link = '#';
+                            $linkClass = '';
+                            if (isset($activity['income_id']) && $activity['income_id']) {
+                                $link = "incomes.php?action=edit&id=" . urlencode($activity['income_id']);
+                                $linkClass = 'activity-link';
+                            } elseif (isset($activity['expense_id']) && $activity['expense_id']) {
+                                $link = "expenses.php?action=edit&id=" . urlencode($activity['expense_id']);
+                                $linkClass = 'activity-link';
+                            }
+                        ?>
+                        <div style="<?php echo ($limitedActivity[count($limitedActivity)-1] === $activity) ? 'border-bottom: none;' : 'border-bottom: 1px solid var(--border-color);'; ?> transition: background-color 0.2s;">
+                            <<?php echo $link != '#' ? 'a' : 'div'; ?> 
+                            href="<?php echo $link; ?>" 
+                            class="<?php echo $linkClass; ?>"
+                            style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; text-decoration: none; color: inherit; 
+                                <?php echo $link != '#' ? 'cursor: pointer;' : ''; ?>"
+                            <?php if ($link != '#'): ?>
+                            onmouseover="this.style.backgroundColor='var(--hover-color, #f8f9fa)'"
+                            onmouseout="this.style.backgroundColor='transparent'"
+                            <?php endif; ?>
+                            >
+                                <!-- Icono de acción -->
+                                <div style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+                                            background: <?php echo (strpos($activity['type'], 'income') !== false) ? 'var(--success-color)' : 'var(--danger-color)'; ?>; font-size: 16px;">
+                                    <?php if (isset($activity['action_icon'])): ?>
+                                        <?php echo $activity['action_icon']; ?>
+                                    <?php else: ?>
+                                        <i class="fas fa-<?php echo (strpos($activity['type'], 'income') !== false) ? 'arrow-up' : 'arrow-down'; ?>" style="color: white; font-size: 12px;"></i>
+                                    <?php endif; ?>
                                 </div>
                                 
-                                <div style="display: flex; flex-wrap: wrap; font-size: 11px; color: var(--text-muted);">
-                                    <span style="display: flex; align-items: center; gap: 2px; margin-right: 8px;">
-                                        <i class="fas fa-clock" style="font-size: 10px;"></i>
-                                        <?php echo date('d/m/Y H:i', strtotime($activity['date'])); ?>
-                                    </span>
+                                <!-- Contenido de la actividad -->
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="font-weight: 500; font-size: 14px; margin-bottom: 6px; line-height: 1.4;">
+                                        <?php echo htmlspecialchars($activity['description']); ?>
+                                    </div>
+                                    
+                                    <div style="display: flex; flex-wrap: wrap; font-size: 11px; color: var(--text-muted);">
+                                        <span style="display: flex; align-items: center; gap: 2px; margin-right: 8px;">
+                                            <i class="fas fa-clock" style="font-size: 10px;"></i>
+                                            <?php echo date('d/m/Y H:i', strtotime($activity['date'])); ?>
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
-                        </<?php echo $link != '#' ? 'a' : 'div'; ?>>
+                            </<?php echo $link != '#' ? 'a' : 'div'; ?>>
+                        </div>
+                        <?php endforeach; ?>
+                        
+                        <?php if (empty($recentActivity)): ?>
+                        <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                            <i class="fas fa-info-circle" style="font-size: 32px; margin-bottom: 12px;"></i>
+                            <p>No hay actividad reciente</p>
+                        </div>
+                        <?php endif; ?>
                     </div>
-                    <?php endforeach; ?>
-                    
-                    <?php if (empty($recentActivity)): ?>
-                    <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
-                        <i class="fas fa-info-circle" style="font-size: 32px; margin-bottom: 12px;"></i>
-                        <p>No hay actividad reciente</p>
-                    </div>
-                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -885,60 +975,76 @@ function updatePeriod() {
     window.location.href = `dashboard.php?start_date=${startDate}&end_date=${endDate}`;
 }
 
-function setWeekPeriod(type) {
-    const today = new Date();
-    let startDate, endDate;
+// Función para calcular fechas de manera exacta
+function getDateRangeForPeriod(type) {
+    const now = new Date();
+    const result = { startDate: null, endDate: null };
     
-    if (type === 'current') {
-        // Esta semana (lunes a domingo)
-        const dayOfWeek = today.getDay();
-        const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1); // Ajustar para que lunes sea día 1
-        
-        startDate = new Date(today.setDate(diff));
-        endDate = new Date(today.setDate(diff + 6));
-    } else {
-        // Semana anterior
-        const dayOfWeek = today.getDay();
-        const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1) - 7;
-        
-        startDate = new Date(today.setDate(diff));
-        endDate = new Date(today.setDate(diff + 6));
+    switch (type) {
+        case 'current_week':
+            // Calcular fechas para la semana actual (lunes a domingo)
+            const day = now.getDay(); // 0 es domingo, 1 es lunes, etc.
+            const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Ajuste para que lunes sea el primer día
+            
+            result.startDate = new Date(now.getFullYear(), now.getMonth(), diff);
+            result.endDate = new Date(result.startDate);
+            result.endDate.setDate(result.startDate.getDate() + 6);
+            break;
+            
+        case 'previous_week':
+            // Calcular fechas para la semana anterior
+            const dayPrev = now.getDay();
+            const diffPrev = now.getDate() - dayPrev + (dayPrev === 0 ? -6 : 1) - 7; // Lunes de la semana anterior
+            
+            result.startDate = new Date(now.getFullYear(), now.getMonth(), diffPrev);
+            result.endDate = new Date(result.startDate);
+            result.endDate.setDate(result.startDate.getDate() + 6);
+            break;
+            
+        case 'current_month':
+            // Calcular fechas para el mes actual
+            result.startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            result.endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            break;
+            
+        case 'previous_month':
+            // Calcular fechas para el mes anterior
+            result.startDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            result.endDate = new Date(now.getFullYear(), now.getMonth(), 0);
+            break;
     }
     
-    const startDateStr = startDate.toISOString().split('T')[0];
-    const endDateStr = endDate.toISOString().split('T')[0];
+    // Formatear fechas como strings YYYY-MM-DD
+    return {
+        startDate: result.startDate.toISOString().split('T')[0],
+        endDate: result.endDate.toISOString().split('T')[0]
+    };
+}
+
+function setWeekPeriod(type) {
+    const dates = getDateRangeForPeriod(type === 'current' ? 'current_week' : 'previous_week');
     
-    // Actualizar los campos Flatpickr
-    document.getElementById('startDate').value = startDateStr;
-    document.getElementById('endDate').value = endDateStr;
+    console.log(`Estableciendo período de semana ${type}: del ${dates.startDate} al ${dates.endDate}`);
     
-    // Actualizar la página
-    window.location.href = `dashboard.php?start_date=${startDateStr}&end_date=${endDateStr}`;
+    // Actualizar los campos de fecha
+    document.getElementById('startDate').value = dates.startDate;
+    document.getElementById('endDate').value = dates.endDate;
+    
+    // Navegar a la nueva URL con las fechas
+    window.location.href = `dashboard.php?start_date=${dates.startDate}&end_date=${dates.endDate}`;
 }
 
 function setMonthPeriod(type) {
-    const today = new Date();
-    let startDate, endDate;
+    const dates = getDateRangeForPeriod(type === 'current' ? 'current_month' : 'previous_month');
     
-    if (type === 'current') {
-        // Este mes
-        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-        endDate = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    } else {
-        // Mes anterior
-        startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
-        endDate = new Date(today.getFullYear(), today.getMonth(), 0);
-    }
+    console.log(`Estableciendo período de mes ${type}: del ${dates.startDate} al ${dates.endDate}`);
     
-    const startDateStr = startDate.toISOString().split('T')[0];
-    const endDateStr = endDate.toISOString().split('T')[0];
+    // Actualizar los campos de fecha
+    document.getElementById('startDate').value = dates.startDate;
+    document.getElementById('endDate').value = dates.endDate;
     
-    // Actualizar los campos Flatpickr
-    document.getElementById('startDate').value = startDateStr;
-    document.getElementById('endDate').value = endDateStr;
-    
-    // Actualizar la página
-    window.location.href = `dashboard.php?start_date=${startDateStr}&end_date=${endDateStr}`;
+    // Navegar a la nueva URL con las fechas
+    window.location.href = `dashboard.php?start_date=${dates.startDate}&end_date=${dates.endDate}`;
 }
 
 // Actualizar altura del gráfico basado en el contenedor
@@ -949,24 +1055,29 @@ function adjustChartHeight() {
     // En modo móvil (responsive), usar altura fija
     if (window.innerWidth <= 1200) {
         if (chartCanvas) {
-            chartCanvas.style.height = '300px';
+            chartCanvas.style.height = '240px';
             incomeExpenseChart.resize();
         }
         return;
     }
     
-    // En pantallas grandes, ajustar altura según las otras cards
+    // En pantallas grandes, ajustar altura de forma más compacta
     if (container && chartCanvas) {
         const activityCard = document.querySelector('.card[style*="grid-column: 3"]');
-        if (activityCard) {
-            const activityHeight = activityCard.querySelector('div[style*="max-height"]').offsetHeight;
-            if (activityHeight > 0) {
-                chartCanvas.style.height = activityHeight + 'px';
-            } else {
-                chartCanvas.style.height = '300px';
-            }
+        const pendingCard = document.querySelector('.card[style*="grid-column: 2"]');
+        
+        if (activityCard && pendingCard) {
+            // Calcular altura promedio entre ambas cards, pero con un máximo
+            const activityHeight = Math.min(activityCard.offsetHeight, 300);
+            const pendingHeight = Math.min(pendingCard.offsetHeight, 300);
+            const avgHeight = Math.min(Math.max(activityHeight, pendingHeight), 300);
+            
+            const cardHeaderHeight = container.querySelector('.card-header').offsetHeight;
+            const chartPadding = 40; // 20px arriba y abajo
+            
+            chartCanvas.style.height = Math.min(avgHeight - cardHeaderHeight - chartPadding, 260) + 'px';
         } else {
-            chartCanvas.style.height = '300px';
+            chartCanvas.style.height = '240px';
         }
         incomeExpenseChart.resize();
     }
@@ -990,6 +1101,13 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('resize', function() {
         setTimeout(adjustChartHeight, 300);
     });
+
+    // Verificar visualmente los botones
+    console.log("Estado actual de los botones:");
+    console.log("Esta Semana:", document.getElementById('btnCurrentWeek').classList.contains('btn-secondary'));
+    console.log("Semana Anterior:", document.getElementById('btnPreviousWeek').classList.contains('btn-secondary'));
+    console.log("Este Mes:", document.getElementById('btnCurrentMonth').classList.contains('btn-secondary'));
+    console.log("Mes Anterior:", document.getElementById('btnPreviousMonth').classList.contains('btn-secondary'));
 });
 </script>
 
@@ -1039,8 +1157,10 @@ document.addEventListener('DOMContentLoaded', function() {
     text-decoration: none;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 6px;
     transition: all 0.2s ease;
+    height: 38px;
 }
 
 .btn-primary {
@@ -1061,22 +1181,14 @@ document.addEventListener('DOMContentLoaded', function() {
     background: var(--secondary-hover, #4b5563);
 }
 
-.btn-success {
-    background: var(--success-color, #10b981);
-    color: white;
+.btn-outline-secondary {
+    background: transparent;
+    color: var(--secondary-color, #6b7280);
+    border: 1px solid var(--secondary-color, #6b7280);
 }
 
-.btn-success:hover {
-    opacity: 0.9;
-}
-
-.btn-danger {
-    background: var(--danger-color, #ef4444);
-    color: white;
-}
-
-.btn-danger:hover {
-    opacity: 0.9;
+.btn-outline-secondary:hover {
+    background: rgba(107, 114, 128, 0.1);
 }
 
 #incomeExpenseChart {
@@ -1175,8 +1287,29 @@ document.addEventListener('DOMContentLoaded', function() {
         width: 100%;
     }
     
+    .dashboard-nav > div:first-child {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .dashboard-nav > div:first-child > div {
+        margin-bottom: 10px;
+    }
+    
+    .dashboard-nav button[onclick="updatePeriod()"] {
+        margin-left: 0 !important;
+        width: 100%;
+        margin-top: 10px;
+    }
+    
     .btn-group {
-        justify-content: center;
+        justify-content: space-between;
+    }
+    
+    .btn-group .btn {
+        flex: 1;
+        min-width: calc(50% - 4px);
+        margin-bottom: 8px;
     }
 }
 
@@ -1188,5 +1321,9 @@ document.addEventListener('DOMContentLoaded', function() {
     .dashboard-content {
         grid-template-columns: 1fr !important;
     }
+}
+
+.btn-group .btn {
+    min-width: 120px;
 }
 </style>
