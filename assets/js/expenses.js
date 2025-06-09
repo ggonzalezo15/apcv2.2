@@ -554,8 +554,21 @@ function renderExpensesTable(expenses) {
 
 // --- Modales ---
 function openModal(modalId) {
-    document.getElementById(modalId).style.display = 'flex';
+    const modal = document.getElementById(modalId);
+    modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
+    
+    // Resetear scroll a la parte superior del modal
+    const modalContent = modal.querySelector('.modal-content');
+    if (modalContent) {
+        modalContent.scrollTop = 0;
+    }
+    
+    // También resetear scroll del body del modal si existe
+    const modalBody = modal.querySelector('.modal-body');
+    if (modalBody) {
+        modalBody.scrollTop = 0;
+    }
 }
 
 function closeModal(modalId) {

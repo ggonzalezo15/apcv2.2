@@ -114,7 +114,7 @@ $pageTitle = 'Gestión de Ingresos';
                 <p class="card-subtitle">Total: <span id="totalIncomes">0</span> ingresos registrados</p>
             </div>
             <div style="overflow-x: auto;">
-                <table class="data-table sortable-table" id="incomesTable" style="min-width: 1200px;">
+                <table class="data-table sortable-table" id="incomesTable" style="min-width: 1350px;">
                     <thead>
                         <tr>
                             <th class="sortable" data-sort="invoice_number">
@@ -131,6 +131,10 @@ $pageTitle = 'Gestión de Ingresos';
                             </th>
                             <th class="sortable" data-sort="contractors">
                                 Contratistas
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="total_amount" style="text-align: center;">
+                                Total Ingreso
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
                             <th class="sortable" data-sort="balance" style="text-align: center;">
@@ -348,7 +352,127 @@ $pageTitle = 'Gestión de Ingresos';
     </div>
 </div>
 
-<script src="assets/js/incomes-simple.js"></script>
+<!-- Modal de vista de ingreso (estilo factura) -->
+<div class="modal" id="viewIncomeModal" style="display:none;">
+    <div class="modal-overlay" onclick="closeModal('viewIncomeModal')"></div>
+    <div class="modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+        <div class="income-invoice">
+            <!-- Header del ingreso -->
+            <div class="invoice-header">
+                <div class="invoice-title">
+                    <h1><i class="fas fa-file-invoice-dollar"></i> Detalle de Ingreso</h1>
+                    <div class="income-number" id="viewIncomeNumber">ING000001</div>
+                </div>
+                <button type="button" class="modal-close" onclick="closeModal('viewIncomeModal')" title="Cerrar">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <!-- Información general -->
+            <div class="invoice-info">
+                <div class="info-section">
+                    <h3><i class="fas fa-info-circle"></i> Información General</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <label>Fecha:</label>
+                            <span id="viewIncomeDate">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Equipo:</label>
+                            <span id="viewIncomeTeam">-</span>
+                        </div>
+                        <div class="info-item">
+                            <label>Estado:</label>
+                            <span id="viewIncomeStatus">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Contratistas -->
+            <div class="invoice-contractors">
+                <h3><i class="fas fa-users"></i> Contratistas</h3>
+                <div id="viewContractorsList" class="contractors-list">
+                    <div>Cargando...</div>
+                </div>
+            </div>
+
+            <!-- Líneas de ingreso -->
+            <div class="invoice-lines">
+                <h3><i class="fas fa-list"></i> Líneas de Ingreso</h3>
+                <div class="lines-table">
+                    <div class="lines-header">
+                        <div>Tipo de Trabajo</div>
+                        <div>Unidades</div>
+                        <div>Precio Unit.</div>
+                        <div>Total</div>
+                    </div>
+                    <div id="viewLinesList" class="lines-body">
+                        <!-- Se llenarán dinámicamente -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pagos -->
+            <div class="invoice-payments">
+                <h3><i class="fas fa-credit-card"></i> Pagos</h3>
+                <div class="payments-table">
+                    <div class="payments-header">
+                        <div>Tipo de Pago</div>
+                        <div>Monto</div>
+                        <div>Fee</div>
+                        <div>Neto</div>
+                    </div>
+                    <div id="viewPaymentsList" class="payments-body">
+                        <!-- Se llenarán dinámicamente -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Totales -->
+            <div class="invoice-totals">
+                <div class="totals-grid">
+                    <div class="total-line">
+                        <span class="total-label">Total Ingresos:</span>
+                        <span class="total-amount" id="viewTotalIncome">$0.00</span>
+                    </div>
+                    <div class="total-line">
+                        <span class="total-label">Total Pagos:</span>
+                        <span class="total-amount" id="viewTotalPayments" style="color: green;">$0.00</span>
+                    </div>
+                    <div class="total-line">
+                        <span class="total-label">Total Fee:</span>
+                        <span class="total-amount" id="viewTotalFees" style="color: red;">$0.00</span>
+                    </div>
+                    <div class="total-line balance-line">
+                        <span class="total-label">BALANCE:</span>
+                        <span class="total-amount" id="viewBalance">$0.00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notas -->
+            <div class="invoice-notes" id="viewNotesSection" style="display:none;">
+                <h3><i class="fas fa-sticky-note"></i> Notas</h3>
+                <div class="notes-content" id="viewNotes">
+                    <!-- Se llenarán dinámicamente -->
+                </div>
+            </div>
+
+            <!-- Footer con acciones -->
+            <div class="invoice-footer">
+                <button type="button" class="btn" onclick="closeModal('viewIncomeModal')" style="background-color: var(--secondary-color); color: white;">
+                    <i class="fas fa-arrow-left"></i> Cerrar
+                </button>
+                <div class="footer-actions">
+                    <button type="button" class="btn btn-primary" onclick="editIncomeFromView()" id="editFromViewBtn">
+                        <i class="fas fa-edit"></i> Editar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <style>
 /* Estilos para el modal - usando estilos globales consistentes */
@@ -1037,14 +1161,15 @@ $pageTitle = 'Gestión de Ingresos';
 }
 
 /* Distribución equilibrada sin espacios excesivos */
-#incomesTable th:nth-child(1), #incomesTable td:nth-child(1) { width: 10%; }  /* Nº Factura */
-#incomesTable th:nth-child(2), #incomesTable td:nth-child(2) { width: 10%; }  /* Fecha */
-#incomesTable th:nth-child(3), #incomesTable td:nth-child(3) { width: 12%; }  /* Equipo */
-#incomesTable th:nth-child(4), #incomesTable td:nth-child(4) { width: 10%; }  /* Contratistas */
-#incomesTable th:nth-child(5), #incomesTable td:nth-child(5) { width: 10%; }  /* Balance */
-#incomesTable th:nth-child(6), #incomesTable td:nth-child(6) { width: 10%; }  /* Fee */
-#incomesTable th:nth-child(7), #incomesTable td:nth-child(7) { width: 10%; }  /* Status */
-#incomesTable th:nth-child(8), #incomesTable td:nth-child(8) { width: 12%; }  /* Acciones */
+#incomesTable th:nth-child(1), #incomesTable td:nth-child(1) { width: 9%; }   /* Nº Factura */
+#incomesTable th:nth-child(2), #incomesTable td:nth-child(2) { width: 9%; }   /* Fecha */
+#incomesTable th:nth-child(3), #incomesTable td:nth-child(3) { width: 11%; }  /* Equipo */
+#incomesTable th:nth-child(4), #incomesTable td:nth-child(4) { width: 9%; }   /* Contratistas */
+#incomesTable th:nth-child(5), #incomesTable td:nth-child(5) { width: 11%; }  /* Total Ingreso */
+#incomesTable th:nth-child(6), #incomesTable td:nth-child(6) { width: 10%; }  /* Balance */
+#incomesTable th:nth-child(7), #incomesTable td:nth-child(7) { width: 9%; }   /* Fee */
+#incomesTable th:nth-child(8), #incomesTable td:nth-child(8) { width: 9%; }   /* Status */
+#incomesTable th:nth-child(9), #incomesTable td:nth-child(9) { width: 12%; }  /* Acciones */
 
 #incomesTable td:nth-child(4) {
     white-space: nowrap;
@@ -1165,6 +1290,347 @@ $pageTitle = 'Gestión de Ingresos';
         justify-content: flex-start;
     }
 }
+
+/* Estilos para el modal de vista (estilo factura) */
+.income-invoice {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+}
+
+.invoice-header {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    padding: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.invoice-title h1 {
+    margin: 0;
+    font-size: 24px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.income-number {
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    margin-top: 8px;
+    display: inline-block;
+}
+
+.invoice-header .modal-close {
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    width: 40px;
+    height: 40px;
+    font-size: 16px;
+}
+
+.invoice-header .modal-close:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.invoice-info, .invoice-contractors, .invoice-lines, .invoice-payments {
+    padding: 24px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.info-section h3, .invoice-contractors h3, .invoice-lines h3, .invoice-payments h3 {
+    margin: 0 0 16px 0;
+    color: var(--text-primary);
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.info-section h3 i, .invoice-contractors h3 i, .invoice-lines h3 i, .invoice-payments h3 i {
+    color: var(--primary-color);
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.info-item label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+}
+
+.info-item span {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.contractors-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+}
+
+.contractor-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.lines-table, .payments-table {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Headers del modal de vista - más específicos */
+.lines-table .lines-header, .payments-table .payments-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 16px;
+    background: #f1f5f9;
+    padding: 16px;
+    font-weight: 600;
+    font-size: 14px;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.payments-table .payments-header {
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+}
+
+.lines-body, .payments-body {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Items del modal de vista - más específicos */
+.lines-table .line-item, .payments-table .payment-item {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 16px;
+    padding: 16px;
+    border-bottom: 1px solid #e2e8f0;
+    background: white;
+}
+
+.payments-table .payment-item {
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+}
+
+.lines-table .line-item:last-child, .payments-table .payment-item:last-child {
+    border-bottom: none;
+}
+
+.lines-table .line-item:hover, .payments-table .payment-item:hover {
+    background: #f8fafc;
+}
+
+.line-type, .payment-type {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.line-units, .line-price, .payment-date, .payment-ref {
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+.lines-table .line-amount, .payments-table .payment-amount {
+    font-weight: 600;
+    color: var(--primary-color);
+    text-align: right;
+}
+
+.invoice-totals {
+    padding: 24px;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
+}
+
+.totals-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.total-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+}
+
+.balance-line {
+    border-top: 2px solid var(--border-color);
+    padding-top: 16px;
+    margin-top: 8px;
+}
+
+.total-label {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.balance-line .total-label {
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.total-amount {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.balance-line .total-amount {
+    font-size: 28px;
+}
+
+.invoice-notes {
+    padding: 24px;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.invoice-notes h3 {
+    margin: 0 0 16px 0;
+    color: var(--text-primary);
+    font-size: 18px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.invoice-notes h3 i {
+    color: var(--primary-color);
+}
+
+.notes-content {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    color: var(--text-primary);
+    line-height: 1.6;
+    font-size: 15px;
+}
+
+.invoice-footer {
+    padding: 24px;
+    background: #f8fafc;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid #e2e8f0;
+}
+
+.footer-actions {
+    display: flex;
+    gap: 12px;
+}
+
+.text-green {
+    color: var(--success-color) !important;
+}
+
+.text-red {
+    color: var(--danger-color) !important;
+}
+
+/* Responsive para el modal de vista */
+@media (max-width: 768px) {
+    .invoice-header {
+        flex-direction: column;
+        text-align: center;
+        gap: 16px;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .contractors-list {
+        grid-template-columns: 1fr;
+    }
+    
+    .lines-table .lines-header, .payments-table .payments-header {
+        display: none;
+    }
+    
+    .lines-table .line-item, .payments-table .payment-item {
+        grid-template-columns: 1fr;
+        gap: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .lines-table .line-amount, .payments-table .payment-amount {
+        text-align: left;
+        font-size: 18px;
+    }
+    
+    .total-line {
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+    }
+    
+    .total-amount {
+        font-size: 24px;
+    }
+    
+    .balance-line .total-amount {
+        font-size: 28px;
+    }
+    
+    .invoice-footer {
+        flex-direction: column;
+        gap: 16px;
+    }
+    
+    .footer-actions {
+        width: 100%;
+        justify-content: center;
+    }
+}
 </style>
 
 <!-- Estilos para Toast notifications -->
@@ -1271,4 +1737,7 @@ $pageTitle = 'Gestión de Ingresos';
 }
 </style>
 
-<?php include 'includes/footer.php'; ?> 
+<?php include 'includes/footer.php'; ?>
+<script src="assets/js/incomes-simple.js"></script>
+</body>
+</html> 
