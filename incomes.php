@@ -137,12 +137,12 @@ $pageTitle = 'Gestión de Ingresos';
                                 Total Ingreso
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th class="sortable" data-sort="balance" style="text-align: center;">
-                                Balance
-                                <i class="fas fa-sort sort-icon"></i>
-                            </th>
                             <th class="sortable" data-sort="total_fees" style="text-align: center;">
                                 Fee
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="balance" style="text-align: center;">
+                                Balance
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
                             <th class="sortable" data-sort="status" style="text-align: center;">
