@@ -7,7 +7,7 @@ if (isLoggedIn() && checkSessionTimeout()) {
     header('Location: dashboard.php');
 } else {
     // Redireccionar al login
-    header('Location: login.php');
+    header('Location: auth/login.php');
 }
 exit;
 ?>

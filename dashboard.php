@@ -4,7 +4,7 @@ require_once 'audit_system.php';
 
 // Verificar autenticación
 if (!isLoggedIn() || !checkSessionTimeout()) {
-    header('Location: login.php');
+    header('Location: auth/login.php');
     exit;
 }
 

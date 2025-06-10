@@ -84,7 +84,7 @@
         
         <div class="sidebar-footer">
             <div class="nav-item">
-                <a href="logout.php" class="nav-link logout-link">
+                <a href="auth/logout.php" class="nav-link logout-link">
                     <i class="fas fa-sign-out-alt"></i>
                     <span class="nav-text">Cerrar Sesión</span>
                 </a>

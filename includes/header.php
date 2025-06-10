@@ -34,7 +34,7 @@
                             <span>Configuración</span>
                         </a>
                         <div class="user-menu-divider"></div>
-                        <a href="logout.php" class="user-menu-item">
+                        <a href="auth/logout.php" class="user-menu-item">
                             <i class="fas fa-sign-out-alt"></i>
                             <span>Cerrar Sesión</span>
                         </a>

@@ -1,9 +1,9 @@
 <?php
-require_once 'config.php';
+require_once '../config.php';
 
 // Verificar si ya está logueado
 if (isLoggedIn()) {
-    header('Location: dashboard.php');
+    header('Location: ../dashboard.php');
     exit;
 }
 
@@ -72,7 +72,7 @@ $pageTitle = 'Crear Cuenta';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $pageTitle; ?></title>
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
@@ -185,7 +185,7 @@ $pageTitle = 'Crear Cuenta';
         </form>
     </div>
     
-    <script src="assets/js/script.js"></script>
+    <script src="../assets/js/script.js"></script>
     
     <script>
     // Validación en tiempo real para confirmar contraseña

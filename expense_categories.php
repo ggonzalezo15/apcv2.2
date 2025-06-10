@@ -2,7 +2,7 @@
 require_once 'config.php';
 
 if (!isLoggedIn() || !checkSessionTimeout()) {
-    header('Location: login.php');
+    header('Location: auth/login.php');
     exit;
 }
 

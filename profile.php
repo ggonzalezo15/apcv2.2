@@ -3,7 +3,7 @@ require_once 'config.php';
 
 // Verificar autenticación
 if (!isLoggedIn() || !checkSessionTimeout()) {
-    header('Location: login.php');
+    header('Location: auth/login.php');
     exit;
 }
 
@@ -19,7 +19,7 @@ try {
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     
     if (!$user) {
-        header('Location: logout.php');
+        header('Location: auth/logout.php');
         exit;
     }
 } catch (PDOException $e) {

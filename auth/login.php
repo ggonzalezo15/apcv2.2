@@ -1,9 +1,9 @@
 <?php
-require_once 'config.php';
+require_once '../config.php';
 
 // Verificar si ya está logueado
 if (isLoggedIn()) {
-    header('Location: dashboard.php');
+    header('Location: ../dashboard.php');
     exit;
 }
 
@@ -44,7 +44,7 @@ if ($_POST) {
                     $updateStmt = $pdo->prepare("UPDATE users SET last_login = NOW() WHERE id = ?");
                     $updateStmt->execute([$user['id']]);
                     
-                    header('Location: dashboard.php');
+                    header('Location: ../dashboard.php');
                     exit;
                 } else {
                     $error = 'Tu cuenta está desactivada. Contacta al administrador.';
@@ -67,15 +67,17 @@ $pageTitle = 'Iniciar Sesión';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo $pageTitle; ?></title>
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
 <body>
     <div class="login-container">
         <form class="login-form" method="POST" action="">
             <div class="login-header">
-                <i class="fas fa-shield-alt" style="font-size: 48px; color: var(--primary-color); margin-bottom: 16px;"></i>
-                <h1>Bienvenido</h1>
+                <img src="https://res.cloudinary.com/dpr7agofk/image/upload/v1728755106/logo_azul_wnwres.png" 
+                     alt="AP Cuadre Logo" 
+                     style="height: 60px; width: auto; margin-bottom: 16px; object-fit: contain;">
+        
                 <p>Inicia sesión en tu cuenta</p>
             </div>
             
@@ -144,6 +146,6 @@ $pageTitle = 'Iniciar Sesión';
         </form>
     </div>
     
-    <script src="assets/js/script.js"></script>
+    <script src="../assets/js/script.js"></script>
 </body>
 </html>
