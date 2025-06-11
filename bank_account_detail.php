@@ -37,11 +37,21 @@ $pageTitle = 'Detalle de Cuenta - ' . $account['name'];
     <?php include 'includes/sidebar.php'; ?>
     <main class="content">
         <div class="content-header">
-            <h1 class="content-title">
-                <i class="fas fa-university"></i>
-                <?php echo htmlspecialchars($account['name']); ?>
-            </h1>
-            <p class="content-subtitle">Información detallada de la cuenta bancaria</p>
+            <div style="display: flex; align-items: center; gap: 16px;">
+                <button type="button" class="btn" onclick="window.location.href='bank_accounts.php'" title="Volver a cuentas bancarias">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <div>
+                    <h1 class="content-title">
+                        <i class="fas fa-university"></i>
+                        <?php echo htmlspecialchars($account['name']); ?>
+                        <span style="font-weight: 400; color: var(--text-secondary); margin-left: 8px;">
+                            - <?php echo htmlspecialchars($account['account_number']); ?>
+                        </span>
+                    </h1>
+                    <p class="content-subtitle">Información detallada de la cuenta bancaria</p>
+                </div>
+            </div>
         </div>
         
         <!-- Información de la cuenta -->
@@ -51,35 +61,21 @@ $pageTitle = 'Detalle de Cuenta - ' . $account['name'];
                     <i class="fas fa-info-circle"></i>
                     Información de la Cuenta
                 </h3>
-                <div>
-                    <a href="bank_accounts.php" class="btn" style="background-color: var(--secondary-color); color: white; margin-right: 12px;">
-                        <i class="fas fa-arrow-left"></i>
-                        Volver
-                    </a>
-                    <?php if ($account['account_type'] === 'credito'): ?>
+                <?php if ($account['account_type'] === 'credito'): ?>
+                    <div>
                         <button type="button" class="btn btn-success" onclick="openCreditPaymentModal('<?php echo $account['id']; ?>', '<?php echo htmlspecialchars($account['name']); ?>')">
                             <i class="fas fa-credit-card"></i>
                             Hacer Pago
                         </button>
-                    <?php endif; ?>
-                </div>
+                    </div>
+                <?php endif; ?>
             </div>
             
             <div class="account-details">
                 <div class="detail-grid">
                     <div class="detail-item">
-                        <label class="detail-label">Nombre de la Cuenta:</label>
-                        <span class="detail-value"><?php echo htmlspecialchars($account['name']); ?></span>
-                    </div>
-                    
-                    <div class="detail-item">
                         <label class="detail-label">Banco:</label>
                         <span class="detail-value"><?php echo htmlspecialchars($account['bank_name']); ?></span>
-                    </div>
-                    
-                    <div class="detail-item">
-                        <label class="detail-label">Número de Cuenta:</label>
-                        <span class="detail-value"><?php echo htmlspecialchars($account['account_number']); ?></span>
                     </div>
                     
                     <div class="detail-item">
@@ -94,6 +90,20 @@ $pageTitle = 'Detalle de Cuenta - ' . $account['name'];
                             ];
                             $typeClass = 'account-type-' . $account['account_type'];
                             echo "<span class='account-type-badge {$typeClass}'>" . ($types[$account['account_type']] ?? $account['account_type']) . "</span>";
+                            ?>
+                        </span>
+                    </div>
+                    
+                    <div class="detail-item">
+                        <label class="detail-label">Estado de la Cuenta:</label>
+                        <span class="detail-value">
+                            <?php 
+                            $isActive = $account['active'] == 1 || $account['active'] == '1' || $account['active'] == true;
+                            if ($isActive) {
+                                echo "<span class='status-badge status-active'>Activa</span>";
+                            } else {
+                                echo "<span class='status-badge status-inactive'>Inactiva</span>";
+                            }
                             ?>
                         </span>
                     </div>
@@ -125,16 +135,6 @@ $pageTitle = 'Detalle de Cuenta - ' . $account['name'];
                             ?>
                         </span>
                     </div>
-                    
-                    <div class="detail-item">
-                        <label class="detail-label">Fecha de Creación:</label>
-                        <span class="detail-value"><?php echo date('d/m/Y H:i', strtotime($account['created_at'])); ?></span>
-                    </div>
-                    
-                    <div class="detail-item">
-                        <label class="detail-label">Última Actualización:</label>
-                        <span class="detail-value"><?php echo date('d/m/Y H:i', strtotime($account['updated_at'])); ?></span>
-                    </div>
                 </div>
             </div>
         </div>
@@ -154,6 +154,12 @@ $pageTitle = 'Detalle de Cuenta - ' . $account['name'];
                     <p>Cargando transacciones...</p>
                 </div>
             </div>
+            
+            <!-- Footer con selector de página y paginación -->
+            <div id="transactionsTableFooter" style="display: none; justify-content: space-between; align-items: center; padding: 12px 0 0 0; border-top: 1px solid var(--border-color); margin-top: 16px;">
+                <div id="transactionsPageSizeContainer"></div>
+                <div id="transactionsPagination"></div>
+            </div>
         </div>
     </main>
 </div>
@@ -171,6 +177,29 @@ $pageTitle = 'Detalle de Cuenta - ' . $account['name'];
         <form id="creditPaymentForm">
             <div class="modal-body">
                 <input type="hidden" id="creditAccountId" name="creditAccountId">
+                <input type="hidden" id="currentCreditBalance" name="currentCreditBalance">
+                
+                <!-- Sección de Balance Actual -->
+                <div class="credit-balance-section">
+                    <div class="balance-info">
+                        <div class="balance-label">
+                            <i class="fas fa-credit-card"></i>
+                            Saldo Pendiente de Pago
+                        </div>
+                        <div class="balance-amount" id="currentBalanceDisplay">$0.00</div>
+                        <div class="balance-note">Monto máximo que se puede pagar</div>
+                    </div>
+                    
+                    <!-- Quick Actions para pagos comunes -->
+                    <div class="quick-actions">
+                        <div class="quick-actions-label">Pagos Rápidos:</div>
+                        <div class="quick-actions-buttons">
+                            <button type="button" class="quick-amount-btn" onclick="setQuickAmount('25')">25%</button>
+                            <button type="button" class="quick-amount-btn" onclick="setQuickAmount('50')">50%</button>
+                            <button type="button" class="quick-amount-btn" onclick="setQuickAmount('100')">Total</button>
+                        </div>
+                    </div>
+                </div>
                 
                 <div class="form-group">
                     <label class="form-label">Cuenta de Crédito</label>
@@ -185,8 +214,12 @@ $pageTitle = 'Detalle de Cuenta - ' . $account['name'];
                 </div>
                 
                 <div class="form-group">
-                    <label class="form-label" for="paymentAmount">Monto del Pago *</label>
+                    <label class="form-label" for="paymentAmount">
+                        Monto del Pago *
+                        <span class="max-amount-indicator" id="maxAmountIndicator"></span>
+                    </label>
                     <input type="number" step="0.01" class="form-input" id="paymentAmount" name="paymentAmount" required min="0.01">
+                    <div class="payment-amount-feedback" id="paymentAmountFeedback"></div>
                 </div>
                 
                 <div class="form-group">
@@ -271,13 +304,13 @@ $pageTitle = 'Detalle de Cuenta - ' . $account['name'];
 }
 
 .account-type-cheque {
-    background-color: rgb(37 99 235 / 0.1);
-    color: var(--primary-color);
+    background-color: rgb(99 102 241 / 0.1);
+    color: rgb(99 102 241);
 }
 
 .account-type-credito {
-    background-color: rgb(220 38 38 / 0.1);
-    color: var(--danger-color);
+    background-color: rgb(6 182 212 / 0.1);
+    color: rgb(6 182 212);
 }
 
 .account-type-ahorro {
@@ -286,8 +319,191 @@ $pageTitle = 'Detalle de Cuenta - ' . $account['name'];
 }
 
 .account-type-caja_chica {
-    background-color: rgb(217 119 6 / 0.1);
-    color: var(--warning-color);
+    background-color: rgb(59 130 246 / 0.1);
+    color: rgb(59 130 246);
+}
+
+/* Badge para estado de cuenta */
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-active {
+    background-color: rgb(5 150 105 / 0.1);
+    color: var(--success-color, #059669);
+}
+
+.status-inactive {
+    background-color: rgb(220 38 38 / 0.1);
+    color: var(--danger-color, #dc2626);
+}
+
+/* Estilos para el modal de pago a crédito */
+.credit-balance-section {
+    background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+}
+
+.balance-info {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.balance-label {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 8px;
+}
+
+.balance-amount {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--danger-color);
+    margin-bottom: 4px;
+}
+
+.balance-note {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.quick-actions {
+    border-top: 1px solid #e2e8f0;
+    padding-top: 16px;
+}
+
+.quick-actions-label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.quick-actions-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+.quick-amount-btn {
+    padding: 8px 16px;
+    border: 1px solid var(--primary-color);
+    background: white;
+    color: var(--primary-color);
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 60px;
+}
+
+.quick-amount-btn:hover {
+    background: var(--primary-color);
+    color: white;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+}
+
+.max-amount-indicator {
+    font-size: 11px;
+    color: var(--text-secondary);
+    font-weight: normal;
+    margin-left: 8px;
+}
+
+.payment-amount-feedback {
+    margin-top: 4px;
+    font-size: 12px;
+    min-height: 16px;
+}
+
+.payment-amount-feedback.valid {
+    color: var(--success-color);
+}
+
+.payment-amount-feedback.invalid {
+    color: var(--danger-color);
+}
+
+.payment-amount-feedback.warning {
+    color: #f59e0b;
+}
+
+/* Estilos de paginación para transacciones */
+#transactionsPagination {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+#transactionsPageSizeContainer label {
+    margin-right: 8px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    font-size: 14px;
+}
+
+#transactionsPageSizeContainer select {
+    width: auto;
+    display: inline-block;
+    min-width: 120px;
+}
+
+.pagination-number {
+    min-width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border-color);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    padding: 0 8px;
+}
+
+.pagination-number:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.pagination-number.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.pagination-number:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background: var(--bg-secondary);
+}
+
+.pagination-ellipsis {
+    padding: 0 8px;
+    color: var(--text-secondary);
+    font-size: 14px;
 }
 
 /* Responsive */
@@ -302,6 +518,34 @@ $pageTitle = 'Detalle de Cuenta - ' . $account['name'];
         gap: 12px;
         align-items: flex-start !important;
     }
+    
+    #transactionsTableFooter {
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    #transactionsPagination {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 4px;
+    }
+    
+    .pagination-number {
+        min-width: 28px;
+        height: 28px;
+        font-size: 12px;
+        padding: 0 6px;
+    }
+    
+    #transactionsPageSizeContainer {
+        text-align: center;
+    }
+    
+    #transactionsPageSizeContainer select {
+        min-width: 100px;
+        font-size: 12px;
+    }
 }
 </style>
 
@@ -309,6 +553,12 @@ $pageTitle = 'Detalle de Cuenta - ' . $account['name'];
 
 <script>
 const API_URL = 'api/bank_account/BankAccountController.php';
+
+// Variables de paginación para transacciones
+let currentTransactionsPage = 1;
+let transactionsPerPage = 10;
+let totalTransactions = 0;
+let totalTransactionsPages = 0;
 
 // Funciones para modales
 function openModal(modalId) {
@@ -320,7 +570,34 @@ function closeModal(modalId) {
     document.getElementById(modalId).style.display = 'none';
     document.body.style.overflow = 'auto';
     if (modalId === 'creditPaymentModal') {
+        // Resetear formulario
         document.getElementById('creditPaymentForm').reset();
+        
+        // Limpiar estado del modal
+        currentCreditBalance = 0;
+        updateBalanceDisplay();
+        updateMaxAmountIndicator();
+        
+        // Limpiar feedback
+        const feedback = document.getElementById('paymentAmountFeedback');
+        if (feedback) {
+            feedback.textContent = '';
+            feedback.className = 'payment-amount-feedback';
+        }
+        
+        // Rehabilitar botón de envío
+        const submitButton = document.querySelector('#creditPaymentForm button[type="submit"]');
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.innerHTML = '<i class="fas fa-credit-card"></i> Realizar Pago';
+        }
+        
+        // Remover event listeners del input de monto para evitar acumulación
+        const paymentAmountInput = document.getElementById('paymentAmount');
+        if (paymentAmountInput) {
+            paymentAmountInput.removeEventListener('input', validatePaymentAmount);
+            paymentAmountInput.removeEventListener('change', validatePaymentAmount);
+        }
     }
 }
 
@@ -349,7 +626,11 @@ function loadAccountsForPayment() {
         .then(res => res.json())
         .then(data => {
             const accounts = data.data || data;
-            const nonCreditAccounts = accounts.filter(acc => acc.account_type !== 'credito');
+            // Filtrar cuentas no de crédito Y activas
+            const nonCreditAccounts = accounts.filter(acc => 
+                acc.account_type !== 'credito' && 
+                (acc.active === 1 || acc.active === '1' || acc.active === true)
+            );
             
             const paymentFromSelect = document.getElementById('paymentFromAccount');
             if (paymentFromSelect) {
@@ -364,22 +645,189 @@ function loadAccountsForPayment() {
         });
 }
 
+// Variables globales para el modal de pago
+let currentCreditBalance = 0;
+
+// Cargar balance actual de la cuenta de crédito
+function loadCreditAccountBalance(accountId) {
+    return fetch(`${API_URL}?action=getBankAccountById&id=${accountId}`)
+        .then(res => res.json())
+        .then(data => {
+            const account = data.data || data;
+            if (account && account.balance !== undefined) {
+                // Para cuentas de crédito, el balance negativo significa deuda
+                currentCreditBalance = Math.abs(parseFloat(account.balance));
+                updateBalanceDisplay();
+                updateMaxAmountIndicator();
+                return currentCreditBalance;
+            }
+            return 0;
+        })
+        .catch(err => {
+            console.error('Error loading credit balance:', err);
+            currentCreditBalance = 0;
+            updateBalanceDisplay();
+            return 0;
+        });
+}
+
+// Actualizar la visualización del balance
+function updateBalanceDisplay() {
+    const balanceDisplay = document.getElementById('currentBalanceDisplay');
+    const hiddenBalance = document.getElementById('currentCreditBalance');
+    
+    if (balanceDisplay) {
+        if (currentCreditBalance > 0) {
+            balanceDisplay.textContent = `$${currentCreditBalance.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+            balanceDisplay.style.color = 'var(--danger-color)';
+        } else {
+            balanceDisplay.textContent = '$0.00';
+            balanceDisplay.style.color = 'var(--success-color)';
+        }
+    }
+    
+    if (hiddenBalance) {
+        hiddenBalance.value = currentCreditBalance;
+    }
+}
+
+// Actualizar indicador de monto máximo
+function updateMaxAmountIndicator() {
+    const indicator = document.getElementById('maxAmountIndicator');
+    if (indicator) {
+        if (currentCreditBalance > 0) {
+            indicator.textContent = `(máx: $${currentCreditBalance.toLocaleString('es-MX', {minimumFractionDigits: 2})})`;
+        } else {
+            indicator.textContent = '(cuenta saldada)';
+        }
+    }
+}
+
+// Función para quick actions
+function setQuickAmount(percentage) {
+    const paymentAmountInput = document.getElementById('paymentAmount');
+    if (!paymentAmountInput || currentCreditBalance <= 0) return;
+    
+    let amount = 0;
+    switch(percentage) {
+        case '25':
+            amount = currentCreditBalance * 0.25;
+            break;
+        case '50':
+            amount = currentCreditBalance * 0.50;
+            break;
+        case '100':
+            amount = currentCreditBalance;
+            break;
+    }
+    
+    // Redondear a 2 decimales
+    amount = Math.round(amount * 100) / 100;
+    paymentAmountInput.value = amount.toFixed(2);
+    
+    // Validar el monto después de establecerlo
+    validatePaymentAmount();
+}
+
+// Validar monto del pago
+function validatePaymentAmount() {
+    const paymentAmountInput = document.getElementById('paymentAmount');
+    const feedback = document.getElementById('paymentAmountFeedback');
+    const submitButton = document.querySelector('#creditPaymentForm button[type="submit"]');
+    
+    if (!paymentAmountInput || !feedback) return;
+    
+    const amount = parseFloat(paymentAmountInput.value) || 0;
+    
+    feedback.className = 'payment-amount-feedback';
+    
+    if (amount <= 0) {
+        feedback.textContent = 'El monto debe ser mayor a $0.00';
+        feedback.classList.add('invalid');
+        if (submitButton) submitButton.disabled = true;
+        return false;
+    }
+    
+    if (currentCreditBalance <= 0) {
+        feedback.textContent = 'Esta cuenta no tiene saldo pendiente de pago';
+        feedback.classList.add('warning');
+        if (submitButton) submitButton.disabled = true;
+        return false;
+    }
+    
+    if (amount > currentCreditBalance) {
+        feedback.textContent = `No puedes pagar más de $${currentCreditBalance.toLocaleString('es-MX', {minimumFractionDigits: 2})} (sobrepago no permitido)`;
+        feedback.classList.add('invalid');
+        if (submitButton) submitButton.disabled = true;
+        return false;
+    }
+    
+    // Monto válido
+    if (amount === currentCreditBalance) {
+        feedback.textContent = '✓ Pago total - La cuenta quedará completamente saldada';
+        feedback.classList.add('valid');
+    } else {
+        const remaining = currentCreditBalance - amount;
+        feedback.textContent = `✓ Monto válido - Quedarán $${remaining.toLocaleString('es-MX', {minimumFractionDigits: 2})} pendientes`;
+        feedback.classList.add('valid');
+    }
+    
+    if (submitButton) submitButton.disabled = false;
+    return true;
+}
+
 // Abrir modal de pago de crédito
 function openCreditPaymentModal(accountId, accountName) {
     document.getElementById('creditAccountId').value = accountId;
     document.getElementById('creditAccountName').value = accountName;
-    loadAccountsForPayment();
-    openModal('creditPaymentModal');
+    
+    // Cargar balance actual y cuentas para pago
+    Promise.all([
+        loadCreditAccountBalance(accountId),
+        loadAccountsForPayment()
+    ]).then(() => {
+        // Configurar event listener para validación en tiempo real
+        const paymentAmountInput = document.getElementById('paymentAmount');
+        if (paymentAmountInput) {
+            paymentAmountInput.addEventListener('input', validatePaymentAmount);
+            paymentAmountInput.addEventListener('change', validatePaymentAmount);
+        }
+        
+        openModal('creditPaymentModal');
+    });
 }
 
 // Formulario de pago de crédito
 document.getElementById('creditPaymentForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
+    // Validar antes de enviar
+    if (!validatePaymentAmount()) {
+        showToast('Por favor, corrige el monto del pago', 'error');
+        return;
+    }
+    
     const creditAccountId = document.getElementById('creditAccountId').value;
     const fromAccount = document.getElementById('paymentFromAccount').value;
-    const amount = document.getElementById('paymentAmount').value;
+    const amount = parseFloat(document.getElementById('paymentAmount').value);
     const description = document.getElementById('paymentDescription').value;
+    
+    // Validaciones adicionales
+    if (!fromAccount) {
+        showToast('Selecciona una cuenta de origen', 'error');
+        return;
+    }
+    
+    if (amount > currentCreditBalance) {
+        showToast('El monto no puede ser mayor al saldo pendiente', 'error');
+        return;
+    }
+    
+    // Deshabilitar botón de envío para evitar doble envío
+    const submitButton = document.querySelector('#creditPaymentForm button[type="submit"]');
+    const originalText = submitButton.innerHTML;
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
     
     const paymentData = {
         credit_account_id: creditAccountId,
@@ -395,30 +843,55 @@ document.getElementById('creditPaymentForm').addEventListener('submit', function
     })
     .then(res => res.json())
     .then(result => {
-        closeModal('creditPaymentModal');
         if (result.success) {
             showToast('Pago realizado con éxito', 'success');
+            closeModal('creditPaymentModal');
             // Recargar la página para mostrar el balance actualizado
             setTimeout(() => {
                 window.location.reload();
             }, 1000);
         } else {
             showToast(result.message || 'Error al realizar el pago', 'error');
+            // Restaurar botón
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalText;
         }
     })
-    .catch(() => {
+    .catch(error => {
+        console.error('Payment error:', error);
         showToast('Error al procesar el pago', 'error');
+        // Restaurar botón
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalText;
     });
 });
 
-// Cargar transacciones
-function loadTransactions() {
+// Cargar transacciones con paginación
+function loadTransactions(page = 1) {
     const accountId = '<?php echo $accountId; ?>';
+    currentTransactionsPage = page;
     
-    fetch(`${API_URL}?action=getTransactionsByAccount&id=${accountId}`)
+    fetch(`${API_URL}?action=getTransactionsByAccount&id=${accountId}&page=${page}&limit=${transactionsPerPage}`)
         .then(res => res.json())
-        .then(transactions => {
+        .then(response => {
             const container = document.getElementById('transactionsContainer');
+            
+            // Verificar si hay un error en la respuesta
+            if (response.error) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px 0; color: var(--danger-color);">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 24px; margin-bottom: 12px;"></i>
+                        <p>Error: ${response.error}</p>
+                    </div>
+                `;
+                document.getElementById('transactionsTableFooter').style.display = 'none';
+                return;
+            }
+            
+            // Actualizar variables de paginación
+            totalTransactions = response.total || 0;
+            totalTransactionsPages = response.pages || 0;
+            const transactions = response.data || [];
             
             if (!transactions || transactions.length === 0) {
                 container.innerHTML = `
@@ -427,6 +900,7 @@ function loadTransactions() {
                         <p>No hay transacciones registradas para esta cuenta</p>
                     </div>
                 `;
+                document.getElementById('transactionsTableFooter').style.display = 'none';
                 return;
             }
             
@@ -467,20 +941,140 @@ function loadTransactions() {
             `;
             
             container.innerHTML = html;
+            
+            // Mostrar footer con paginación y selector de página
+            const footerContainer = document.getElementById('transactionsTableFooter');
+            if (totalTransactions > 0) {
+                renderTransactionsPageSizeSelector();
+                renderTransactionsPagination();
+                // Siempre mostrar el footer cuando hay transacciones (para el selector)
+                footerContainer.style.display = 'flex';
+            } else {
+                footerContainer.style.display = 'none';
+            }
         })
         .catch(err => {
             console.error('Error loading transactions:', err);
             document.getElementById('transactionsContainer').innerHTML = `
                 <div style="text-align: center; padding: 40px 0; color: var(--danger-color);">
                     <i class="fas fa-exclamation-triangle" style="font-size: 24px; margin-bottom: 12px;"></i>
-                    <p>Error al cargar las transacciones</p>
+                    <p>Error de conexión al cargar las transacciones</p>
+                    <small style="display: block; margin-top: 8px; opacity: 0.7;">
+                        ${err.message || 'Error desconocido'}
+                    </small>
                 </div>
             `;
+            document.getElementById('transactionsTableFooter').style.display = 'none';
         });
 }
 
+// Renderizar selector de tamaño de página para transacciones
+function renderTransactionsPageSizeSelector() {
+    const container = document.getElementById('transactionsPageSizeContainer');
+    if (!container) return;
+    
+    container.innerHTML = '';
+    
+    const label = document.createElement('label');
+    label.textContent = 'Mostrar:';
+    label.style = 'margin-right: 8px; font-weight: 500; color: var(--text-secondary); font-size: 14px;';
+    
+    const selector = document.createElement('select');
+    selector.id = 'transactionsPageSizeSelector';
+    selector.className = 'form-input';
+    selector.style = 'width: auto; display: inline-block; min-width: 120px;';
+    
+    [5, 10, 20, 50].forEach(size => {
+        const opt = document.createElement('option');
+        opt.value = size;
+        opt.textContent = `${size} por página`;
+        selector.appendChild(opt);
+    });
+    
+    selector.value = transactionsPerPage;
+    selector.onchange = function() {
+        transactionsPerPage = parseInt(this.value);
+        loadTransactions(1); // Reiniciar a la primera página
+    };
+    
+    container.appendChild(label);
+    container.appendChild(selector);
+}
+
+// Renderizar paginación de transacciones
+function renderTransactionsPagination() {
+    const container = document.getElementById('transactionsPagination');
+    if (!container) return;
+    
+    // Ocultar paginación si hay solo una página o menos
+    if (totalTransactionsPages <= 1) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    container.style.display = 'flex';
+    let html = '';
+    
+    // Botón anterior
+    if (currentTransactionsPage > 1) {
+        html += `<span class="pagination-number" onclick="loadTransactions(${currentTransactionsPage - 1})">
+            <i class="fas fa-chevron-left"></i>
+        </span>`;
+    } else {
+        html += `<span class="pagination-number" style="opacity: 0.5; cursor: not-allowed;">
+            <i class="fas fa-chevron-left"></i>
+        </span>`;
+    }
+    
+    // Números de página
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentTransactionsPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalTransactionsPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    // Primera página si no está visible
+    if (startPage > 1) {
+        html += `<span class="pagination-number" onclick="loadTransactions(1)">1</span>`;
+        if (startPage > 2) {
+            html += `<span class="pagination-ellipsis">...</span>`;
+        }
+    }
+    
+    // Páginas visibles
+    for (let i = startPage; i <= endPage; i++) {
+        const activeClass = i === currentTransactionsPage ? 'active' : '';
+        html += `<span class="pagination-number ${activeClass}" onclick="loadTransactions(${i})">${i}</span>`;
+    }
+    
+    // Última página si no está visible
+    if (endPage < totalTransactionsPages) {
+        if (endPage < totalTransactionsPages - 1) {
+            html += `<span class="pagination-ellipsis">...</span>`;
+        }
+        html += `<span class="pagination-number" onclick="loadTransactions(${totalTransactionsPages})">${totalTransactionsPages}</span>`;
+    }
+    
+    // Botón siguiente
+    if (currentTransactionsPage < totalTransactionsPages) {
+        html += `<span class="pagination-number" onclick="loadTransactions(${currentTransactionsPage + 1})">
+            <i class="fas fa-chevron-right"></i>
+        </span>`;
+    } else {
+        html += `<span class="pagination-number" style="opacity: 0.5; cursor: not-allowed;">
+            <i class="fas fa-chevron-right"></i>
+        </span>`;
+    }
+    
+    container.innerHTML = html;
+}
+
 // Cargar transacciones al iniciar
-document.addEventListener('DOMContentLoaded', loadTransactions);
+document.addEventListener('DOMContentLoaded', function() {
+    loadTransactions();
+});
 
 // Cerrar modales con ESC
 document.addEventListener('keydown', function(e) {

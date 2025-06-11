@@ -41,6 +41,9 @@ switch ($action) {
     case 'creditPayment':
         performCreditPayment();
         break;
+    case 'toggleAccountStatus':
+        toggleAccountStatus($_GET['id'] ?? '');
+        break;
     default:
         echo json_encode(['error' => 'Acción no válida']);
 }
@@ -87,14 +90,16 @@ function createBankAccount() {
         $pdo->beginTransaction();
         
         // Crear cuenta bancaria
-        $stmt = $pdo->prepare("INSERT INTO bank_accounts (id, name, bank_name, account_number, account_type, balance, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        $active = isset($data['active']) ? (int)$data['active'] : 1; // Por defecto activa
+        $stmt = $pdo->prepare("INSERT INTO bank_accounts (id, name, bank_name, account_number, account_type, balance, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
         $stmt->execute([
             $uuid,
             $data['name'],
             $data['bank_name'],
             $data['account_number'],
             $data['account_type'],
-            $balance
+            $balance,
+            $active
         ]);
         
         // Registrar transacción de balance inicial si hay balance diferente de 0
@@ -136,13 +141,15 @@ function updateBankAccount($id) {
     global $pdo;
     $data = json_decode(file_get_contents("php://input"), true);
     
-    // Solo actualizar los campos editables: nombre, banco y número de cuenta
+    // Actualizar los campos editables: nombre, banco, número de cuenta y estado
     // NO se actualiza account_type ni balance
-    $stmt = $pdo->prepare("UPDATE bank_accounts SET name = ?, bank_name = ?, account_number = ?, updated_at = NOW() WHERE id = ?");
+    $active = isset($data['active']) ? (int)$data['active'] : 1;
+    $stmt = $pdo->prepare("UPDATE bank_accounts SET name = ?, bank_name = ?, account_number = ?, active = ?, updated_at = NOW() WHERE id = ?");
     $stmt->execute([
         $data['name'],
         $data['bank_name'],
         $data['account_number'],
+        $active,
         $id
     ]);
     echo json_encode(["message" => "Bank account updated"]);
@@ -157,9 +164,78 @@ function deleteBankAccount($id) {
 
 function getTransactionsByAccount($id) {
     global $pdo;
-    $stmt = $pdo->prepare("SELECT * FROM transactions WHERE bank_account_id = ? ORDER BY transaction_date DESC, id DESC");
-    $stmt->execute([$id]);
-    echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    
+    try {
+        // Validar el ID de la cuenta
+        if (empty($id)) {
+            echo json_encode(['error' => 'ID de cuenta requerido']);
+            return;
+        }
+        
+        // Parámetros de paginación
+        $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+        $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
+        $offset = ($page - 1) * $limit;
+        
+        // Validar parámetros
+        if ($page < 1) $page = 1;
+        if ($limit < 1 || $limit > 100) $limit = 10;
+        
+        // Verificar si la tabla transactions existe
+        $tablesQuery = $pdo->query("SHOW TABLES LIKE 'transactions'");
+        if ($tablesQuery->rowCount() == 0) {
+            echo json_encode([
+                'data' => [],
+                'total' => 0,
+                'page' => $page,
+                'limit' => $limit,
+                'pages' => 0
+            ]);
+            return;
+        }
+        
+        // Contar el total de transacciones
+        $stmt = $pdo->prepare("SELECT COUNT(*) as total FROM transactions WHERE bank_account_id = ?");
+        $stmt->execute([$id]);
+        $total = (int)$stmt->fetch(PDO::FETCH_ASSOC)['total'];
+        
+        // Si no hay transacciones, devolver respuesta vacía
+        if ($total == 0) {
+            echo json_encode([
+                'data' => [],
+                'total' => 0,
+                'page' => $page,
+                'limit' => $limit,
+                'pages' => 0
+            ]);
+            return;
+        }
+        
+        // Obtener transacciones paginadas - usar LIMIT sin parámetros preparados
+        $sql = "SELECT * FROM transactions WHERE bank_account_id = ? ORDER BY transaction_date DESC, id DESC LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute([$id]);
+        $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode([
+            'data' => $transactions,
+            'total' => $total,
+            'page' => $page,
+            'limit' => $limit,
+            'pages' => ceil($total / $limit)
+        ]);
+        
+    } catch (Exception $e) {
+        error_log("Error in getTransactionsByAccount: " . $e->getMessage());
+        echo json_encode([
+            'error' => 'Error al cargar transacciones: ' . $e->getMessage(),
+            'data' => [],
+            'total' => 0,
+            'page' => 1,
+            'limit' => 10,
+            'pages' => 0
+        ]);
+    }
 }
 
 function performTransfer() {
@@ -178,8 +254,8 @@ function performTransfer() {
             return;
         }
         
-        // Verificar que ambas cuentas existen y no son de crédito
-        $stmt = $pdo->prepare("SELECT * FROM bank_accounts WHERE id IN (?, ?) AND account_type != 'credito'");
+        // Verificar que ambas cuentas existen, no son de crédito y están activas
+        $stmt = $pdo->prepare("SELECT * FROM bank_accounts WHERE id IN (?, ?) AND account_type != 'credito' AND active = 1");
         $stmt->execute([$fromAccountId, $toAccountId]);
         $accounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
@@ -263,23 +339,23 @@ function performCreditPayment() {
             return;
         }
         
-        // Verificar que la cuenta de crédito existe y es de tipo crédito
-        $stmt = $pdo->prepare("SELECT * FROM bank_accounts WHERE id = ? AND account_type = 'credito'");
+        // Verificar que la cuenta de crédito existe, es de tipo crédito y está activa
+        $stmt = $pdo->prepare("SELECT * FROM bank_accounts WHERE id = ? AND account_type = 'credito' AND active = 1");
         $stmt->execute([$creditAccountId]);
         $creditAccount = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$creditAccount) {
-            echo json_encode(['success' => false, 'message' => 'La cuenta de crédito no es válida']);
+            echo json_encode(['success' => false, 'message' => 'La cuenta de crédito no es válida o está inactiva']);
             return;
         }
         
-        // Verificar que la cuenta origen existe y no es de crédito
-        $stmt = $pdo->prepare("SELECT * FROM bank_accounts WHERE id = ? AND account_type != 'credito'");
+        // Verificar que la cuenta origen existe, no es de crédito y está activa
+        $stmt = $pdo->prepare("SELECT * FROM bank_accounts WHERE id = ? AND account_type != 'credito' AND active = 1");
         $stmt->execute([$fromAccountId]);
         $fromAccount = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$fromAccount) {
-            echo json_encode(['success' => false, 'message' => 'La cuenta origen no es válida']);
+            echo json_encode(['success' => false, 'message' => 'La cuenta origen no es válida o está inactiva']);
             return;
         }
         
@@ -328,5 +404,64 @@ function performCreditPayment() {
     } catch (Exception $e) {
         $pdo->rollback();
         echo json_encode(['success' => false, 'message' => 'Error al procesar el pago: ' . $e->getMessage()]);
+    }
+}
+
+function toggleAccountStatus($id) {
+    global $pdo;
+    
+    try {
+        $data = json_decode(file_get_contents("php://input"), true);
+        $active = isset($data['active']) ? (int)$data['active'] : 0;
+        
+        // Debug: log para verificar el ID y estado
+        error_log("toggleAccountStatus - ID: $id, Active: $active");
+        
+        // Si se está desactivando, verificar si tiene payment types asociados
+        if ($active == 0) {
+            // Verificar si existen payment types que usan esta cuenta
+            $tablesQuery = $pdo->query("SHOW TABLES LIKE 'payment_types'");
+            error_log("payment_types table exists: " . ($tablesQuery->rowCount() > 0 ? 'YES' : 'NO'));
+            
+            if ($tablesQuery->rowCount() > 0) {
+                $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM payment_types WHERE bank_account_id = ?");
+                $stmt->execute([$id]);
+                $paymentTypesCount = $stmt->fetch(PDO::FETCH_ASSOC)['count'];
+                
+                error_log("Payment types count for account $id: $paymentTypesCount");
+                
+                if ($paymentTypesCount > 0) {
+                    // Obtener los nombres de los payment types para mostrar en el mensaje
+                    $stmt = $pdo->prepare("SELECT name FROM payment_types WHERE bank_account_id = ?");
+                    $stmt->execute([$id]);
+                    $paymentTypes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                    $paymentTypeNames = array_map(function($type) { return $type['name']; }, $paymentTypes);
+                    
+                    $response = [
+                        "error" => "No se puede desactivar la cuenta",
+                        "message" => "Esta cuenta bancaria tiene tipos de pago asociados que la están utilizando.",
+                        "details" => [
+                            "count" => $paymentTypesCount,
+                            "payment_types" => $paymentTypeNames
+                        ]
+                    ];
+                    
+                    error_log("Returning conflict response: " . json_encode($response));
+                    echo json_encode($response);
+                    return;
+                }
+            }
+        }
+        
+        $stmt = $pdo->prepare("UPDATE bank_accounts SET active = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$active, $id]);
+        
+        $response = ["message" => "Account status updated"];
+        error_log("Returning success response: " . json_encode($response));
+        echo json_encode($response);
+        
+    } catch (Exception $e) {
+        error_log("Error in toggleAccountStatus: " . $e->getMessage());
+        echo json_encode(["error" => "Error interno del servidor", "message" => $e->getMessage()]);
     }
 }

@@ -4,10 +4,15 @@ let editingBankAccountId = null;
 let sortField = 'created_at';
 let sortDir = 'desc';
 
+// Variables para filtros de estado
+let statusFilter = '';
+let tempStatusFilter = '';
+
 // --- Cargar cuentas al iniciar ---
 document.addEventListener('DOMContentLoaded', function() {
     loadBankAccounts();
     loadAccountsForTransfers();
+    setupStatusFilterEventListeners();
 });
 
 // --- Paginación ---
@@ -47,16 +52,45 @@ renderPageSizeSelector();
 function loadBankAccounts(page = 1) {
     currentPage = page;
     setTableLoading(true);
-    fetch(`${API_URL}?action=getAllBankAccounts&limit=${pageSize}&offset=${(page-1)*pageSize}&sort=${sortField}&dir=${sortDir}`)
+    
+    let url = `${API_URL}?action=getAllBankAccounts&limit=${pageSize}&offset=${(page-1)*pageSize}&sort=${sortField}&dir=${sortDir}`;
+    
+    // Agregar filtro de estado si está activo
+    if (statusFilter !== '') {
+        url += `&status=${statusFilter}`;
+    }
+    
+    fetch(url)
         .then(res => res.json())
         .then(data => {
             const accounts = data.data || data;
-            totalBankAccountsCount = data.total || accounts.length;
-            renderBankAccountsTable(accounts);
+            
+            // Si no hay filtro de estado, usar el total del backend
+            // Si hay filtro, aplicar filtro en frontend y contar
+            if (statusFilter === '') {
+                // Sin filtros: usar total del backend
+                totalBankAccountsCount = data.total || accounts.length;
+                renderBankAccountsTable(accounts);
+            } else {
+                // Con filtros: aplicar filtro en frontend 
+                let filteredAccounts = accounts.filter(account => {
+                    const isActive = account.active === 1 || account.active === '1' || account.active === true;
+                    return statusFilter === '1' ? isActive : !isActive;
+                });
+                
+                totalBankAccountsCount = filteredAccounts.length;
+                renderBankAccountsTable(filteredAccounts);
+            }
+            
             renderPagination();
+            updateActiveStatusFiltersDisplay();
         })
         .catch(() => {
-            document.getElementById('bankAccountsTableBody').innerHTML = '<tr><td colspan="6">Error al cargar cuentas</td></tr>';
+            document.getElementById('bankAccountsTableBody').innerHTML = '<tr><td colspan="7">Error al cargar cuentas</td></tr>';
+            const footerContainer = document.getElementById('bankAccountsTableFooter');
+            if (footerContainer) {
+                footerContainer.style.display = 'none';
+            }
         })
         .finally(() => setTableLoading(false));
 }
@@ -64,7 +98,7 @@ function loadBankAccounts(page = 1) {
 function setTableLoading(loading) {
     const tbody = document.getElementById('bankAccountsTableBody');
     if (loading) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:40px 0;">
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px 0;">
             <div class="loading-spinner"></div>
             <span style="display:block; margin-top:8px; color:var(--text-secondary);">Cargando cuentas...</span>
         </td></tr>`;
@@ -80,6 +114,16 @@ function formatAccountType(type) {
         'caja_chica': 'Caja Chica'
     };
     return types[type] || type;
+}
+
+// Función para formatear el estado de la cuenta
+function formatAccountStatus(active) {
+    const isActive = active === 1 || active === '1' || active === true;
+    if (isActive) {
+        return '<span class="status-badge status-active">Activa</span>';
+    } else {
+        return '<span class="status-badge status-inactive">Inactiva</span>';
+    }
 }
 
 // Función para formatear el balance según el tipo de cuenta
@@ -110,7 +154,7 @@ function renderBankAccountsTable(accounts) {
     const tbody = document.getElementById('bankAccountsTableBody');
     tbody.innerHTML = '';
     if (!accounts.length) {
-        tbody.innerHTML = '<tr><td colspan="6">No hay cuentas bancarias registradas</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7">No hay cuentas bancarias registradas</td></tr>';
         document.getElementById('totalBankAccounts').textContent = '0';
         return;
     }
@@ -128,11 +172,12 @@ function renderBankAccountsTable(accounts) {
         }
         
         tr.innerHTML = `
-            <td>${account.name}</td>
+            <td><a href="bank_account_detail.php?id=${account.id}" class="account-name-link">${account.name}</a></td>
             <td>${account.bank_name}</td>
             <td>${account.account_number}</td>
             <td><span class="account-type-badge account-type-${account.account_type}">${formatAccountType(account.account_type)}</span></td>
             <td>${formatBalance(account.balance, account.account_type)}</td>
+            <td>${formatAccountStatus(account.active)}</td>
             <td class="acciones">
                 <div class="table-actions">
                     <button type="button" class="btn-action" onclick="viewBankAccount('${account.id}')" title="Ver">
@@ -142,6 +187,9 @@ function renderBankAccountsTable(accounts) {
                         <i class="fas fa-edit"></i>
                     </button>
                     ${additionalButtons}
+                    <button type="button" class="btn-action ${account.active == 1 ? 'btn-warning' : 'btn-success'}" onclick="toggleAccountStatus('${account.id}', ${account.active})" title="${account.active == 1 ? 'Desactivar' : 'Activar'}">
+                        <i class="fas fa-${account.active == 1 ? 'ban' : 'check'}"></i>
+                    </button>
                     <button type="button" class="btn-action btn-danger" onclick="deleteBankAccount('${account.id}')" title="Eliminar">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -160,18 +208,70 @@ function viewBankAccount(id) {
 function renderPagination() {
     const container = document.getElementById('bankAccountsPagination');
     if (!container) return;
-    container.innerHTML = '';
+    
     const totalPages = Math.ceil(totalBankAccountsCount / pageSize);
-    if (totalPages <= 1) { container.style.display = 'none'; return; }
-    container.style.display = 'flex';
-    for (let i = 1; i <= totalPages; i++) {
-        const btn = document.createElement('button');
-        btn.className = 'btn' + (i === currentPage ? ' btn-primary' : '');
-        btn.textContent = i;
-        btn.style.minWidth = '36px';
-        btn.onclick = () => loadBankAccounts(i);
-        container.appendChild(btn);
+    if (totalPages <= 1) { 
+        container.style.display = 'none'; 
+        return; 
     }
+    
+    container.style.display = 'flex';
+    let html = '';
+    
+    // Botón anterior
+    if (currentPage > 1) {
+        html += `<span class="pagination-number" onclick="loadBankAccounts(${currentPage - 1})">
+            <i class="fas fa-chevron-left"></i>
+        </span>`;
+    } else {
+        html += `<span class="pagination-number" style="opacity: 0.5; cursor: not-allowed;">
+            <i class="fas fa-chevron-left"></i>
+        </span>`;
+    }
+    
+    // Números de página
+    const maxVisiblePages = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    // Primera página si no está visible
+    if (startPage > 1) {
+        html += `<span class="pagination-number" onclick="loadBankAccounts(1)">1</span>`;
+        if (startPage > 2) {
+            html += `<span class="pagination-ellipsis">...</span>`;
+        }
+    }
+    
+    // Páginas visibles
+    for (let i = startPage; i <= endPage; i++) {
+        const activeClass = i === currentPage ? 'active' : '';
+        html += `<span class="pagination-number ${activeClass}" onclick="loadBankAccounts(${i})">${i}</span>`;
+    }
+    
+    // Última página si no está visible
+    if (endPage < totalPages) {
+        if (endPage < totalPages - 1) {
+            html += `<span class="pagination-ellipsis">...</span>`;
+        }
+        html += `<span class="pagination-number" onclick="loadBankAccounts(${totalPages})">${totalPages}</span>`;
+    }
+    
+    // Botón siguiente
+    if (currentPage < totalPages) {
+        html += `<span class="pagination-number" onclick="loadBankAccounts(${currentPage + 1})">
+            <i class="fas fa-chevron-right"></i>
+        </span>`;
+    } else {
+        html += `<span class="pagination-number" style="opacity: 0.5; cursor: not-allowed;">
+            <i class="fas fa-chevron-right"></i>
+        </span>`;
+    }
+    
+    container.innerHTML = html;
 }
 
 function openModal(modalId) {
@@ -205,7 +305,39 @@ function closeModal(modalId) {
     } else if (modalId === 'transferModal') {
         document.getElementById('transferForm').reset();
     } else if (modalId === 'creditPaymentModal') {
+        // Resetear formulario
         document.getElementById('creditPaymentForm').reset();
+        
+        // Limpiar estado del modal
+        currentCreditBalance = 0;
+        updateBalanceDisplay();
+        updateMaxAmountIndicator();
+        
+        // Limpiar feedback
+        const feedback = document.getElementById('paymentAmountFeedback');
+        if (feedback) {
+            feedback.textContent = '';
+            feedback.className = 'payment-amount-feedback';
+        }
+        
+        // Rehabilitar botón de envío
+        const submitButton = document.querySelector('#creditPaymentForm button[type="submit"]');
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.innerHTML = '<i class="fas fa-credit-card"></i> Realizar Pago';
+        }
+        
+        // Remover event listeners del input de monto para evitar acumulación
+        const paymentAmountInput = document.getElementById('paymentAmount');
+        if (paymentAmountInput) {
+            paymentAmountInput.removeEventListener('input', validatePaymentAmount);
+            paymentAmountInput.removeEventListener('change', validatePaymentAmount);
+        }
+    } else if (modalId === 'confirmStatusChangeModal') {
+        accountDataToToggle = null;
+    } else if (modalId === 'paymentTypesConflictModal') {
+        // Limpiar cualquier dato temporal si es necesario
+        console.log('Cerrando modal de conflicto de payment types');
     }
 }
 
@@ -221,6 +353,19 @@ function setModalToCreateMode() {
     document.getElementById('balanceReadonly').style.display = 'none';
     document.getElementById('accountTypeEditNote').style.display = 'none';
     document.getElementById('balanceEditNote').style.display = 'none';
+    
+    // Configurar estado por defecto (activa)
+    const accountActiveSwitch = document.getElementById('accountActive');
+    const accountStatusLabel = document.getElementById('accountStatusLabel');
+    if (accountActiveSwitch && accountStatusLabel) {
+        accountActiveSwitch.checked = true;
+        accountStatusLabel.textContent = 'Activa';
+        accountStatusLabel.style.color = 'var(--success-color)';
+        
+        // Agregar event listener para el switch
+        accountActiveSwitch.removeEventListener('change', handleAccountStatusChange);
+        accountActiveSwitch.addEventListener('change', handleAccountStatusChange);
+    }
     
     // Configurar event listeners para manejo de cuentas de crédito
     setupCreditAccountHandling();
@@ -284,6 +429,18 @@ function handleBalanceBlur() {
                 balanceInput.classList.remove('converting');
             }, 1000);
         }
+    }
+}
+
+// Función para manejar el cambio del switch de estado
+function handleAccountStatusChange() {
+    const accountStatusLabel = document.getElementById('accountStatusLabel');
+    if (this.checked) {
+        accountStatusLabel.textContent = 'Activa';
+        accountStatusLabel.style.color = 'var(--success-color)';
+    } else {
+        accountStatusLabel.textContent = 'Inactiva';
+        accountStatusLabel.style.color = 'var(--danger-color)';
     }
 }
 
@@ -354,6 +511,20 @@ function editBankAccount(id) {
             document.getElementById('accountType').value = account.account_type || '';
             document.getElementById('balance').value = account.balance || '0.00';
             
+            // Configurar estado de la cuenta
+            const accountActiveSwitch = document.getElementById('accountActive');
+            const accountStatusLabel = document.getElementById('accountStatusLabel');
+            if (accountActiveSwitch && accountStatusLabel) {
+                const isActive = account.active === 1 || account.active === '1' || account.active === true;
+                accountActiveSwitch.checked = isActive;
+                accountStatusLabel.textContent = isActive ? 'Activa' : 'Inactiva';
+                accountStatusLabel.style.color = isActive ? 'var(--success-color)' : 'var(--danger-color)';
+                
+                // Agregar event listener para el switch
+                accountActiveSwitch.removeEventListener('change', handleAccountStatusChange);
+                accountActiveSwitch.addEventListener('change', handleAccountStatusChange);
+            }
+            
             editingBankAccountId = account.id;
             
             // Configurar modal en modo edición
@@ -369,7 +540,10 @@ function loadAccountsForTransfers() {
         .then(res => res.json())
         .then(data => {
             const accounts = data.data || data;
-            window.transferAccounts = accounts.filter(acc => acc.account_type !== 'credito'); // Guardar globalmente para filtros
+            // Filtrar cuentas: no crédito Y activas
+            window.transferAccounts = accounts.filter(acc => 
+                acc.account_type !== 'credito' && (acc.active === 1 || acc.active === '1' || acc.active === true)
+            );
             
             // Llenar select de cuenta origen
             const fromSelect = document.getElementById('fromAccount');
@@ -445,11 +619,155 @@ function populateToAccountSelect(excludeAccountId = null) {
 }
 
 // --- Funciones para pago de crédito ---
+// Variables globales para el modal de pago
+let currentCreditBalance = 0;
+
+// Cargar balance actual de la cuenta de crédito
+function loadCreditAccountBalance(accountId) {
+    return fetch(`${API_URL}?action=getBankAccountById&id=${accountId}`)
+        .then(res => res.json())
+        .then(data => {
+            const account = data.data || data;
+            if (account && account.balance !== undefined) {
+                // Para cuentas de crédito, el balance negativo significa deuda
+                currentCreditBalance = Math.abs(parseFloat(account.balance));
+                updateBalanceDisplay();
+                updateMaxAmountIndicator();
+                return currentCreditBalance;
+            }
+            return 0;
+        })
+        .catch(err => {
+            console.error('Error loading credit balance:', err);
+            currentCreditBalance = 0;
+            updateBalanceDisplay();
+            return 0;
+        });
+}
+
+// Actualizar la visualización del balance
+function updateBalanceDisplay() {
+    const balanceDisplay = document.getElementById('currentBalanceDisplay');
+    const hiddenBalance = document.getElementById('currentCreditBalance');
+    
+    if (balanceDisplay) {
+        if (currentCreditBalance > 0) {
+            balanceDisplay.textContent = `$${currentCreditBalance.toLocaleString('es-MX', {minimumFractionDigits: 2})}`;
+            balanceDisplay.style.color = 'var(--danger-color)';
+        } else {
+            balanceDisplay.textContent = '$0.00';
+            balanceDisplay.style.color = 'var(--success-color)';
+        }
+    }
+    
+    if (hiddenBalance) {
+        hiddenBalance.value = currentCreditBalance;
+    }
+}
+
+// Actualizar indicador de monto máximo
+function updateMaxAmountIndicator() {
+    const indicator = document.getElementById('maxAmountIndicator');
+    if (indicator) {
+        if (currentCreditBalance > 0) {
+            indicator.textContent = `(máx: $${currentCreditBalance.toLocaleString('es-MX', {minimumFractionDigits: 2})})`;
+        } else {
+            indicator.textContent = '(cuenta saldada)';
+        }
+    }
+}
+
+// Función para quick actions
+function setQuickAmount(percentage) {
+    const paymentAmountInput = document.getElementById('paymentAmount');
+    if (!paymentAmountInput || currentCreditBalance <= 0) return;
+    
+    let amount = 0;
+    switch(percentage) {
+        case '25':
+            amount = currentCreditBalance * 0.25;
+            break;
+        case '50':
+            amount = currentCreditBalance * 0.50;
+            break;
+        case '100':
+            amount = currentCreditBalance;
+            break;
+    }
+    
+    // Redondear a 2 decimales
+    amount = Math.round(amount * 100) / 100;
+    paymentAmountInput.value = amount.toFixed(2);
+    
+    // Validar el monto después de establecerlo
+    validatePaymentAmount();
+}
+
+// Validar monto del pago
+function validatePaymentAmount() {
+    const paymentAmountInput = document.getElementById('paymentAmount');
+    const feedback = document.getElementById('paymentAmountFeedback');
+    const submitButton = document.querySelector('#creditPaymentForm button[type="submit"]');
+    
+    if (!paymentAmountInput || !feedback) return;
+    
+    const amount = parseFloat(paymentAmountInput.value) || 0;
+    
+    feedback.className = 'payment-amount-feedback';
+    
+    if (amount <= 0) {
+        feedback.textContent = 'El monto debe ser mayor a $0.00';
+        feedback.classList.add('invalid');
+        if (submitButton) submitButton.disabled = true;
+        return false;
+    }
+    
+    if (currentCreditBalance <= 0) {
+        feedback.textContent = 'Esta cuenta no tiene saldo pendiente de pago';
+        feedback.classList.add('warning');
+        if (submitButton) submitButton.disabled = true;
+        return false;
+    }
+    
+    if (amount > currentCreditBalance) {
+        feedback.textContent = `No puedes pagar más de $${currentCreditBalance.toLocaleString('es-MX', {minimumFractionDigits: 2})} (sobrepago no permitido)`;
+        feedback.classList.add('invalid');
+        if (submitButton) submitButton.disabled = true;
+        return false;
+    }
+    
+    // Monto válido
+    if (amount === currentCreditBalance) {
+        feedback.textContent = '✓ Pago total - La cuenta quedará completamente saldada';
+        feedback.classList.add('valid');
+    } else {
+        const remaining = currentCreditBalance - amount;
+        feedback.textContent = `✓ Monto válido - Quedarán $${remaining.toLocaleString('es-MX', {minimumFractionDigits: 2})} pendientes`;
+        feedback.classList.add('valid');
+    }
+    
+    if (submitButton) submitButton.disabled = false;
+    return true;
+}
+
 function openCreditPaymentModal(accountId, accountName) {
     document.getElementById('creditAccountId').value = accountId;
     document.getElementById('creditAccountName').value = accountName;
-    loadAccountsForTransfers(); // Cargar cuentas disponibles para pago
-    openModal('creditPaymentModal');
+    
+    // Cargar balance actual y cuentas para pago
+    Promise.all([
+        loadCreditAccountBalance(accountId),
+        loadAccountsForTransfers()
+    ]).then(() => {
+        // Configurar event listener para validación en tiempo real
+        const paymentAmountInput = document.getElementById('paymentAmount');
+        if (paymentAmountInput) {
+            paymentAmountInput.addEventListener('input', validatePaymentAmount);
+            paymentAmountInput.addEventListener('change', validatePaymentAmount);
+        }
+        
+        openModal('creditPaymentModal');
+    });
 }
 
 // --- Event Listeners para formularios ---
@@ -460,7 +778,8 @@ document.getElementById('bankAccountForm').addEventListener('submit', function(e
     const data = {
         name: document.getElementById('bankAccountName').value,
         bank_name: document.getElementById('bankName').value,
-        account_number: document.getElementById('accountNumber').value
+        account_number: document.getElementById('accountNumber').value,
+        active: document.getElementById('accountActive').checked ? 1 : 0
     };
     
     // Solo incluir tipo y balance si NO estamos editando
@@ -548,10 +867,33 @@ document.getElementById('transferForm').addEventListener('submit', function(e) {
 document.getElementById('creditPaymentForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
+    // Validar antes de enviar
+    if (!validatePaymentAmount()) {
+        showToast('Por favor, corrige el monto del pago', 'error');
+        return;
+    }
+    
     const creditAccountId = document.getElementById('creditAccountId').value;
     const fromAccount = document.getElementById('paymentFromAccount').value;
-    const amount = document.getElementById('paymentAmount').value;
+    const amount = parseFloat(document.getElementById('paymentAmount').value);
     const description = document.getElementById('paymentDescription').value;
+    
+    // Validaciones adicionales
+    if (!fromAccount) {
+        showToast('Selecciona una cuenta de origen', 'error');
+        return;
+    }
+    
+    if (amount > currentCreditBalance) {
+        showToast('El monto no puede ser mayor al saldo pendiente', 'error');
+        return;
+    }
+    
+    // Deshabilitar botón de envío para evitar doble envío
+    const submitButton = document.querySelector('#creditPaymentForm button[type="submit"]');
+    const originalText = submitButton.innerHTML;
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
     
     const paymentData = {
         credit_account_id: creditAccountId,
@@ -567,16 +909,23 @@ document.getElementById('creditPaymentForm').addEventListener('submit', function
     })
     .then(res => res.json())
     .then(result => {
-        closeModal('creditPaymentModal');
         if (result.success) {
             showToast('Pago realizado con éxito', 'success');
+            closeModal('creditPaymentModal');
             loadBankAccounts();
         } else {
             showToast(result.message || 'Error al realizar el pago', 'error');
+            // Restaurar botón
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalText;
         }
     })
-    .catch(() => {
+    .catch(error => {
+        console.error('Payment error:', error);
         showToast('Error al procesar el pago', 'error');
+        // Restaurar botón
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalText;
     });
 });
 
@@ -593,6 +942,11 @@ document.getElementById('confirmDeleteBtn').onclick = function() {
         bankAccountIdToDelete = null;
         closeModal('confirmDeleteModal');
     }
+};
+
+// Event listener para el botón de confirmación de cambio de estado
+document.getElementById('confirmStatusBtn').onclick = function() {
+    confirmStatusChange();
 };
 function deleteBankAccount(id) {
     showDeleteModal(id);
@@ -633,7 +987,9 @@ document.getElementById('searchInput').addEventListener('input', function() {
     rows.forEach(row => {
         const name = row.children[0]?.textContent.toLowerCase() || '';
         const bank = row.children[1]?.textContent.toLowerCase() || '';
-        if (name.includes(search) || bank.includes(search)) {
+        const matchesSearch = name.includes(search) || bank.includes(search);
+        
+        if (matchesSearch) {
             row.style.display = '';
             count++;
         } else {
@@ -642,6 +998,272 @@ document.getElementById('searchInput').addEventListener('input', function() {
     });
     document.getElementById('totalBankAccounts').textContent = count;
 });
+
+// --- Función para cambiar estado de la cuenta (activar/desactivar) ---
+let accountDataToToggle = null;
+
+function toggleAccountStatus(accountId, currentStatus) {
+    // Obtener información de la cuenta para mostrar en el modal
+    fetch(`${API_URL}?action=getBankAccountById&id=${accountId}`)
+        .then(res => res.json())
+        .then(account => {
+            showStatusChangeModal(accountId, currentStatus, account);
+        })
+        .catch(() => {
+            showToast('Error al obtener información de la cuenta.', 'error');
+        });
+}
+
+function showStatusChangeModal(accountId, currentStatus, account) {
+    const newStatus = currentStatus == 1 ? 0 : 1;
+    const isActivating = newStatus == 1;
+    
+    // Guardar datos para la confirmación
+    accountDataToToggle = {
+        id: accountId,
+        currentStatus: currentStatus,
+        newStatus: newStatus,
+        account: account
+    };
+    
+    // Configurar contenido del modal
+    const title = document.getElementById('confirmStatusTitle');
+    const message = document.getElementById('confirmStatusMessage');
+    const details = document.getElementById('confirmStatusDetails');
+    const btn = document.getElementById('confirmStatusBtn');
+    const btnText = document.getElementById('confirmStatusBtnText');
+    const btnIcon = document.getElementById('confirmStatusIcon');
+    
+    title.textContent = isActivating ? 'Activar Cuenta Bancaria' : 'Desactivar Cuenta Bancaria';
+    message.textContent = `¿Está seguro de que desea ${isActivating ? 'activar' : 'desactivar'} la cuenta "${account.name}"?`;
+    
+    if (isActivating) {
+        details.innerHTML = '<i class="fas fa-info-circle"></i> La cuenta estará disponible para todas las operaciones y aparecerá en las listas de selección.';
+        btn.className = 'btn btn-success';
+        btnText.textContent = 'Activar';
+        btnIcon.className = 'fas fa-check';
+    } else {
+        details.innerHTML = '<i class="fas fa-exclamation-triangle"></i> La cuenta no aparecerá en las listas de selección para nuevas transacciones, pero mantendrá su saldo actual.';
+        btn.className = 'btn btn-warning';
+        btnText.textContent = 'Desactivar';
+        btnIcon.className = 'fas fa-ban';
+    }
+    
+    // Mostrar modal
+    document.getElementById('confirmStatusChangeModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function confirmStatusChange() {
+    if (!accountDataToToggle) return;
+    
+    const { id, newStatus } = accountDataToToggle;
+    
+    // Mostrar loading en el botón
+    const btn = document.getElementById('confirmStatusBtn');
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
+    btn.disabled = true;
+    
+    fetch(`${API_URL}?action=toggleAccountStatus&id=${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: newStatus })
+    })
+    .then(res => res.json())
+    .then(result => {
+        // Debug: mostrar la respuesta del backend en consola
+        console.log('Respuesta del backend:', result);
+        
+        if (result && result.error) {
+            // Si hay payment types asociados, mostrar modal con detalles
+            if (result.details && result.details.payment_types && result.details.payment_types.length > 0) {
+                console.log('Mostrando modal de conflicto con payment types:', result.details.payment_types);
+                // Guardar la cuenta temporalmente antes de que se limpie
+                const accountData = accountDataToToggle.account;
+                // Cerrar el modal de confirmación y mostrar el modal de conflicto
+                closeModal('confirmStatusChangeModal');
+                // Pequeño delay para asegurar que el modal anterior se cierre completamente
+                setTimeout(() => {
+                    showPaymentTypesConflictModal(result, accountData);
+                }, 100);
+                // No limpiar accountDataToToggle aquí, se limpia en el finally
+            } else {
+                // Mostrar el mensaje específico del backend si existe
+                closeModal('confirmStatusChangeModal');
+                const errorMessage = result.message || result.error || 'Error al cambiar el estado de la cuenta.';
+                console.log('Mostrando toast de error:', errorMessage);
+                showToast(errorMessage, 'error');
+            }
+        } else if (result && result.message) {
+            // Éxito
+            closeModal('confirmStatusChangeModal');
+            showToast(`Cuenta ${newStatus == 1 ? 'activada' : 'desactivada'} con éxito.`, 'success');
+            loadBankAccounts(currentPage);
+        } else {
+            // Respuesta inesperada
+            closeModal('confirmStatusChangeModal');
+            console.error('Respuesta inesperada del backend:', result);
+            showToast('Respuesta inesperada del servidor.', 'error');
+        }
+    })
+    .catch(() => {
+        closeModal('confirmStatusChangeModal');
+        showToast('Error al cambiar el estado de la cuenta.', 'error');
+    })
+    .finally(() => {
+        // Restaurar botón
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+        accountDataToToggle = null;
+    });
+}
+
+// --- Función para mostrar modal de conflicto con payment types ---
+function showPaymentTypesConflictModal(result, account) {
+    console.log('showPaymentTypesConflictModal llamada con:', { result, account });
+    
+    const conflictAccountName = document.getElementById('conflictAccountName');
+    const paymentTypesList = document.getElementById('paymentTypesList');
+    const modal = document.getElementById('paymentTypesConflictModal');
+    
+    if (!conflictAccountName || !paymentTypesList || !modal) {
+        console.error('Elementos del modal no encontrados:', {
+            conflictAccountName: !!conflictAccountName,
+            paymentTypesList: !!paymentTypesList,
+            modal: !!modal
+        });
+        showToast('Error al mostrar el modal de conflicto.', 'error');
+        return;
+    }
+    
+    conflictAccountName.textContent = account.name;
+    paymentTypesList.innerHTML = '';
+    
+    result.details.payment_types.forEach((paymentType, index) => {
+        const div = document.createElement('div');
+        div.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 14px;';
+        if (index === result.details.payment_types.length - 1) {
+            div.style.marginBottom = '0';
+        }
+        div.innerHTML = `
+            <i class="fas fa-credit-card" style="color: var(--warning-color); width: 16px;"></i>
+            <span style="font-weight: 500;">${paymentType}</span>
+        `;
+        paymentTypesList.appendChild(div);
+    });
+    
+    console.log('Mostrando modal de conflicto...');
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Debug: verificar si el modal es visible
+    setTimeout(() => {
+        const modalVisible = window.getComputedStyle(modal).display === 'flex';
+        const modalOpacity = window.getComputedStyle(modal).opacity;
+        const modalZIndex = window.getComputedStyle(modal).zIndex;
+        console.log('Estado del modal después de mostrar:', {
+            display: modal.style.display,
+            computedDisplay: window.getComputedStyle(modal).display,
+            opacity: modalOpacity,
+            zIndex: modalZIndex,
+            visible: modalVisible
+        });
+    }, 100);
+}
+
+function openPaymentTypesSettings() {
+    closeModal('paymentTypesConflictModal');
+    // Redirigir a la página de configuración de tipos de pago
+    window.location.href = 'settings.php#payment-types';
+}
+
+// --- Funciones para filtro de estado ---
+function setupStatusFilterEventListeners() {
+    // Event listener para el select de estado
+    document.getElementById('statusFilter').addEventListener('change', function() {
+        tempStatusFilter = this.value;
+    });
+    
+    // Cerrar dropdown al hacer click fuera
+    document.addEventListener('click', function(e) {
+        const dropdown = document.getElementById('statusFilterDropdown');
+        const filterContainer = e.target.closest('.filter-dropdown-container');
+        
+        if (!filterContainer && dropdown && dropdown.classList.contains('show')) {
+            dropdown.classList.remove('show');
+            // Revertir cambios temporales si no se aplicaron
+            if (tempStatusFilter !== statusFilter) {
+                document.getElementById('statusFilter').value = statusFilter;
+                tempStatusFilter = statusFilter;
+            }
+        }
+    });
+}
+
+function toggleStatusFilterDropdown() {
+    const dropdown = document.getElementById('statusFilterDropdown');
+    dropdown.classList.toggle('show');
+    
+    if (dropdown.classList.contains('show')) {
+        // Sincronizar valor temporal con el actual
+        tempStatusFilter = statusFilter;
+        document.getElementById('statusFilter').value = statusFilter;
+    }
+}
+
+function applyStatusFilters() {
+    statusFilter = tempStatusFilter;
+    closeStatusFilterDropdown();
+    loadBankAccounts(1);
+}
+
+function clearStatusFilters() {
+    statusFilter = '';
+    tempStatusFilter = '';
+    document.getElementById('statusFilter').value = '';
+    closeStatusFilterDropdown();
+    loadBankAccounts(1);
+}
+
+function closeStatusFilterDropdown() {
+    document.getElementById('statusFilterDropdown').classList.remove('show');
+}
+
+function updateActiveStatusFiltersDisplay() {
+    const container = document.getElementById('activeStatusFiltersContainer');
+    const countElement = document.getElementById('activeStatusFiltersCount');
+    
+    if (!container || !countElement) return;
+    
+    container.innerHTML = '';
+    let filterCount = 0;
+    
+    if (statusFilter !== '') {
+        filterCount++;
+        const statusText = statusFilter === '1' ? 'Solo activas' : 'Solo inactivas';
+        const filterBtn = document.createElement('div');
+        filterBtn.className = 'active-filter-btn';
+        filterBtn.innerHTML = `
+            <span>Estado: ${statusText}</span>
+            <i class="fas fa-times" onclick="removeStatusFilter()"></i>
+        `;
+        container.appendChild(filterBtn);
+    }
+    
+    if (filterCount > 0) {
+        container.style.display = 'flex';
+        countElement.style.display = 'flex';
+        countElement.textContent = filterCount;
+    } else {
+        container.style.display = 'none';
+        countElement.style.display = 'none';
+    }
+}
+
+function removeStatusFilter() {
+    clearStatusFilters();
+}
 
 // --- Sort interactivo en la tabla ---
 document.addEventListener('DOMContentLoaded', function() {
