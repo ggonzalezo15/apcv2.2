@@ -186,7 +186,7 @@ function getBankAccountsForPayments() {
     global $pdo;
     // Solo obtener cuentas que NO sean de crédito
     $stmt = $pdo->query("
-        SELECT id, name, bank_name, account_number, account_type, balance
+        SELECT id, name, bank_name, account_number, account_type, balance, active
         FROM bank_accounts 
         WHERE account_type != 'credito'
         ORDER BY name

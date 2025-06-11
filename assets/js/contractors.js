@@ -348,7 +348,9 @@ function loadBankAccountsForPayment() {
         .then(accounts => {
             const select = document.getElementById('paymentBankAccountId');
             select.innerHTML = '<option value="">Seleccionar cuenta...</option>';
-            accounts.forEach(account => {
+            // Solo mostrar cuentas activas
+            const activeAccounts = accounts.filter(account => account.active === 1 || account.active === '1' || account.active === true);
+            activeAccounts.forEach(account => {
                 const option = document.createElement('option');
                 option.value = account.id;
                 option.textContent = `${account.name} (${account.bank_name}) - $${parseFloat(account.balance).toFixed(2)}`;

@@ -217,10 +217,11 @@ function populateSelectors() {
         vendorFilter.innerHTML += `<option value="${vendor.id}">${vendor.name}</option>`;
     });
     
-    // Poblar selector de cuentas bancarias
+    // Poblar selector de cuentas bancarias (solo activas)
     const bankAccountSelect = document.getElementById('bankAccount');
     bankAccountSelect.innerHTML = '<option value="">Seleccionar cuenta...</option>';
-    bankAccounts.forEach(account => {
+    const activeBankAccounts = bankAccounts.filter(account => account.active === 1 || account.active === '1' || account.active === true);
+    activeBankAccounts.forEach(account => {
         bankAccountSelect.innerHTML += `<option value="${account.id}">${account.name} (${account.account_type}) - $${parseFloat(account.balance).toLocaleString('es-MX', {minimumFractionDigits:2})}</option>`;
     });
 }

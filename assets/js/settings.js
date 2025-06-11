@@ -247,7 +247,9 @@ function loadPaymentTypesSection() {
         
         select.innerHTML = '<option value="">Seleccione una cuenta...</option>';
         
-        bankAccountsData.forEach(account => {
+        // Solo mostrar cuentas activas
+        const activeBankAccounts = bankAccountsData.filter(account => account.active === 1 || account.active === '1' || account.active === true);
+        activeBankAccounts.forEach(account => {
             const option = document.createElement('option');
             option.value = account.id;
             option.textContent = `${account.name} (${account.bank_name} - ${account.account_number})`;

@@ -80,7 +80,9 @@ function renderBankAccountsSelect() {
     const select = document.getElementById('paymentTypeBankAccount');
     if (!select) return;
     select.innerHTML = '<option value="">Seleccione una cuenta...</option>';
-    bankAccounts.forEach(acc => {
+    // Solo mostrar cuentas activas
+    const activeBankAccounts = bankAccounts.filter(acc => acc.active === 1 || acc.active === '1' || acc.active === true);
+    activeBankAccounts.forEach(acc => {
         select.innerHTML += `<option value="${acc.id}">${acc.name} (${acc.bank_name} - ${acc.account_number})</option>`;
     });
 }

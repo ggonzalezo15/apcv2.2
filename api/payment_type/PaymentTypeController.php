@@ -42,8 +42,8 @@ switch ($method) {
         } else {
             $total = (int)$pdo->query('SELECT COUNT(*) FROM payment_types')->fetchColumn();
         }
-        // Listar cuentas bancarias válidas para el select
-        $stmt3 = $pdo->query("SELECT id, name, bank_name, account_number FROM bank_accounts WHERE account_type != 'credito' ORDER BY name");
+        // Listar cuentas bancarias válidas para el select (solo activas)
+        $stmt3 = $pdo->query("SELECT id, name, bank_name, account_number, active FROM bank_accounts WHERE account_type != 'credito' ORDER BY name");
         $bankAccounts = $stmt3->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['data' => $data, 'total' => $total, 'bank_accounts' => $bankAccounts]);
         break;

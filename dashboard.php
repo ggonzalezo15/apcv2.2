@@ -17,9 +17,19 @@ try {
     die("Error de conexión a la base de datos: " . $e->getMessage());
 }
 
-// Obtener rango de fechas desde la URL o usar la semana actual por defecto
-$startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('monday this week'));
-$endDate = $_GET['end_date'] ?? date('Y-m-d', strtotime('sunday this week'));
+// SIEMPRE usar la semana en curso por defecto (ignorar parámetros URL en carga inicial)
+// Solo usar parámetros URL si vienen de una actualización AJAX
+$isAjaxUpdate = isset($_GET['ajax_update']) && $_GET['ajax_update'] === '1';
+
+if ($isAjaxUpdate) {
+    // Solo durante actualizaciones AJAX, usar los parámetros de la URL
+    $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('monday this week'));
+    $endDate = $_GET['end_date'] ?? date('Y-m-d', strtotime('sunday this week'));
+} else {
+    // En navegación normal o refresh, SIEMPRE cargar semana actual
+    $startDate = date('Y-m-d', strtotime('monday this week'));
+    $endDate = date('Y-m-d', strtotime('sunday this week'));
+}
 
 // Validar fechas
 if (!$startDate || !$endDate) {
@@ -887,9 +897,12 @@ flatpickr('.flatpickr-date', {
     allowInput: true
 });
 
+// Variables globales
+let incomeExpenseChart;
+
 // Gráfico de Ingresos vs Gastos
 const ctx = document.getElementById('incomeExpenseChart').getContext('2d');
-const incomeExpenseChart = new Chart(ctx, {
+incomeExpenseChart = new Chart(ctx, {
     type: 'bar',
     data: {
         labels: <?php echo json_encode(array_map(function($d) {
@@ -972,7 +985,8 @@ function updatePeriod() {
         return;
     }
     
-    window.location.href = `dashboard.php?start_date=${startDate}&end_date=${endDate}`;
+    // Usar AJAX en lugar de recargar la página
+    updateDashboardData(startDate, endDate);
 }
 
 // Función para calcular fechas de manera exacta
@@ -1030,8 +1044,8 @@ function setWeekPeriod(type) {
     document.getElementById('startDate').value = dates.startDate;
     document.getElementById('endDate').value = dates.endDate;
     
-    // Navegar a la nueva URL con las fechas
-    window.location.href = `dashboard.php?start_date=${dates.startDate}&end_date=${dates.endDate}`;
+    // Usar AJAX en lugar de recargar la página
+    updateDashboardData(dates.startDate, dates.endDate);
 }
 
 function setMonthPeriod(type) {
@@ -1043,9 +1057,246 @@ function setMonthPeriod(type) {
     document.getElementById('startDate').value = dates.startDate;
     document.getElementById('endDate').value = dates.endDate;
     
-    // Navegar a la nueva URL con las fechas
-    window.location.href = `dashboard.php?start_date=${dates.startDate}&end_date=${dates.endDate}`;
+    // Usar AJAX en lugar de recargar la página
+    updateDashboardData(dates.startDate, dates.endDate);
 }
+
+// Función AJAX para actualizar datos del dashboard
+function updateDashboardData(startDate, endDate) {
+    // Mostrar indicador de carga
+    const loadingStartTime = Date.now();
+    showLoadingIndicator();
+    
+    // Realizar petición AJAX
+    fetch(`dashboard_ajax.php?start_date=${startDate}&end_date=${endDate}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Actualizar solo las secciones que deben cambiar con el rango de fechas
+                updateFinancialSummary(data.data.financial_summary);
+                updateChart(data.data.daily_data);
+                updatePendingIncomes(data.data.pending_incomes);
+                // NO actualizar recentActivity - se mantiene estática
+                updateActivePeriodButtons(data.data.active_period);
+                
+                // NO actualizar URL - mantener limpia para que siempre cargue semana actual
+                // La URL se mantiene sin parámetros de fecha para navegación futura
+                
+                console.log('Dashboard actualizado exitosamente');
+            } else {
+                console.error('Error en la respuesta:', data.error);
+                alert('Error al actualizar los datos: ' + (data.error || 'Error desconocido'));
+            }
+        })
+        .catch(error => {
+            console.error('Error en la petición AJAX:', error);
+            alert('Error de conexión al actualizar los datos');
+        })
+        .finally(() => {
+            // Asegurar un tiempo mínimo de carga para evitar el "salto" visual
+            const loadingDuration = Date.now() - loadingStartTime;
+            const minLoadingTime = 300; // 300ms mínimo
+            
+            if (loadingDuration < minLoadingTime) {
+                setTimeout(() => {
+                    hideLoadingIndicator();
+                }, minLoadingTime - loadingDuration);
+            } else {
+                hideLoadingIndicator();
+            }
+        });
+}
+
+// Mostrar indicador de carga discreto
+function showLoadingIndicator() {
+    // Mostrar spinner en el botón de actualizar
+    const updateButton = document.querySelector('button[onclick="updatePeriod()"]');
+    if (updateButton) {
+        const icon = updateButton.querySelector('i');
+        if (icon) {
+            icon.className = 'fas fa-spinner fa-spin';
+        }
+        updateButton.disabled = true;
+        updateButton.style.opacity = '0.7';
+    }
+}
+
+// Ocultar indicador de carga discreto
+function hideLoadingIndicator() {
+    // Restaurar botón de actualizar
+    const updateButton = document.querySelector('button[onclick="updatePeriod()"]');
+    if (updateButton) {
+        const icon = updateButton.querySelector('i');
+        if (icon) {
+            icon.className = 'fas fa-refresh';
+        }
+        updateButton.disabled = false;
+        updateButton.style.opacity = '1';
+    }
+}
+
+// Actualizar resumen financiero
+function updateFinancialSummary(data) {
+    const incomeEl = document.querySelector('.financial-summary div:nth-child(1) div:nth-child(2)');
+    const expensesEl = document.querySelector('.financial-summary div:nth-child(2) div:nth-child(2)');
+    const balanceEl = document.querySelector('.financial-summary div:nth-child(3) div:nth-child(2)');
+    
+    if (incomeEl) incomeEl.textContent = '$' + Number(data.income).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    if (expensesEl) expensesEl.textContent = '$' + Number(data.expenses).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    if (balanceEl) {
+        balanceEl.textContent = '$' + Number(data.balance).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        balanceEl.style.color = data.balance >= 0 ? 'var(--success-color)' : 'var(--danger-color)';
+    }
+}
+
+// Actualizar gráfico
+function updateChart(dailyData) {
+    if (incomeExpenseChart) {
+        const labels = dailyData.map(d => {
+            const date = new Date(d.date);
+            return String(date.getDate()).padStart(2, '0') + '/' + String(date.getMonth() + 1).padStart(2, '0');
+        });
+        
+        incomeExpenseChart.data.labels = labels;
+        incomeExpenseChart.data.datasets[0].data = dailyData.map(d => parseFloat(d.income));
+        incomeExpenseChart.data.datasets[1].data = dailyData.map(d => parseFloat(d.expenses));
+        incomeExpenseChart.update();
+    }
+}
+
+// Actualizar ingresos pendientes
+function updatePendingIncomes(pendingIncomes) {
+    const container = document.querySelector('.card[style*="grid-column: 2"] div[style*="flex: 1"]');
+    if (!container) return;
+    
+    if (pendingIncomes.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                <i class="fas fa-check-circle" style="font-size: 32px; margin-bottom: 12px; color: var(--success-color);"></i>
+                <p>No hay ingresos pendientes</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    pendingIncomes.forEach((income, index) => {
+        const isLastItem = (index === pendingIncomes.length - 1);
+        const percent = income.total_income > 0 ? (100 * (income.total_paid / income.total_income)) : 0;
+        
+        html += `
+            <a href="incomes.php?action=edit&id=${income.id}" class="activity-link" style="display: block; padding: 12px 16px; ${isLastItem ? '' : 'border-bottom: 1px solid var(--border-color);'} text-decoration: none; color: inherit; transition: background-color 0.2s;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                    <div style="font-weight: 500;">
+                        ${income.invoice_number || 'Factura sin número'}
+                    </div>
+                    <div style="font-weight: 700; color: var(--warning-color);">
+                        $${Number(income.pending_amount).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    </div>
+                </div>
+                
+                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; font-size: 12px; color: var(--text-secondary);">
+                    <span style="display: flex; align-items: center; gap: 4px;">
+                        <i class="fas fa-calendar-alt" style="font-size: 10px;"></i>
+                        ${new Date(income.date).toLocaleDateString('es-ES')}
+                    </span>
+                    ${income.team_name ? `
+                    <span style="display: flex; align-items: center; gap: 4px;">
+                        <i class="fas fa-users" style="font-size: 10px;"></i>
+                        ${income.team_name}
+                    </span>
+                    ` : ''}
+                </div>
+                
+                <div style="position: relative; height: 4px; background-color: var(--background-secondary); border-radius: 2px; margin-top: 8px;">
+                    <div style="position: absolute; top: 0; left: 0; height: 100%; width: ${percent}%; background-color: var(--success-color); border-radius: 2px;"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-top: 4px;">
+                    <span>Pagado: $${Number(income.total_paid).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                    <span>Total: $${Number(income.total_income).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                </div>
+            </a>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// Actualizar actividad reciente (SOLO para carga inicial - NO se usa en AJAX)
+function updateRecentActivity(activities) {
+    const container = document.querySelector('.card[style*="grid-column: 3"] div[style*="flex: 1"]');
+    if (!container) return;
+    
+    if (activities.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                <i class="fas fa-info-circle" style="font-size: 32px; margin-bottom: 12px;"></i>
+                <p>No hay actividad reciente</p>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '';
+    activities.forEach((activity, index) => {
+        const isLastItem = (index === activities.length - 1);
+        const link = activity.income_id ? `incomes.php?action=edit&id=${activity.income_id}` : 
+                    (activity.expense_id ? `expenses.php?action=edit&id=${activity.expense_id}` : '#');
+        const hasLink = link !== '#';
+        
+        html += `
+            <div style="${isLastItem ? 'border-bottom: none;' : 'border-bottom: 1px solid var(--border-color);'} transition: background-color 0.2s;">
+                <${hasLink ? 'a' : 'div'} 
+                ${hasLink ? `href="${link}" class="activity-link"` : ''}
+                style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; text-decoration: none; color: inherit; ${hasLink ? 'cursor: pointer;' : ''}"
+                ${hasLink ? `onmouseover="this.style.backgroundColor='var(--hover-color, #f8f9fa)'" onmouseout="this.style.backgroundColor='transparent'"` : ''}
+                >
+                    <div style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; 
+                                background: ${activity.type.includes('income') ? 'var(--success-color)' : 'var(--danger-color)'}; font-size: 16px;">
+                        ${activity.action_icon || '<i class="fas fa-' + (activity.type.includes('income') ? 'arrow-up' : 'arrow-down') + '" style="color: white; font-size: 12px;"></i>'}
+                    </div>
+                    
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 500; font-size: 14px; margin-bottom: 6px; line-height: 1.4;">
+                            ${activity.description}
+                        </div>
+                        
+                        <div style="display: flex; flex-wrap: wrap; font-size: 11px; color: var(--text-muted);">
+                            <span style="display: flex; align-items: center; gap: 2px; margin-right: 8px;">
+                                <i class="fas fa-clock" style="font-size: 10px;"></i>
+                                ${new Date(activity.date).toLocaleDateString('es-ES')} ${new Date(activity.date).toLocaleTimeString('es-ES', {hour: '2-digit', minute: '2-digit'})}
+                            </span>
+                        </div>
+                    </div>
+                </${hasLink ? 'a' : 'div'}>
+            </div>
+        `;
+    });
+    
+    container.innerHTML = html;
+}
+
+// Actualizar botones de período activo
+function updateActivePeriodButtons(activePeriod) {
+    const buttons = {
+        'btnCurrentWeek': activePeriod.isCurrentWeek,
+        'btnPreviousWeek': activePeriod.isPreviousWeek,
+        'btnCurrentMonth': activePeriod.isCurrentMonth,
+        'btnPreviousMonth': activePeriod.isPreviousMonth
+    };
+    
+    Object.keys(buttons).forEach(buttonId => {
+        const button = document.getElementById(buttonId);
+        if (button) {
+            if (buttons[buttonId]) {
+                button.className = 'btn btn-secondary';
+            } else {
+                button.className = 'btn btn-outline-secondary';
+            }
+        }
+    });
+}
+
 
 // Actualizar altura del gráfico basado en el contenedor
 function adjustChartHeight() {
@@ -1092,6 +1343,36 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('endDate').addEventListener('keypress', function(e) {
         if (e.key === 'Enter') updatePeriod();
+    });
+    
+    // Agregar soporte para teclas de acceso rápido
+    document.addEventListener('keydown', function(e) {
+        // Solo activar si no estamos escribiendo en un campo de entrada
+        if (document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+            switch(e.key) {
+                case '1':
+                    e.preventDefault();
+                    setWeekPeriod('current');
+                    break;
+                case '2':
+                    e.preventDefault();
+                    setWeekPeriod('previous');
+                    break;
+                case '3':
+                    e.preventDefault();
+                    setMonthPeriod('current');
+                    break;
+                case '4':
+                    e.preventDefault();
+                    setMonthPeriod('previous');
+                    break;
+                case 'r':
+                case 'R':
+                    e.preventDefault();
+                    updatePeriod();
+                    break;
+            }
+        }
     });
     
     // Ajustar altura del gráfico
@@ -1326,4 +1607,11 @@ document.addEventListener('DOMContentLoaded', function() {
 .btn-group .btn {
     min-width: 120px;
 }
+
+/* Estilos para indicador de carga discreto - solo en botón */
+
+/* Animaciones deshabilitadas para actualizaciones AJAX 
+   Solo se permiten en carga inicial de página */
+
+/* Las teclas de acceso rápido siguen funcionando pero sin indicadores visuales */
 </style>

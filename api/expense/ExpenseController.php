@@ -568,7 +568,7 @@ function getVendors() {
 
 function getBankAccounts() {
     global $pdo;
-    $stmt = $pdo->query("SELECT id, name, account_type, balance FROM bank_accounts ORDER BY name");
+    $stmt = $pdo->query("SELECT id, name, account_type, balance, active FROM bank_accounts ORDER BY name");
     echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
 }
 
