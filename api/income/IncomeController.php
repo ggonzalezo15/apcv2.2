@@ -218,7 +218,7 @@ function getIncomeLines($incomeId) {
 function getTeams() {
     global $pdo;
     try {
-        $stmt = $pdo->query("SELECT id, name FROM teams ORDER BY name");
+        $stmt = $pdo->query("SELECT id, name FROM teams WHERE status = 'active' ORDER BY name");
         $teams = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'data' => $teams]);
     } catch (Exception $e) {
@@ -229,7 +229,7 @@ function getTeams() {
 function getJobTypes() {
     global $pdo;
     try {
-        $stmt = $pdo->query("SELECT id, name FROM job_types ORDER BY name");
+        $stmt = $pdo->query("SELECT id, name FROM job_types WHERE status = 'active' ORDER BY name");
         $jobTypes = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode(['success' => true, 'data' => $jobTypes]);
     } catch (Exception $e) {

@@ -22,6 +22,9 @@ switch ($action) {
     case 'deleteJobType':
         deleteJobType($_GET['id'] ?? '');
         break;
+    case 'toggleStatus':
+        toggleJobTypeStatus($_GET['id'] ?? '');
+        break;
     default:
         echo json_encode(['error' => 'Acción no válida']);
 }
@@ -32,9 +35,29 @@ function getAllJobTypes() {
     $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
     $sort = $_GET['sort'] ?? 'created_at';
     $dir = strtolower($_GET['dir'] ?? 'desc') === 'asc' ? 'ASC' : 'DESC';
-    $allowedSort = ['name', 'pay_as_contractor', 'pay_as_sub_contractor', 'created_at', 'updated_at', 'id'];
+    $statusFilter = $_GET['status'] ?? 'all';
+    
+    $allowedSort = ['name', 'pay_as_contractor', 'pay_as_sub_contractor', 'created_at', 'updated_at', 'id', 'status'];
     if (!in_array($sort, $allowedSort)) $sort = 'created_at';
-    $sql = "SELECT * FROM job_types ORDER BY $sort $dir, id DESC";
+    
+    // Construir consulta base con conversión de status
+    $sql = "SELECT *, 
+            CASE 
+                WHEN status = 'active' THEN 1 
+                ELSE 0 
+            END as status_numeric 
+            FROM job_types";
+    
+    // Agregar filtro de estado si es necesario
+    $params = [];
+    if ($statusFilter === 'active') {
+        $sql .= " WHERE status = 'active'";
+    } elseif ($statusFilter === 'inactive') {
+        $sql .= " WHERE status = 'inactive'";
+    }
+    
+    $sql .= " ORDER BY $sort $dir, id DESC";
+    
     if ($limit > 0) {
         $sql .= " LIMIT :limit OFFSET :offset";
         $stmt = $pdo->prepare($sql);
@@ -42,10 +65,21 @@ function getAllJobTypes() {
         $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
         $stmt->execute();
     } else {
-        $stmt = $pdo->query($sql);
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute();
     }
+    
     $types = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    $total = $pdo->query("SELECT COUNT(*) FROM job_types")->fetchColumn();
+    
+    // Contar total con el mismo filtro
+    $countSql = "SELECT COUNT(*) FROM job_types";
+    if ($statusFilter === 'active') {
+        $countSql .= " WHERE status = 'active'";
+    } elseif ($statusFilter === 'inactive') {
+        $countSql .= " WHERE status = 'inactive'";
+    }
+    
+    $total = $pdo->query($countSql)->fetchColumn();
     echo json_encode(['data' => $types, 'total' => (int)$total]);
 }
 
@@ -60,12 +94,15 @@ function createJobType() {
     global $pdo;
     $data = json_decode(file_get_contents("php://input"), true);
     $uuid = uniqid('', true);
-    $stmt = $pdo->prepare("INSERT INTO job_types (id, name, pay_as_contractor, pay_as_sub_contractor, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())");
+    $status = isset($data['status']) ? ($data['status'] === '1' || $data['status'] === 'active' ? 'active' : 'inactive') : 'active';
+    
+    $stmt = $pdo->prepare("INSERT INTO job_types (id, name, pay_as_contractor, pay_as_sub_contractor, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
     $stmt->execute([
         $uuid,
         $data['name'],
         $data['pay_as_contractor'] ?? 0.00,
-        $data['pay_as_sub_contractor'] ?? 0.00
+        $data['pay_as_sub_contractor'] ?? 0.00,
+        $status
     ]);
     echo json_encode(["message" => "Job type created", "id" => $uuid]);
 }
@@ -73,11 +110,14 @@ function createJobType() {
 function updateJobType($id) {
     global $pdo;
     $data = json_decode(file_get_contents("php://input"), true);
-    $stmt = $pdo->prepare("UPDATE job_types SET name = ?, pay_as_contractor = ?, pay_as_sub_contractor = ?, updated_at = NOW() WHERE id = ?");
+    $status = isset($data['status']) ? ($data['status'] === '1' || $data['status'] === 'active' ? 'active' : 'inactive') : 'active';
+    
+    $stmt = $pdo->prepare("UPDATE job_types SET name = ?, pay_as_contractor = ?, pay_as_sub_contractor = ?, status = ?, updated_at = NOW() WHERE id = ?");
     $stmt->execute([
         $data['name'],
         $data['pay_as_contractor'] ?? 0.00,
         $data['pay_as_sub_contractor'] ?? 0.00,
+        $status,
         $id
     ]);
     echo json_encode(["message" => "Job type updated"]);
@@ -88,4 +128,52 @@ function deleteJobType($id) {
     $stmt = $pdo->prepare("DELETE FROM job_types WHERE id = ?");
     $stmt->execute([$id]);
     echo json_encode(["message" => "Job type deleted"]);
+}
+
+function toggleJobTypeStatus($id) {
+    global $pdo;
+    
+    if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+        echo json_encode(['error' => 'Método no permitido']);
+        return;
+    }
+    
+    if (!$id) {
+        echo json_encode(['error' => 'ID es requerido']);
+        return;
+    }
+    
+    try {
+        // Obtener estado actual
+        $stmt = $pdo->prepare("SELECT status FROM job_types WHERE id = ?");
+        $stmt->execute([$id]);
+        $currentStatus = $stmt->fetchColumn();
+        
+        if ($currentStatus === false) {
+            echo json_encode(['error' => 'Tipo de trabajo no encontrado']);
+            return;
+        }
+        
+        // Cambiar estado
+        $newStatus = $currentStatus === 'active' ? 'inactive' : 'active';
+        
+        $stmt = $pdo->prepare("UPDATE job_types SET status = ?, updated_at = NOW() WHERE id = ?");
+        $result = $stmt->execute([$newStatus, $id]);
+        
+        if (!$result) {
+            echo json_encode(['error' => 'No se pudo cambiar el estado del tipo de trabajo']);
+            return;
+        }
+        
+        $statusText = $newStatus === 'active' ? 'activado' : 'desactivado';
+        
+        echo json_encode([
+            'success' => true,
+            'message' => "Tipo de trabajo {$statusText} exitosamente",
+            'new_status' => $newStatus
+        ]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['error' => $e->getMessage()]);
+    }
 }

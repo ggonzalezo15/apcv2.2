@@ -53,10 +53,11 @@ document.addEventListener('DOMContentLoaded', function() {
     checkForViewParameter();
 });
 
-// --- Verificar parámetro view en URL ---
+// --- Verificar parámetros en URL ---
 function checkForViewParameter() {
     const urlParams = new URLSearchParams(window.location.search);
     const viewExpenseId = urlParams.get('view');
+    const vendorId = urlParams.get('vendor');
     
     if (viewExpenseId) {
         // Esperar un poco para que se carguen los datos de referencia
@@ -67,6 +68,40 @@ function checkForViewParameter() {
             window.history.replaceState({}, '', newUrl);
         }, 500);
     }
+    
+    if (vendorId) {
+        // Esperar a que se carguen los datos de referencia y luego preseleccionar el proveedor
+        setTimeout(() => {
+            preselectVendorAndOpenModal(vendorId);
+            // Limpiar el parámetro de la URL sin recargar la página
+            const newUrl = window.location.pathname + window.location.search.replace(/[?&]vendor=[^&]*/, '').replace(/^&/, '?');
+            window.history.replaceState({}, '', newUrl);
+        }, 500);
+    }
+}
+
+// --- Preseleccionar proveedor y abrir modal ---
+function preselectVendorAndOpenModal(vendorId) {
+    // Verificar que el proveedor existe y está activo en la lista cargada
+    const vendor = vendors.find(v => v.id === vendorId);
+    
+    if (!vendor) {
+        showToast('El proveedor especificado no está disponible o está inactivo.', 'warning');
+        return;
+    }
+    
+    // Abrir modal de nuevo gasto
+    openModal('expenseModal');
+    
+    // Preseleccionar el proveedor
+    const vendorSelect = document.getElementById('vendor');
+    if (vendorSelect) {
+        vendorSelect.value = vendorId;
+        // Disparar evento change para cualquier validación
+        vendorSelect.dispatchEvent(new Event('change'));
+    }
+    
+    showToast(`Proveedor "${vendor.name}" preseleccionado.`, 'success');
 }
 
 // --- Inicializar Flatpickr ---
@@ -222,14 +257,16 @@ function populateSelectors() {
         teamFilter.innerHTML += `<option value="${team.id}">${team.name}</option>`;
     });
     
-    // Poblar selector de proveedores en el modal
+    // Poblar selector de proveedores en el modal (solo activos - filtrado en backend)
     const vendorSelect = document.getElementById('vendor');
     vendorSelect.innerHTML = '<option value="">Seleccionar proveedor...</option>';
-    vendors.forEach(vendor => {
+    // Filtro adicional en frontend por seguridad (aunque el backend ya filtra)
+    const activeVendors = vendors.filter(vendor => vendor.status !== 0 && vendor.status !== 'inactive');
+    activeVendors.forEach(vendor => {
         vendorSelect.innerHTML += `<option value="${vendor.id}">${vendor.name}</option>`;
     });
     
-    // Poblar selector de proveedores en el filtro
+    // Poblar selector de proveedores en el filtro (incluye todos para filtrado)
     const vendorFilter = document.getElementById('vendorFilter');
     vendorFilter.innerHTML = '<option value="">Todos los proveedores</option>';
     vendors.forEach(vendor => {

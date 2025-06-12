@@ -15,17 +15,34 @@ try {
 
     switch ($action) {
         case 'list':
-            // Obtener todas las categorías con conteo de tipos
-            $stmt = $pdo->prepare("
+            // Obtener filtro de estado
+            $statusFilter = $_GET['status'] ?? 'all';
+            
+            // Construir consulta base
+            $sql = "
                 SELECT 
                     c.*,
-                    COUNT(et.id) as types_count
+                    COUNT(et.id) as types_count,
+                    CASE 
+                        WHEN c.status = 'active' THEN 1 
+                        ELSE 0 
+                    END as status_numeric
                 FROM expense_categories c
                 LEFT JOIN expense_types et ON c.id = et.category_id
-                GROUP BY c.id
-                ORDER BY c.created_at DESC
-            ");
-            $stmt->execute();
+            ";
+            
+            // Agregar filtro de estado si es necesario
+            $params = [];
+            if ($statusFilter === 'active') {
+                $sql .= " WHERE c.status = 'active'";
+            } elseif ($statusFilter === 'inactive') {
+                $sql .= " WHERE c.status = 'inactive'";
+            }
+            
+            $sql .= " GROUP BY c.id ORDER BY c.created_at DESC";
+            
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
             $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
             ob_clean();
@@ -63,7 +80,7 @@ try {
             
             $name = trim($_POST['name'] ?? '');
             $description = trim($_POST['description'] ?? '');
-            $is_active = isset($_POST['is_active']) ? (bool)$_POST['is_active'] : true;
+            $status = isset($_POST['status']) ? ($_POST['status'] === '1' || $_POST['status'] === 'active' ? 'active' : 'inactive') : 'active';
             
             if (empty($name)) {
                 throw new Exception('El nombre es obligatorio');
@@ -81,10 +98,10 @@ try {
             
             // Insertar categoría
             $stmt = $pdo->prepare("
-                INSERT INTO expense_categories (id, name, description, is_active, created_at, updated_at) 
+                INSERT INTO expense_categories (id, name, description, status, created_at, updated_at) 
                 VALUES (?, ?, ?, ?, NOW(), NOW())
             ");
-            $stmt->execute([$id, $name, $description, $is_active]);
+            $stmt->execute([$id, $name, $description, $status]);
             
             ob_clean();
             echo json_encode([
@@ -106,7 +123,7 @@ try {
             
             $name = trim($_POST['name'] ?? '');
             $description = trim($_POST['description'] ?? '');
-            $is_active = isset($_POST['is_active']) ? (bool)$_POST['is_active'] : true;
+            $status = isset($_POST['status']) ? ($_POST['status'] === '1' || $_POST['status'] === 'active' ? 'active' : 'inactive') : 'active';
             
             if (empty($name)) {
                 throw new Exception('El nombre es obligatorio');
@@ -122,10 +139,10 @@ try {
             // Actualizar categoría
             $stmt = $pdo->prepare("
                 UPDATE expense_categories 
-                SET name = ?, description = ?, is_active = ?, updated_at = NOW()
+                SET name = ?, description = ?, status = ?, updated_at = NOW()
                 WHERE id = ?
             ");
-            $result = $stmt->execute([$name, $description, $is_active, $id]);
+            $result = $stmt->execute([$name, $description, $status, $id]);
             
             if (!$result || $stmt->rowCount() === 0) {
                 throw new Exception('No se pudo actualizar la categoría');
@@ -169,6 +186,45 @@ try {
             echo json_encode([
                 'success' => true,
                 'message' => 'Categoría eliminada exitosamente'
+            ]);
+            break;
+
+        case 'toggleStatus':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+                throw new Exception('Método no permitido');
+            }
+            
+            $id = $_GET['id'] ?? '';
+            if (!$id) {
+                throw new Exception('ID es requerido');
+            }
+            
+            // Obtener estado actual
+            $stmt = $pdo->prepare("SELECT status FROM expense_categories WHERE id = ?");
+            $stmt->execute([$id]);
+            $currentStatus = $stmt->fetchColumn();
+            
+            if ($currentStatus === false) {
+                throw new Exception('Categoría no encontrada');
+            }
+            
+            // Cambiar estado
+            $newStatus = $currentStatus === 'active' ? 'inactive' : 'active';
+            
+            $stmt = $pdo->prepare("UPDATE expense_categories SET status = ?, updated_at = NOW() WHERE id = ?");
+            $result = $stmt->execute([$newStatus, $id]);
+            
+            if (!$result) {
+                throw new Exception('No se pudo cambiar el estado de la categoría');
+            }
+            
+            $statusText = $newStatus === 'active' ? 'activada' : 'desactivada';
+            
+            ob_clean();
+            echo json_encode([
+                'success' => true,
+                'message' => "Categoría {$statusText} exitosamente",
+                'new_status' => $newStatus
             ]);
             break;
 

@@ -647,7 +647,7 @@ function deleteIncome($id) {
 function getTeams() {
     global $pdo;
     
-    $stmt = $pdo->query("SELECT id, name, description FROM teams ORDER BY name");
+    $stmt = $pdo->query("SELECT id, name, description FROM teams WHERE status = 'active' ORDER BY name");
     $teams = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     echo json_encode([
@@ -659,7 +659,7 @@ function getTeams() {
 function getContractors() {
     global $pdo;
     
-    $stmt = $pdo->query("SELECT id, name, email, phone FROM contractors ORDER BY name");
+    $stmt = $pdo->query("SELECT id, name, email, phone FROM contractors WHERE status = 'active' ORDER BY name");
     $contractors = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     echo json_encode([
@@ -671,7 +671,7 @@ function getContractors() {
 function getJobTypes() {
     global $pdo;
     
-    $stmt = $pdo->query("SELECT id, name, pay_as_contractor, pay_as_sub_contractor FROM job_types ORDER BY name");
+    $stmt = $pdo->query("SELECT id, name, pay_as_contractor, pay_as_sub_contractor FROM job_types WHERE status = 'active' ORDER BY name");
     $jobTypes = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     echo json_encode([
@@ -683,7 +683,8 @@ function getJobTypes() {
 function getPaymentTypes() {
     global $pdo;
     
-    $stmt = $pdo->query("SELECT id, name, description FROM payment_types ORDER BY name");
+    // Solo obtener tipos de pago activos
+    $stmt = $pdo->query("SELECT id, name, description FROM payment_types WHERE status = 'active' ORDER BY name");
     $paymentTypes = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     echo json_encode([

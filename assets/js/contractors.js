@@ -5,6 +5,11 @@ let editingContractorId = null;
 let sortField = 'created_at';
 let sortDir = 'desc';
 
+// --- Variables para filtros ---
+let activeStatusFilters = {
+    status: ''
+};
+
 // --- Cargar contratistas al iniciar ---
 document.addEventListener('DOMContentLoaded', function() {
     loadContractors();
@@ -16,6 +21,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // Configurar ordenamiento después de un delay para asegurar que el DOM esté listo
     setTimeout(() => {
         setupTableSorting();
+        setupStatusSwitch();
+        setupSearchInput();
     }, 100);
 });
 
@@ -86,7 +93,22 @@ function updateSortIcons() {
 function loadContractors(page = 1) {
     currentPage = page;
     setTableLoading(true);
-    fetch(`${API_URL}?action=getAllContractors&limit=${pageSize}&offset=${(page-1)*pageSize}&sort=${sortField}&dir=${sortDir}`)
+    
+    // Construir URL con filtros
+    let url = `${API_URL}?action=getAllContractors&limit=${pageSize}&offset=${(page-1)*pageSize}&sort=${sortField}&dir=${sortDir}`;
+    
+    // Agregar filtros de estado
+    if (activeStatusFilters.status !== '') {
+        url += `&status=${activeStatusFilters.status}`;
+    }
+    
+    // Agregar filtro de búsqueda
+    const searchTerm = document.getElementById('searchInput')?.value?.trim();
+    if (searchTerm) {
+        url += `&search=${encodeURIComponent(searchTerm)}`;
+    }
+    
+    fetch(url)
         .then(res => res.json())
         .then(data => {
             const contractors = data.data || data;
@@ -98,7 +120,7 @@ function loadContractors(page = 1) {
             updateSortIcons();
         })
         .catch(() => {
-            document.getElementById('contractorsTableBody').innerHTML = '<tr><td colspan="5">Error al cargar contratistas</td></tr>';
+            document.getElementById('contractorsTableBody').innerHTML = '<tr><td colspan="6">Error al cargar contratistas</td></tr>';
         })
         .finally(() => setTableLoading(false));
 }
@@ -106,7 +128,7 @@ function loadContractors(page = 1) {
 function setTableLoading(loading) {
     const tbody = document.getElementById('contractorsTableBody');
     if (loading) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:40px 0;">
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:40px 0;">
             <div class="loading-spinner"></div>
             <span style="display:block; margin-top:8px; color:var(--text-secondary);">Cargando contratistas...</span>
         </td></tr>`;
@@ -117,13 +139,20 @@ function renderContractorsTable(contractors) {
     const tbody = document.getElementById('contractorsTableBody');
     tbody.innerHTML = '';
     if (!contractors.length) {
-        tbody.innerHTML = '<tr><td colspan="5">No hay contratistas registrados</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6">No hay contratistas registrados</td></tr>';
         document.getElementById('totalContractors').textContent = '0';
         return;
     }
-    document.getElementById('totalContractors').textContent = contractors.length;
+    document.getElementById('totalContractors').textContent = totalContractorsCount;
     contractors.forEach(contractor => {
         const tr = document.createElement('tr');
+        
+        // Determinar estado y badge
+        const isActive = contractor.status === 'active' || contractor.status_numeric === 1;
+        const statusBadge = isActive 
+            ? '<span class="status-badge status-active">Activo</span>'
+            : '<span class="status-badge status-inactive">Inactivo</span>';
+        
         tr.innerHTML = `
             <td>
                 <a href="contractor_details.php?id=${contractor.id}" class="contractor-name-link" title="Ver detalles del contratista">
@@ -133,8 +162,12 @@ function renderContractorsTable(contractors) {
             <td>${contractor.email || ''}</td>
             <td>${contractor.phone || ''}</td>
             <td>${contractor.address || ''}</td>
+            <td>${statusBadge}</td>
             <td style="vertical-align: middle; text-align: center;">
                 <div style="display: flex; gap: 4px; justify-content: center; align-items: center;">
+                    <button type="button" class="btn-icon" onclick="toggleContractorStatus('${contractor.id}', ${isActive ? 0 : 1}, '${contractor.name}')" title="${isActive ? 'Desactivar' : 'Activar'} contratista">
+                        <i class="fas fa-toggle-${isActive ? 'on' : 'off'}" style="color: ${isActive ? 'var(--success-color)' : 'var(--text-secondary)'}"></i>
+                    </button>
                     <button type="button" class="btn-icon" onclick="viewContractor('${contractor.id}')" title="Ver detalles">
                         <i class="fas fa-eye"></i>
                     </button>
@@ -227,6 +260,16 @@ function editContractor(id) {
             document.getElementById('contractorEmail').value = contractor.email || '';
             document.getElementById('contractorPhone').value = contractor.phone || '';
             document.getElementById('contractorAddress').value = contractor.address || '';
+            
+            // Configurar estado
+            const isActive = contractor.status === 'active' || contractor.status_numeric === 1;
+            const statusCheckbox = document.getElementById('contractorStatus');
+            const statusLabel = document.getElementById('contractorStatusLabel');
+            
+            statusCheckbox.checked = isActive;
+            statusLabel.textContent = isActive ? 'Activo' : 'Inactivo';
+            statusLabel.style.color = isActive ? 'var(--success-color)' : 'var(--text-secondary)';
+            
             editingContractorId = contractor.id;
             openModal('contractorModal');
         });
@@ -282,7 +325,8 @@ document.getElementById('contractorForm').addEventListener('submit', function(e)
         name: document.getElementById('contractorName').value,
         email: document.getElementById('contractorEmail').value,
         phone: document.getElementById('contractorPhone').value,
-        address: document.getElementById('contractorAddress').value
+        address: document.getElementById('contractorAddress').value,
+        status: document.getElementById('contractorStatus').checked ? 1 : 0
     };
     let url = API_URL;
     let method = 'POST';
@@ -366,7 +410,7 @@ document.addEventListener('keydown', function(e) {
 // --- Funciones para manejo de pagos ---
 
 function loadContractorsForPayment() {
-    fetch(`${API_URL}?action=getAllContractors`)
+    fetch(`${API_URL}?action=getAllContractors&status=1`)
         .then(res => res.json())
         .then(data => {
             const contractors = data.data || data;
@@ -439,3 +483,177 @@ document.getElementById('paymentForm').addEventListener('submit', function(e) {
         showToast('Error de conexión', 'error');
     });
 });
+
+// ============================================================================
+// FUNCIONES DE GESTIÓN DE ESTADO
+// ============================================================================
+
+function toggleContractorStatus(contractorId, newStatus, contractorName) {
+    const action = newStatus === 1 ? 'activar' : 'desactivar';
+    const actionCapitalized = newStatus === 1 ? 'Activar' : 'Desactivar';
+    
+    // Configurar modal de confirmación
+    document.getElementById('confirmStatusMessage').textContent = 
+        `¿Está seguro de que desea ${action} el contratista "${contractorName}"?`;
+    
+    const details = newStatus === 1 
+        ? 'El contratista aparecerá en las listas de selección para nuevos ingresos.'
+        : 'El contratista no aparecerá en las listas de selección para nuevos ingresos.';
+    
+    document.getElementById('confirmStatusDetails').textContent = details;
+    
+    // Configurar botón de confirmación
+    const confirmBtn = document.getElementById('confirmStatusBtn');
+    const confirmIcon = document.getElementById('confirmStatusIcon');
+    const confirmText = document.getElementById('confirmStatusBtnText');
+    
+    confirmBtn.className = newStatus === 1 ? 'btn btn-success' : 'btn btn-warning';
+    confirmIcon.className = newStatus === 1 ? 'fas fa-check' : 'fas fa-pause';
+    confirmText.textContent = actionCapitalized;
+    
+    // Configurar evento del botón
+    confirmBtn.onclick = () => confirmToggleContractorStatus(contractorId, contractorName);
+    
+    // Mostrar modal
+    openModal('confirmStatusChangeModal');
+}
+
+function confirmToggleContractorStatus(contractorId, contractorName) {
+    fetch(`${API_URL}?action=toggleContractorStatus&id=${contractorId}`, {
+        method: 'POST'
+    })
+    .then(res => res.json())
+    .then(result => {
+        closeModal('confirmStatusChangeModal');
+        
+        if (result.success) {
+            const statusText = result.new_status === 'active' ? 'activado' : 'desactivado';
+            showToast(`Contratista "${contractorName}" ${statusText} exitosamente.`, 'success');
+            loadContractors(currentPage);
+        } else {
+            showToast(result.error || 'Error al cambiar el estado del contratista.', 'error');
+        }
+    })
+    .catch(err => {
+        console.error('Error:', err);
+        closeModal('confirmStatusChangeModal');
+        showToast('Error de conexión al cambiar el estado.', 'error');
+    });
+}
+
+// ============================================================================
+// FUNCIONES DE FILTROS
+// ============================================================================
+
+function toggleStatusFilterDropdown() {
+    const dropdown = document.getElementById('statusFilterDropdown');
+    dropdown.classList.toggle('show');
+    
+    // Cerrar otros dropdowns si están abiertos
+    document.addEventListener('click', function closeDropdown(e) {
+        if (!e.target.closest('.filter-dropdown-container')) {
+            dropdown.classList.remove('show');
+            document.removeEventListener('click', closeDropdown);
+        }
+    });
+}
+
+function applyStatusFilters() {
+    const statusValue = document.getElementById('statusFilter').value;
+    
+    activeStatusFilters.status = statusValue;
+    
+    // Actualizar UI de filtros activos
+    updateActiveFiltersDisplay();
+    
+    // Cerrar dropdown
+    document.getElementById('statusFilterDropdown').classList.remove('show');
+    
+    // Recargar datos
+    loadContractors(1);
+}
+
+function clearStatusFilters() {
+    // Limpiar filtros
+    activeStatusFilters.status = '';
+    
+    // Resetear controles
+    document.getElementById('statusFilter').value = '';
+    
+    // Actualizar UI
+    updateActiveFiltersDisplay();
+    
+    // Cerrar dropdown
+    document.getElementById('statusFilterDropdown').classList.remove('show');
+    
+    // Recargar datos
+    loadContractors(1);
+}
+
+function updateActiveFiltersDisplay() {
+    const container = document.getElementById('activeStatusFiltersContainer');
+    const countElement = document.getElementById('activeStatusFiltersCount');
+    
+    container.innerHTML = '';
+    let activeCount = 0;
+    
+    // Filtro de estado
+    if (activeStatusFilters.status !== '') {
+        activeCount++;
+        const statusText = activeStatusFilters.status === '1' ? 'Solo activos' : 'Solo inactivos';
+        const filterBtn = document.createElement('div');
+        filterBtn.className = 'active-filter-btn';
+        filterBtn.innerHTML = `
+            ${statusText}
+            <i class="fas fa-times" onclick="removeStatusFilter()"></i>
+        `;
+        container.appendChild(filterBtn);
+    }
+    
+    // Mostrar/ocultar contenedor y contador
+    if (activeCount > 0) {
+        container.style.display = 'flex';
+        countElement.style.display = 'flex';
+        countElement.textContent = activeCount;
+    } else {
+        container.style.display = 'none';
+        countElement.style.display = 'none';
+    }
+}
+
+function removeStatusFilter() {
+    activeStatusFilters.status = '';
+    document.getElementById('statusFilter').value = '';
+    updateActiveFiltersDisplay();
+    loadContractors(1);
+}
+
+// ============================================================================
+// CONFIGURACIÓN DE COMPONENTES
+// ============================================================================
+
+function setupStatusSwitch() {
+    const statusCheckbox = document.getElementById('contractorStatus');
+    const statusLabel = document.getElementById('contractorStatusLabel');
+    
+    if (statusCheckbox && statusLabel) {
+        statusCheckbox.addEventListener('change', function() {
+            const isActive = this.checked;
+            statusLabel.textContent = isActive ? 'Activo' : 'Inactivo';
+            statusLabel.style.color = isActive ? 'var(--success-color)' : 'var(--text-secondary)';
+        });
+    }
+}
+
+function setupSearchInput() {
+    const searchInput = document.getElementById('searchInput');
+    if (searchInput) {
+        let searchTimeout;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                loadContractors(1);
+            }, 300); // Debounce de 300ms
+        });
+    }
+}

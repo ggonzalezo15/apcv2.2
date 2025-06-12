@@ -256,6 +256,87 @@ $pageTitle = 'Configuración';
 .sortable-table th.sortable .sort-icon.fas.fa-sort-down {
     color: var(--primary-color, #2563eb);
 }
+
+/* Estilos para badges de estado */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-badge.status-active {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.status-badge.status-inactive {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+/* Estilos para switches */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 3px;
+    bottom: 3px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: var(--success-color, #10b981);
+}
+
+input:checked + .slider:before {
+    transform: translateX(20px);
+}
+
+/* Estilos para filtros de estado */
+.status-filter-container .filter-option:hover {
+    background-color: var(--bg-secondary, #f8fafc);
+}
+
+.status-filter-dropdown {
+    border: 1px solid var(--border-color, #e2e8f0);
+    border-radius: 6px;
+    background: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
 </style>
 
 <script>

@@ -556,13 +556,14 @@ function deleteExpense($id) {
 
 function getTeams() {
     global $pdo;
-    $stmt = $pdo->query("SELECT id, name FROM teams ORDER BY name");
+    $stmt = $pdo->query("SELECT id, name FROM teams WHERE status = 'active' ORDER BY name");
     echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
 }
 
 function getVendors() {
     global $pdo;
-    $stmt = $pdo->query("SELECT id, name FROM vendors ORDER BY name");
+    // Solo obtener proveedores activos
+    $stmt = $pdo->query("SELECT id, name FROM vendors WHERE status = 'active' ORDER BY name");
     echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
 }
 
@@ -574,7 +575,7 @@ function getBankAccounts() {
 
 function getExpenseTypes() {
     global $pdo;
-    $stmt = $pdo->query("SELECT id, name, description FROM expense_types ORDER BY name");
+    $stmt = $pdo->query("SELECT id, name, description FROM expense_types WHERE status = 'active' ORDER BY name");
     echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
 }
 

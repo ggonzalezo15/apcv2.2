@@ -1,4 +1,4 @@
-// SECCIÓN TIPOS DE PAGO - Basado en payment_types.php funcional
+// SECCIÓN TIPOS DE PAGO - Con funcionalidad de estado activo/inactivo
 function loadPaymentTypesSection() {
     // Variables específicas para tipos de pago
     let paymentTypesData = [];
@@ -7,11 +7,12 @@ function loadPaymentTypesSection() {
     let paymentTypesItemsPerPage = 10;
     let paymentTypesFilteredData = [];
     let editingPaymentTypeId = null;
+    let paymentTypesStatusFilter = '';
     
     const content = `
         <div class="card">
-            <div class="card-header" style="display: flex; justify-content: flex-end; align-items: center;">
-                <div style="flex: 1;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+                <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
                     <input
                         type="text"
                         id="paymentTypesSearchInput"
@@ -20,6 +21,27 @@ function loadPaymentTypesSection() {
                         style="max-width: 300px;"
                         autocomplete="off"
                     >
+                    <div class="status-filter-container" style="position: relative;">
+                        <button type="button" class="btn" id="paymentTypesStatusFilterBtn" onclick="togglePaymentTypesStatusFilterDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-filter"></i>
+                            <span id="paymentTypesStatusFilterText">Todos los estados</span>
+                            <i class="fas fa-chevron-down" style="font-size: 12px;"></i>
+                        </button>
+                        <div class="status-filter-dropdown" id="paymentTypesStatusFilterDropdown" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; min-width: 180px; margin-top: 4px;">
+                            <div class="filter-option" onclick="applyPaymentTypesStatusFilter('')" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border-color);">
+                                <i class="fas fa-list" style="width: 16px; margin-right: 8px;"></i>
+                                Todos los estados
+                            </div>
+                            <div class="filter-option" onclick="applyPaymentTypesStatusFilter('active')" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border-color);">
+                                <i class="fas fa-check-circle" style="width: 16px; margin-right: 8px; color: var(--success-color);"></i>
+                                Solo activos
+                            </div>
+                            <div class="filter-option" onclick="applyPaymentTypesStatusFilter('inactive')" style="padding: 8px 12px; cursor: pointer;">
+                                <i class="fas fa-times-circle" style="width: 16px; margin-right: 8px; color: var(--danger-color);"></i>
+                                Solo inactivos
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <button type="button" class="btn btn-primary" onclick="openPaymentTypeModal()">
@@ -39,7 +61,7 @@ function loadPaymentTypesSection() {
                 <p class="card-subtitle">Total: <span id="totalPaymentTypes">0</span> tipos registrados</p>
             </div>
             <div style="overflow-x: auto;">
-                <table class="data-table sortable-table" id="paymentTypesTable" style="min-width: 700px;">
+                <table class="data-table sortable-table" id="paymentTypesTable" style="min-width: 800px;">
                     <thead>
                         <tr>
                             <th class="sortable" data-sort="name">
@@ -51,6 +73,10 @@ function loadPaymentTypesSection() {
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
                             <th>Cuenta Bancaria Asociada</th>
+                            <th class="sortable" data-sort="status" style="width: 100px; text-align: center;">
+                                Estado
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
                             <th style="width: 120px; text-align: center;">Acciones</th>
                         </tr>
                     </thead>
@@ -61,6 +87,26 @@ function loadPaymentTypesSection() {
                 <div id="paymentTypesTableFooter" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0 0 0;">
                     <div id="paymentTypesPageSizeContainer"></div>
                     <div id="paymentTypesPagination"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de confirmación para cambio de estado -->
+        <div class="modal" id="confirmPaymentTypeStatusModal" style="display: none;">
+            <div class="modal-overlay" onclick="closeModal('confirmPaymentTypeStatusModal')"></div>
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="modal-header">
+                    <h2>Confirmar cambio de estado</h2>
+                    <button type="button" class="modal-close" onclick="closeModal('confirmPaymentTypeStatusModal')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmPaymentTypeStatusMessage">¿Está seguro de que desea cambiar el estado de este tipo de pago?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="closeModal('confirmPaymentTypeStatusModal')">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="confirmPaymentTypeStatusBtn">Confirmar</button>
                 </div>
             </div>
         </div>
@@ -102,10 +148,14 @@ function loadPaymentTypesSection() {
     function filterPaymentTypes() {
         const searchTerm = document.getElementById('paymentTypesSearchInput')?.value.toLowerCase() || '';
         
-        paymentTypesFilteredData = paymentTypesData.filter(type => 
-            type.name.toLowerCase().includes(searchTerm) ||
-            (type.description && type.description.toLowerCase().includes(searchTerm))
-        );
+        paymentTypesFilteredData = paymentTypesData.filter(type => {
+            const matchesSearch = type.name.toLowerCase().includes(searchTerm) ||
+                (type.description && type.description.toLowerCase().includes(searchTerm));
+            
+            const matchesStatus = paymentTypesStatusFilter === '' || type.status === paymentTypesStatusFilter;
+            
+            return matchesSearch && matchesStatus;
+        });
         
         paymentTypesCurrentPage = 1;
         renderPaymentTypesTable();
@@ -134,7 +184,7 @@ function loadPaymentTypesSection() {
         if (pageData.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="4" style="text-align: center; padding: 2rem; color: #6B7280;">
+                    <td colspan="5" style="text-align: center; padding: 2rem; color: #6B7280;">
                         <i class="fas fa-inbox" style="font-size: 3rem; margin-bottom: 1rem; display: block;"></i>
                         No se encontraron tipos de pago
                     </td>
@@ -152,6 +202,11 @@ function loadPaymentTypesSection() {
                 ? `${bankAccount.name} (${bankAccount.bank_name} - ${bankAccount.account_number})`
                 : 'No asignada';
             
+            // Crear badge de estado
+            const statusBadge = type.status === 'active' 
+                ? '<span class="status-badge status-active"><i class="fas fa-check-circle"></i> Activo</span>'
+                : '<span class="status-badge status-inactive"><i class="fas fa-times-circle"></i> Inactivo</span>';
+            
             row.innerHTML = `
                 <td>
                     <div style="font-weight: 500;">${type.name || ''}</div>
@@ -167,7 +222,13 @@ function loadPaymentTypesSection() {
                     </div>
                 </td>
                 <td style="text-align: center;">
+                    ${statusBadge}
+                </td>
+                <td style="text-align: center;">
                     <div style="display: flex; gap: 8px; justify-content: center;">
+                        <button type="button" class="btn-action" onclick="togglePaymentTypeStatus('${type.id}', '${type.name || ''}', '${type.status}')" title="${type.status === 'active' ? 'Desactivar' : 'Activar'}">
+                            <i class="fas fa-${type.status === 'active' ? 'toggle-on' : 'toggle-off'}"></i>
+                        </button>
                         <button type="button" class="btn-action" onclick="editPaymentTypeFromSettings('${type.id}')" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -313,6 +374,18 @@ function loadPaymentTypesSection() {
                         <small class="form-text">Esta cuenta se usará para registrar los movimientos de este método de pago</small>
                         <div class="input-feedback" id="accountFeedback"></div>
                     </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Estado</label>
+                        <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                            <label class="switch">
+                                <input type="checkbox" id="paymentTypeStatus" name="paymentTypeStatus" checked>
+                                <span class="slider round"></span>
+                            </label>
+                            <span id="paymentTypeStatusLabel" style="font-weight: 500; color: var(--success-color);">Activo</span>
+                        </div>
+                        <small class="form-text">Los tipos de pago inactivos no aparecerán en los formularios de gastos</small>
+                    </div>
                 </div>
                 
                 <div class="modal-footer">
@@ -339,6 +412,22 @@ function loadPaymentTypesSection() {
         
         // Validación en tiempo real
         setupPaymentTypeValidation();
+        
+        // Event listener para el switch de estado
+        const statusSwitch = document.getElementById('paymentTypeStatus');
+        const statusLabel = document.getElementById('paymentTypeStatusLabel');
+        
+        if (statusSwitch && statusLabel) {
+            statusSwitch.addEventListener('change', function() {
+                if (this.checked) {
+                    statusLabel.textContent = 'Activo';
+                    statusLabel.style.color = 'var(--success-color)';
+                } else {
+                    statusLabel.textContent = 'Inactivo';
+                    statusLabel.style.color = 'var(--danger-color)';
+                }
+            });
+        }
         
         // Event listener para el formulario
         document.getElementById('paymentTypeForm').addEventListener('submit', function(e) {
@@ -417,6 +506,7 @@ function loadPaymentTypesSection() {
         const typeName = document.getElementById('paymentTypeName').value.trim();
         const typeDescription = document.getElementById('paymentTypeDescription').value.trim();
         const typeBankAccount = document.getElementById('paymentTypeBankAccount').value;
+        const typeStatus = document.getElementById('paymentTypeStatus').checked;
         
         if (!typeName) {
             showToast('El nombre del tipo es obligatorio', 'error');
@@ -433,6 +523,7 @@ function loadPaymentTypesSection() {
             name: typeName,
             description: typeDescription,
             bank_account_id: typeBankAccount,
+            status: typeStatus,
             csrf_token: window.CSRF_TOKEN || 'dummy_token'
         };
         
@@ -521,6 +612,18 @@ function loadPaymentTypesSection() {
                         <small class="form-text">Esta cuenta se usará para registrar los movimientos de este método de pago</small>
                         <div class="input-feedback" id="accountFeedback"></div>
                     </div>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Estado</label>
+                        <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                            <label class="switch">
+                                <input type="checkbox" id="paymentTypeStatus" name="paymentTypeStatus" ${type.status === 'active' ? 'checked' : ''}>
+                                <span class="slider round"></span>
+                            </label>
+                            <span id="paymentTypeStatusLabel" style="font-weight: 500; color: ${type.status === 'active' ? 'var(--success-color)' : 'var(--danger-color)'};">${type.status === 'active' ? 'Activo' : 'Inactivo'}</span>
+                        </div>
+                        <small class="form-text">Los tipos de pago inactivos no aparecerán en los formularios de gastos</small>
+                    </div>
                 </div>
                 
                 <div class="modal-footer">
@@ -550,6 +653,22 @@ function loadPaymentTypesSection() {
         
         // Validación en tiempo real
         setupPaymentTypeValidation();
+        
+        // Event listener para el switch de estado
+        const statusSwitch = document.getElementById('paymentTypeStatus');
+        const statusLabel = document.getElementById('paymentTypeStatusLabel');
+        
+        if (statusSwitch && statusLabel) {
+            statusSwitch.addEventListener('change', function() {
+                if (this.checked) {
+                    statusLabel.textContent = 'Activo';
+                    statusLabel.style.color = 'var(--success-color)';
+                } else {
+                    statusLabel.textContent = 'Inactivo';
+                    statusLabel.style.color = 'var(--danger-color)';
+                }
+            });
+        }
         
         // Event listener para el formulario de edición
         document.getElementById('paymentTypeForm').addEventListener('submit', function(e) {
@@ -665,6 +784,96 @@ function loadPaymentTypesSection() {
         });
     }
     
+    // Funciones para manejo de estado
+    window.togglePaymentTypesStatusFilterDropdown = function() {
+        const dropdown = document.getElementById('paymentTypesStatusFilterDropdown');
+        if (dropdown) {
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        }
+    };
+
+    window.applyPaymentTypesStatusFilter = function(status) {
+        paymentTypesStatusFilter = status;
+        
+        // Actualizar texto del botón
+        const filterText = document.getElementById('paymentTypesStatusFilterText');
+        if (filterText) {
+            switch(status) {
+                case 'active':
+                    filterText.textContent = 'Solo activos';
+                    break;
+                case 'inactive':
+                    filterText.textContent = 'Solo inactivos';
+                    break;
+                default:
+                    filterText.textContent = 'Todos los estados';
+            }
+        }
+        
+        // Cerrar dropdown
+        const dropdown = document.getElementById('paymentTypesStatusFilterDropdown');
+        if (dropdown) {
+            dropdown.style.display = 'none';
+        }
+        
+        // Aplicar filtro
+        filterPaymentTypes();
+    };
+
+    window.togglePaymentTypeStatus = function(id, name, currentStatus) {
+        const newStatus = currentStatus === 'active' ? 'inactivo' : 'activo';
+        const action = currentStatus === 'active' ? 'desactivar' : 'activar';
+        
+        // Mostrar modal de confirmación
+        const modal = document.getElementById('confirmPaymentTypeStatusModal');
+        const message = document.getElementById('confirmPaymentTypeStatusMessage');
+        const confirmBtn = document.getElementById('confirmPaymentTypeStatusBtn');
+        
+        if (modal && message && confirmBtn) {
+            message.textContent = `¿Está seguro de que desea ${action} el tipo de pago "${name}"?`;
+            
+            confirmBtn.onclick = async function() {
+                try {
+                    const response = await fetch('api/payment_type/PaymentTypeController.php?action=togglePaymentTypeStatus', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            id: id,
+                            csrf_token: window.CSRF_TOKEN
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        showToast(result.message || 'Estado actualizado correctamente', 'success');
+                        closeModal('confirmPaymentTypeStatusModal');
+                        loadPaymentTypes(); // Recargar datos
+                    } else {
+                        showToast(result.error || 'Error al cambiar estado', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error toggling payment type status:', error);
+                    showToast('Error al cambiar estado del tipo de pago', 'error');
+                }
+            };
+            
+            openModal('confirmPaymentTypeStatusModal');
+        }
+    };
+
+    // Cerrar dropdown al hacer clic fuera
+    document.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('paymentTypesStatusFilterDropdown');
+        const button = document.getElementById('paymentTypesStatusFilterBtn');
+        
+        if (dropdown && button && !button.contains(event.target) && !dropdown.contains(event.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+
     // Configurar ordenamiento después de un breve delay para asegurar que el DOM esté listo
     setTimeout(() => {
         setupPaymentTypesTableSorting();
@@ -692,11 +901,12 @@ function loadExpenseCategoriesSection() {
     let categoriesCurrentPage = 1;
     let categoriesItemsPerPage = 10;
     let categoriesFilteredData = [];
+    let categoriesStatusFilter = '';
     
     const content = `
         <div class="card">
-            <div class="card-header" style="display: flex; justify-content: flex-end; align-items: center;">
-                <div style="flex: 1;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+                <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
                     <input
                         type="text"
                         id="categoriesSearchInput"
@@ -705,6 +915,27 @@ function loadExpenseCategoriesSection() {
                         style="max-width: 300px;"
                         autocomplete="off"
                     >
+                    <div class="status-filter-container" style="position: relative;">
+                        <button type="button" class="btn" id="categoriesStatusFilterBtn" onclick="toggleCategoriesStatusFilterDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-filter"></i>
+                            <span id="categoriesStatusFilterText">Todos los estados</span>
+                            <i class="fas fa-chevron-down" style="font-size: 12px;"></i>
+                        </button>
+                        <div class="status-filter-dropdown" id="categoriesStatusFilterDropdown" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; min-width: 180px; margin-top: 4px;">
+                            <div class="filter-option" onclick="applyCategoriesStatusFilter('')" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border-color);">
+                                <i class="fas fa-list" style="width: 16px; margin-right: 8px;"></i>
+                                Todos los estados
+                            </div>
+                            <div class="filter-option" onclick="applyCategoriesStatusFilter('active')" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border-color);">
+                                <i class="fas fa-check-circle" style="width: 16px; margin-right: 8px; color: var(--success-color);"></i>
+                                Solo activas
+                            </div>
+                            <div class="filter-option" onclick="applyCategoriesStatusFilter('inactive')" style="padding: 8px 12px; cursor: pointer;">
+                                <i class="fas fa-times-circle" style="width: 16px; margin-right: 8px; color: var(--danger-color);"></i>
+                                Solo inactivas
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <button type="button" class="btn btn-primary" onclick="openCategoryModal()">
@@ -724,19 +955,19 @@ function loadExpenseCategoriesSection() {
                 <p class="card-subtitle">Total: <span id="totalCategories">0</span> categorías registradas</p>
             </div>
             <div style="overflow-x: auto;">
-                <table class="data-table sortable-table" id="categoriesTable" style="min-width: 600px;">
+                <table class="data-table sortable-table" id="categoriesTable" style="min-width: 700px;">
                     <thead>
                         <tr>
-                            <th class="sortable" data-sort="name" style="width: 100px;">
+                            <th class="sortable" data-sort="name">
                                 Nombre
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th class="sortable" data-sort="description" style="width: 80px;">
+                            <th class="sortable" data-sort="description">
                                 Descripción
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th style="width: 100px; text-align: center; vertical-align: middle;">Tipos</th>
-                            <th class="sortable" data-sort="is_active" style="width: 80px; text-align: center; vertical-align: middle;">
+                            <th style="width: 100px; text-align: center;">Tipos</th>
+                            <th class="sortable" data-sort="status" style="width: 100px; text-align: center;">
                                 Estado
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
@@ -753,6 +984,26 @@ function loadExpenseCategoriesSection() {
                 </div>
             </div>
         </div>
+
+        <!-- Modal de confirmación para cambio de estado -->
+        <div class="modal" id="confirmCategoryStatusModal" style="display: none;">
+            <div class="modal-overlay" onclick="closeModal('confirmCategoryStatusModal')"></div>
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="modal-header">
+                    <h2>Confirmar cambio de estado</h2>
+                    <button type="button" class="modal-close" onclick="closeModal('confirmCategoryStatusModal')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmCategoryStatusMessage">¿Está seguro de que desea cambiar el estado de esta categoría?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="closeModal('confirmCategoryStatusModal')">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="confirmCategoryStatusBtn">Confirmar</button>
+                </div>
+            </div>
+        </div>
     `;
     
     document.getElementById('settingsContent').innerHTML = content;
@@ -760,7 +1011,12 @@ function loadExpenseCategoriesSection() {
     // Funciones internas para categorías
     async function loadCategories() {
         try {
-            const response = await fetch('api/expense_category/ExpenseCategoryController.php?action=list');
+            let url = 'api/expense_category/ExpenseCategoryController.php?action=list';
+            if (categoriesStatusFilter) {
+                url += `&status=${categoriesStatusFilter}`;
+            }
+            
+            const response = await fetch(url);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -787,10 +1043,14 @@ function loadExpenseCategoriesSection() {
     function filterCategories() {
         const searchTerm = document.getElementById('categoriesSearchInput')?.value.toLowerCase() || '';
         
-        categoriesFilteredData = categoriesData.filter(category => 
-            category.name.toLowerCase().includes(searchTerm) ||
-            (category.description && category.description.toLowerCase().includes(searchTerm))
-        );
+        categoriesFilteredData = categoriesData.filter(category => {
+            const matchesSearch = category.name.toLowerCase().includes(searchTerm) ||
+                (category.description && category.description.toLowerCase().includes(searchTerm));
+            
+            const matchesStatus = categoriesStatusFilter === '' || category.status === categoriesStatusFilter;
+            
+            return matchesSearch && matchesStatus;
+        });
         
         categoriesCurrentPage = 1;
         renderCategoriesTable();
@@ -833,8 +1093,9 @@ function loadExpenseCategoriesSection() {
             
             // Obtener conteo de tipos asociados
             const typesCount = category.types_count || 0;
-            const statusText = category.is_active ? 'Activa' : 'Inactiva';
-            const statusClass = category.is_active ? 'text-success' : 'text-danger';
+            const isActive = category.status === 'active' || category.status_numeric === 1;
+            const statusText = isActive ? 'Activa' : 'Inactiva';
+            const statusBadgeClass = isActive ? 'status-active' : 'status-inactive';
             
             row.innerHTML = `
                 <td>
@@ -845,18 +1106,22 @@ function loadExpenseCategoriesSection() {
                         ${category.description ? escapeHtml(category.description) : '-'}
                     </div>
                 </td>
-                <td style="text-align: center; vertical-align: middle;">
+                <td style="text-align: center;">
                     <span style="padding: 4px 8px; background-color: #F3F4F6; border-radius: 4px; font-size: 0.875rem; font-weight: 500;">
                         ${typesCount}
                     </span>
                 </td>
-                <td style="text-align: center; vertical-align: middle;">
-                    <span class="${statusClass}" style="font-weight: 500;">
+                <td style="text-align: center;">
+                    <span class="status-badge ${statusBadgeClass}">
+                        <i class="fas fa-circle" style="font-size: 8px;"></i>
                         ${statusText}
                     </span>
                 </td>
                 <td style="text-align: center;">
                     <div style="display: flex; gap: 8px; justify-content: center;">
+                        <button type="button" class="btn-action" onclick="toggleCategoryStatusFromSettings('${category.id}', '${escapeHtml(category.name)}', '${category.status}')" title="${isActive ? 'Desactivar' : 'Activar'}">
+                            <i class="fas ${isActive ? 'fa-toggle-on' : 'fa-toggle-off'}"></i>
+                        </button>
                         <button type="button" class="btn-action" onclick="editCategoryFromSettings('${category.id}')" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -961,10 +1226,12 @@ function loadExpenseCategoriesSection() {
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label">
-                            <input type="checkbox" id="categoryIsActive" name="categoryIsActive" checked>
-                            Categoría activa
+                        <label class="form-label" for="categoryStatus">Estado</label>
+                        <label class="switch">
+                            <input type="checkbox" id="categoryStatus" name="categoryStatus" checked>
+                            <span class="slider"></span>
                         </label>
+                        <span style="margin-left: 8px; font-size: 14px; color: var(--text-secondary);">Activa</span>
                     </div>
                 </div>
                 
@@ -997,7 +1264,7 @@ function loadExpenseCategoriesSection() {
         const categoryId = document.getElementById('categoryId').value;
         const categoryName = document.getElementById('categoryName').value.trim();
         const categoryDescription = document.getElementById('categoryDescription').value.trim();
-        const categoryIsActive = document.getElementById('categoryIsActive').checked;
+        const categoryStatus = document.getElementById('categoryStatus').checked;
         
         if (!categoryName) {
             showToast('El nombre de la categoría es obligatorio', 'error');
@@ -1007,7 +1274,7 @@ function loadExpenseCategoriesSection() {
         // Preparar datos
         formData.append('name', categoryName);
         formData.append('description', categoryDescription);
-        formData.append('is_active', categoryIsActive ? '1' : '0');
+        formData.append('status', categoryStatus ? '1' : '0');
         
         try {
             let url, method;
@@ -1076,10 +1343,12 @@ function loadExpenseCategoriesSection() {
                             </div>
                             
                             <div class="form-group">
-                                <label class="form-label">
-                                    <input type="checkbox" id="categoryIsActive" name="categoryIsActive" ${category.is_active === '1' || category.is_active === 1 || category.is_active === true ? 'checked' : ''}>
-                                    Categoría activa
+                                <label class="form-label" for="categoryStatus">Estado</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="categoryStatus" name="categoryStatus" ${category.status === 'active' || category.status_numeric === 1 ? 'checked' : ''}>
+                                    <span class="slider"></span>
                                 </label>
+                                <span style="margin-left: 8px; font-size: 14px; color: var(--text-secondary);">Activa</span>
                             </div>
                         </div>
                         
@@ -1155,9 +1424,102 @@ function loadExpenseCategoriesSection() {
         openModal('confirmDeleteModal');
     };
 
+    // Funciones para filtro de estado
+    window.toggleCategoriesStatusFilterDropdown = function() {
+        const dropdown = document.getElementById('categoriesStatusFilterDropdown');
+        if (dropdown) {
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        }
+    };
+
+    window.applyCategoriesStatusFilter = function(status) {
+        categoriesStatusFilter = status;
+        
+        // Actualizar texto del botón
+        const filterText = document.getElementById('categoriesStatusFilterText');
+        if (filterText) {
+            switch(status) {
+                case 'active':
+                    filterText.textContent = 'Solo activas';
+                    break;
+                case 'inactive':
+                    filterText.textContent = 'Solo inactivas';
+                    break;
+                default:
+                    filterText.textContent = 'Todos los estados';
+            }
+        }
+        
+        // Cerrar dropdown
+        const dropdown = document.getElementById('categoriesStatusFilterDropdown');
+        if (dropdown) {
+            dropdown.style.display = 'none';
+        }
+        
+        // Recargar datos
+        loadCategories();
+    };
+
+    // Función para toggle de estado
+    window.toggleCategoryStatusFromSettings = function(categoryId, categoryName, currentStatus) {
+        const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+        const actionText = newStatus === 'active' ? 'activar' : 'desactivar';
+        
+        // Configurar modal de confirmación
+        const message = document.getElementById('confirmCategoryStatusMessage');
+        const confirmBtn = document.getElementById('confirmCategoryStatusBtn');
+        
+        if (message) {
+            message.textContent = `¿Está seguro de que desea ${actionText} la categoría "${categoryName}"?`;
+        }
+        
+        if (confirmBtn) {
+            confirmBtn.onclick = async function() {
+                try {
+                    const response = await fetch(`api/expense_category/ExpenseCategoryController.php?action=toggleStatus&id=${categoryId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        showToast(result.message, 'success');
+                        closeModal('confirmCategoryStatusModal');
+                        await loadCategories();
+                    } else {
+                        showToast(result.message || 'Error al cambiar el estado', 'error');
+                    }
+                    
+                } catch (error) {
+                    console.error('Error toggling category status:', error);
+                    showToast('Error al cambiar el estado: ' + error.message, 'error');
+                }
+            };
+        }
+        
+        openModal('confirmCategoryStatusModal');
+    };
+
     // Event listener para búsqueda
     document.getElementById('categoriesSearchInput').addEventListener('input', function() {
         filterCategories();
+    });
+    
+    // Cerrar dropdown al hacer clic fuera
+    document.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('categoriesStatusFilterDropdown');
+        const button = document.getElementById('categoriesStatusFilterBtn');
+        
+        if (dropdown && button && !button.contains(event.target) && !dropdown.contains(event.target)) {
+            dropdown.style.display = 'none';
+        }
     });
     
     // Cargar datos iniciales
@@ -1199,10 +1561,10 @@ function loadExpenseCategoriesSection() {
                 valueB = valueB.toLowerCase().trim();
             }
             
-            // Para el campo is_active, convertir a boolean para ordenamiento
-            if (categoriesSortField === 'is_active') {
-                valueA = Boolean(valueA);
-                valueB = Boolean(valueB);
+            // Para el campo status, convertir a boolean para ordenamiento
+            if (categoriesSortField === 'status') {
+                valueA = valueA === 'active' || valueA === 1;
+                valueB = valueB === 'active' || valueB === 1;
             }
             
             if (valueA < valueB) return categoriesSortDirection === 'asc' ? -1 : 1;
@@ -1247,11 +1609,12 @@ function loadExpenseTypesSection() {
     let typesCurrentPage = 1;
     let typesItemsPerPage = 10;
     let typesFilteredData = [];
+    let typesStatusFilter = '';
     
     const content = `
         <div class="card">
-            <div class="card-header" style="display: flex; justify-content: flex-end; align-items: center;">
-                <div style="flex: 1;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+                <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
                     <input
                         type="text"
                         id="typesSearchInput"
@@ -1260,6 +1623,27 @@ function loadExpenseTypesSection() {
                         style="max-width: 300px;"
                         autocomplete="off"
                     >
+                    <div class="status-filter-container" style="position: relative;">
+                        <button type="button" class="btn" id="typesStatusFilterBtn" onclick="toggleTypesStatusFilterDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-filter"></i>
+                            <span id="typesStatusFilterText">Todos los estados</span>
+                            <i class="fas fa-chevron-down" style="font-size: 12px;"></i>
+                        </button>
+                        <div class="status-filter-dropdown" id="typesStatusFilterDropdown" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; min-width: 180px; margin-top: 4px;">
+                            <div class="filter-option" onclick="applyTypesStatusFilter('')" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border-color);">
+                                <i class="fas fa-list" style="width: 16px; margin-right: 8px;"></i>
+                                Todos los estados
+                            </div>
+                            <div class="filter-option" onclick="applyTypesStatusFilter('active')" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border-color);">
+                                <i class="fas fa-check-circle" style="width: 16px; margin-right: 8px; color: var(--success-color);"></i>
+                                Solo activos
+                            </div>
+                            <div class="filter-option" onclick="applyTypesStatusFilter('inactive')" style="padding: 8px 12px; cursor: pointer;">
+                                <i class="fas fa-times-circle" style="width: 16px; margin-right: 8px; color: var(--danger-color);"></i>
+                                Solo inactivos
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <button type="button" class="btn btn-primary" onclick="openExpenseTypeModal()">
@@ -1279,7 +1663,7 @@ function loadExpenseTypesSection() {
                 <p class="card-subtitle">Total: <span id="totalExpenseTypes">0</span> tipos registrados</p>
             </div>
             <div style="overflow-x: auto;">
-                <table class="data-table sortable-table" id="expenseTypesTable" style="min-width: 700px;">
+                <table class="data-table sortable-table" id="expenseTypesTable" style="min-width: 800px;">
                     <thead>
                         <tr>
                             <th class="sortable" data-sort="name">
@@ -1294,7 +1678,7 @@ function loadExpenseTypesSection() {
                                 Categoría
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th class="sortable" data-sort="is_active" style="width: 80px; text-align: center; vertical-align: middle;">
+                            <th class="sortable" data-sort="status" style="width: 100px; text-align: center;">
                                 Estado
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
@@ -1308,6 +1692,26 @@ function loadExpenseTypesSection() {
                 <div id="expenseTypesTableFooter" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0 0 0;">
                     <div id="expenseTypesPageSizeContainer"></div>
                     <div id="expenseTypesPagination"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de confirmación para cambio de estado -->
+        <div class="modal" id="confirmExpenseTypeStatusModal" style="display: none;">
+            <div class="modal-overlay" onclick="closeModal('confirmExpenseTypeStatusModal')"></div>
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="modal-header">
+                    <h2>Confirmar cambio de estado</h2>
+                    <button type="button" class="modal-close" onclick="closeModal('confirmExpenseTypeStatusModal')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmExpenseTypeStatusMessage">¿Está seguro de que desea cambiar el estado de este tipo de gasto?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="closeModal('confirmExpenseTypeStatusModal')">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="confirmExpenseTypeStatusBtn">Confirmar</button>
                 </div>
             </div>
         </div>
@@ -1354,7 +1758,12 @@ function loadExpenseTypesSection() {
 
     async function loadExpenseTypes() {
         try {
-            const response = await fetch('api/expense_type/ExpenseTypeController.php?action=list');
+            let url = 'api/expense_type/ExpenseTypeController.php?action=list';
+            if (typesStatusFilter) {
+                url += `&status=${typesStatusFilter}`;
+            }
+            
+            const response = await fetch(url);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -1381,11 +1790,15 @@ function loadExpenseTypesSection() {
     function filterExpenseTypes() {
         const searchTerm = document.getElementById('typesSearchInput')?.value.toLowerCase() || '';
         
-        typesFilteredData = typesData.filter(type => 
-            type.name.toLowerCase().includes(searchTerm) ||
-            (type.description && type.description.toLowerCase().includes(searchTerm)) ||
-            (type.category_name && type.category_name.toLowerCase().includes(searchTerm))
-        );
+        typesFilteredData = typesData.filter(type => {
+            const matchesSearch = type.name.toLowerCase().includes(searchTerm) ||
+                (type.description && type.description.toLowerCase().includes(searchTerm)) ||
+                (type.category_name && type.category_name.toLowerCase().includes(searchTerm));
+            
+            const matchesStatus = typesStatusFilter === '' || type.status === typesStatusFilter;
+            
+            return matchesSearch && matchesStatus;
+        });
         
         typesCurrentPage = 1;
         renderExpenseTypesTable();
@@ -1426,34 +1839,40 @@ function loadExpenseTypesSection() {
         pageData.forEach(type => {
             const row = document.createElement('tr');
             
-            const statusText = type.is_active ? 'Activo' : 'Inactivo';
-            const statusClass = type.is_active ? 'text-success' : 'text-danger';
+            const isActive = type.status === 'active' || type.status_numeric === 1;
+            const statusBadgeClass = isActive ? 'status-active' : 'status-inactive';
+            const statusText = isActive ? 'Activo' : 'Inactivo';
             
             row.innerHTML = `
                 <td>
-                    <div style="font-weight: 500;">${type.name || ''}</div>
+                    <div style="font-weight: 500;">${escapeHtml(type.name || '')}</div>
                 </td>
                 <td>
                     <div style="color: #6B7280; max-width: 300px; overflow: hidden; text-overflow: ellipsis;">
-                        ${type.description || '-'}
+                        ${escapeHtml(type.description || '-')}
                     </div>
                 </td>
                 <td>
                     <div style="padding: 4px 8px; background-color: #F3F4F6; border-radius: 4px; font-size: 0.875rem; font-weight: 500; display: inline-block;">
-                        ${type.category_name || 'Sin categoría'}
+                        ${escapeHtml(type.category_name || 'Sin categoría')}
                     </div>
                 </td>
-                <td style="text-align: center; vertical-align: middle;">
-                    <span class="${statusClass}" style="font-weight: 500;">
+                <td style="text-align: center;">
+                    <span class="status-badge ${statusBadgeClass}">
+                        <i class="fas fa-circle" style="font-size: 8px;"></i>
                         ${statusText}
                     </span>
                 </td>
                 <td style="text-align: center;">
                     <div style="display: flex; gap: 8px; justify-content: center;">
+                        <label class="switch" title="Cambiar estado">
+                            <input type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleExpenseTypeStatus('${type.id}', '${escapeHtml(type.name || '')}')">
+                            <span class="slider"></span>
+                        </label>
                         <button type="button" class="btn-action" onclick="editExpenseTypeFromSettings('${type.id}')" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button type="button" class="btn-action btn-danger" onclick="deleteExpenseTypeFromSettings('${type.id}', '${type.name || ''}')" title="Eliminar">
+                        <button type="button" class="btn-action btn-danger" onclick="deleteExpenseTypeFromSettings('${type.id}', '${escapeHtml(type.name || '')}')" title="Eliminar">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -1561,10 +1980,12 @@ function loadExpenseTypesSection() {
                     </div>
                     
                     <div class="form-group">
-                        <label class="form-label">
-                            <input type="checkbox" id="expenseTypeIsActive" name="expenseTypeIsActive" checked>
-                            Tipo activo
+                        <label class="form-label" for="expenseTypeStatus">Estado</label>
+                        <label class="switch">
+                            <input type="checkbox" id="expenseTypeStatus" name="expenseTypeStatus" checked>
+                            <span class="slider"></span>
                         </label>
+                        <span style="margin-left: 8px; font-size: 14px; color: var(--text-secondary);">Activo</span>
                     </div>
                 </div>
                 
@@ -1602,7 +2023,7 @@ function loadExpenseTypesSection() {
         const typeName = document.getElementById('expenseTypeName').value.trim();
         const typeDescription = document.getElementById('expenseTypeDescription').value.trim();
         const typeCategory = document.getElementById('expenseTypeCategory').value;
-        const typeIsActive = document.getElementById('expenseTypeIsActive').checked;
+        const typeStatus = document.getElementById('expenseTypeStatus').checked;
         
         if (!typeName) {
             showToast('El nombre del tipo es obligatorio', 'error');
@@ -1618,7 +2039,7 @@ function loadExpenseTypesSection() {
         formData.append('name', typeName);
         formData.append('description', typeDescription);
         formData.append('category_id', typeCategory);
-        formData.append('is_active', typeIsActive ? '1' : '0');
+        formData.append('status', typeStatus ? '1' : '0');
         
         try {
             let url, method;
@@ -1694,10 +2115,12 @@ function loadExpenseTypesSection() {
                             </div>
                             
                             <div class="form-group">
-                                <label class="form-label">
-                                    <input type="checkbox" id="expenseTypeIsActive" name="expenseTypeIsActive" ${type.is_active === '1' || type.is_active === 1 || type.is_active === true ? 'checked' : ''}>
-                                    Tipo activo
+                                <label class="form-label" for="expenseTypeStatus">Estado</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="expenseTypeStatus" name="expenseTypeStatus" ${type.status === 'active' || type.status_numeric === 1 ? 'checked' : ''}>
+                                    <span class="slider"></span>
                                 </label>
+                                <span style="margin-left: 8px; font-size: 14px; color: var(--text-secondary);">Activo</span>
                             </div>
                         </div>
                         
@@ -1773,6 +2196,90 @@ function loadExpenseTypesSection() {
         openModal('confirmDeleteModal');
     };
 
+    // Funciones para filtro de estado
+    window.toggleTypesStatusFilterDropdown = function() {
+        const dropdown = document.getElementById('typesStatusFilterDropdown');
+        if (dropdown) {
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        }
+    };
+
+    window.applyTypesStatusFilter = function(status) {
+        typesStatusFilter = status;
+        
+        // Actualizar texto del botón
+        const filterText = document.getElementById('typesStatusFilterText');
+        if (filterText) {
+            switch(status) {
+                case 'active':
+                    filterText.textContent = 'Solo activos';
+                    break;
+                case 'inactive':
+                    filterText.textContent = 'Solo inactivos';
+                    break;
+                default:
+                    filterText.textContent = 'Todos los estados';
+            }
+        }
+        
+        // Cerrar dropdown
+        const dropdown = document.getElementById('typesStatusFilterDropdown');
+        if (dropdown) {
+            dropdown.style.display = 'none';
+        }
+        
+        // Recargar datos
+        loadExpenseTypes();
+    };
+
+    // Función para toggle de estado
+    window.toggleExpenseTypeStatus = function(typeId, typeName) {
+        const modal = document.getElementById('confirmExpenseTypeStatusModal');
+        const message = document.getElementById('confirmExpenseTypeStatusMessage');
+        const confirmBtn = document.getElementById('confirmExpenseTypeStatusBtn');
+        
+        if (modal && message && confirmBtn) {
+            message.textContent = `¿Está seguro de que desea cambiar el estado del tipo de gasto "${typeName}"?`;
+            
+            confirmBtn.onclick = async function() {
+                try {
+                    const response = await fetch(`api/expense_type/ExpenseTypeController.php?action=toggleStatus&id=${typeId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        showToast(result.message, 'success');
+                        loadExpenseTypes(); // Recargar la tabla
+                    } else {
+                        showToast(result.message || 'Error al cambiar el estado', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    showToast('Error al cambiar el estado del tipo de gasto', 'error');
+                }
+                
+                closeModal('confirmExpenseTypeStatusModal');
+            };
+            
+            openModal('confirmExpenseTypeStatusModal');
+        }
+    };
+
+    // Cerrar dropdown al hacer clic fuera
+    document.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('typesStatusFilterDropdown');
+        const button = document.getElementById('typesStatusFilterBtn');
+        
+        if (dropdown && button && !button.contains(event.target) && !dropdown.contains(event.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+
     // Event listener para búsqueda
     document.getElementById('typesSearchInput').addEventListener('input', function() {
         filterExpenseTypes();
@@ -1818,10 +2325,10 @@ function loadExpenseTypesSection() {
                 valueB = valueB.toLowerCase().trim();
             }
             
-            // Para el campo is_active, convertir a boolean para ordenamiento
-            if (expenseTypesSortField === 'is_active') {
-                valueA = Boolean(valueA);
-                valueB = Boolean(valueB);
+            // Para el campo status, convertir a boolean para ordenamiento
+            if (expenseTypesSortField === 'status') {
+                valueA = valueA === 'active' || valueA === 1;
+                valueB = valueB === 'active' || valueB === 1;
             }
             
             if (valueA < valueB) return expenseTypesSortDirection === 'asc' ? -1 : 1;
@@ -1866,12 +2373,13 @@ function loadJobTypesSection() {
     let jobTypesTotalCount = 0;
     let jobTypesSortField = 'created_at';
     let jobTypesSortDir = 'desc';
+    let jobTypesStatusFilter = '';
     let editingJobTypeId = null;
     
     const content = `
         <div class="card">
-            <div class="card-header" style="display: flex; justify-content: flex-end; align-items: center;">
-                <div style="flex: 1;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+                <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
                     <input
                         type="text"
                         id="jobTypesSearchInput"
@@ -1880,6 +2388,27 @@ function loadJobTypesSection() {
                         style="max-width: 300px;"
                         autocomplete="off"
                     >
+                    <div class="status-filter-container" style="position: relative;">
+                        <button type="button" class="btn" id="jobTypesStatusFilterBtn" onclick="toggleJobTypesStatusFilterDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-filter"></i>
+                            <span id="jobTypesStatusFilterText">Todos los estados</span>
+                            <i class="fas fa-chevron-down" style="font-size: 12px;"></i>
+                        </button>
+                        <div class="status-filter-dropdown" id="jobTypesStatusFilterDropdown" style="display: none; position: absolute; top: 100%; left: 0; background: white; border: 1px solid var(--border-color); border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; min-width: 180px; margin-top: 4px;">
+                            <div class="filter-option" onclick="applyJobTypesStatusFilter('')" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border-color);">
+                                <i class="fas fa-list" style="width: 16px; margin-right: 8px;"></i>
+                                Todos los estados
+                            </div>
+                            <div class="filter-option" onclick="applyJobTypesStatusFilter('active')" style="padding: 8px 12px; cursor: pointer; border-bottom: 1px solid var(--border-color);">
+                                <i class="fas fa-check-circle" style="width: 16px; margin-right: 8px; color: var(--success-color);"></i>
+                                Solo activos
+                            </div>
+                            <div class="filter-option" onclick="applyJobTypesStatusFilter('inactive')" style="padding: 8px 12px; cursor: pointer;">
+                                <i class="fas fa-times-circle" style="width: 16px; margin-right: 8px; color: var(--danger-color);"></i>
+                                Solo inactivos
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div>
                     <button type="button" class="btn btn-primary" onclick="openJobTypeModal()">
@@ -1899,7 +2428,7 @@ function loadJobTypesSection() {
                 <p class="card-subtitle">Total: <span id="totalJobTypes">0</span> tipos registrados</p>
             </div>
             <div style="overflow-x: auto;">
-                <table class="data-table sortable-table" id="jobTypesTable" style="min-width: 700px;">
+                <table class="data-table sortable-table" id="jobTypesTable" style="min-width: 800px;">
                     <thead>
                         <tr>
                             <th class="sortable" data-sort="name">
@@ -1914,7 +2443,11 @@ function loadJobTypesSection() {
                                 Paga como Subcontratista
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th style="vertical-align: middle; text-align: center;">Acciones</th>
+                            <th class="sortable" data-sort="status" style="width: 100px; text-align: center;">
+                                Estado
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th style="width: 120px; text-align: center;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="jobTypesTableBody">
@@ -1924,6 +2457,26 @@ function loadJobTypesSection() {
                 <div id="jobTypesTableFooter" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0 0 0;">
                     <div id="jobTypesPageSizeContainer"></div>
                     <div id="jobTypesPagination"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal de confirmación para cambio de estado -->
+        <div class="modal" id="confirmJobTypeStatusModal" style="display: none;">
+            <div class="modal-overlay" onclick="closeModal('confirmJobTypeStatusModal')"></div>
+            <div class="modal-content" style="max-width: 400px;">
+                <div class="modal-header">
+                    <h2>Confirmar cambio de estado</h2>
+                    <button type="button" class="modal-close" onclick="closeModal('confirmJobTypeStatusModal')">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p id="confirmJobTypeStatusMessage">¿Está seguro de que desea cambiar el estado de este tipo de trabajo?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn" onclick="closeModal('confirmJobTypeStatusModal')">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="confirmJobTypeStatusBtn">Confirmar</button>
                 </div>
             </div>
         </div>
@@ -1968,7 +2521,11 @@ function loadJobTypesSection() {
         setJobTypesTableLoading(true);
         
         const offset = (page - 1) * jobTypesPageSize;
-        const url = `api/job_type/JobTypeController.php?action=getAllJobTypes&limit=${jobTypesPageSize}&offset=${offset}&sort=${jobTypesSortField}&dir=${jobTypesSortDir}`;
+        let url = `api/job_type/JobTypeController.php?action=getAllJobTypes&limit=${jobTypesPageSize}&offset=${offset}&sort=${jobTypesSortField}&dir=${jobTypesSortDir}`;
+        
+        if (jobTypesStatusFilter) {
+            url += `&status=${jobTypesStatusFilter}`;
+        }
         
         fetch(url)
             .then(res => res.json())
@@ -1980,7 +2537,7 @@ function loadJobTypesSection() {
             })
             .catch(err => {
                 console.error('Error loading job types:', err);
-                document.getElementById('jobTypesTableBody').innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--danger-color);">Error al cargar tipos de trabajo</td></tr>';
+                document.getElementById('jobTypesTableBody').innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--danger-color);">Error al cargar tipos de trabajo</td></tr>';
             })
             .finally(() => setJobTypesTableLoading(false));
     }
@@ -1990,7 +2547,7 @@ function loadJobTypesSection() {
         if (loading) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="4" style="text-align: center; padding: 40px 0;">
+                    <td colspan="5" style="text-align: center; padding: 40px 0;">
                         <div class="loading-spinner">
                             <div class="spinner"></div>
                         </div>
@@ -2006,7 +2563,7 @@ function loadJobTypesSection() {
         tbody.innerHTML = '';
         
         if (!types.length) {
-            tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--text-secondary);">No hay tipos registrados</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-secondary);">No hay tipos registrados</td></tr>';
             document.getElementById('totalJobTypes').textContent = '0';
             return;
         }
@@ -2015,16 +2572,29 @@ function loadJobTypesSection() {
         
         types.forEach(type => {
             const tr = document.createElement('tr');
+            const isActive = type.status === 'active' || type.status_numeric === 1;
+            const statusText = isActive ? 'Activo' : 'Inactivo';
+            const statusBadgeClass = isActive ? 'status-active' : 'status-inactive';
+            
             tr.innerHTML = `
-                <td>${type.name}</td>
+                <td>${escapeHtml(type.name)}</td>
                 <td>$${parseFloat(type.pay_as_contractor).toLocaleString('es-MX', {minimumFractionDigits:2})}</td>
                 <td>$${parseFloat(type.pay_as_sub_contractor).toLocaleString('es-MX', {minimumFractionDigits:2})}</td>
-                <td style="vertical-align: middle; text-align: center;">
-                    <div style="display: flex; gap: 4px; justify-content: center;">
-                        <button type="button" class="btn-icon" onclick="editJobType('${type.id}')" title="Editar">
+                <td style="text-align: center;">
+                    <span class="status-badge ${statusBadgeClass}">
+                        <i class="fas fa-circle" style="font-size: 8px;"></i>
+                        ${statusText}
+                    </span>
+                </td>
+                <td style="text-align: center;">
+                    <div style="display: flex; gap: 8px; justify-content: center;">
+                        <button type="button" class="btn-action" onclick="toggleJobTypeStatusFromSettings('${type.id}', '${escapeHtml(type.name)}', '${type.status}')" title="${isActive ? 'Desactivar' : 'Activar'}">
+                            <i class="fas ${isActive ? 'fa-toggle-on' : 'fa-toggle-off'}"></i>
+                        </button>
+                        <button type="button" class="btn-action" onclick="editJobType('${type.id}')" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
-                        <button type="button" class="btn-icon btn-danger" onclick="deleteJobType('${type.id}')" title="Eliminar">
+                        <button type="button" class="btn-action btn-danger" onclick="deleteJobType('${type.id}')" title="Eliminar">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -2078,6 +2648,14 @@ function loadJobTypesSection() {
                         <label class="form-label" for="payAsSubContractor">Paga como Subcontratista</label>
                         <input type="number" step="0.01" class="form-input" id="payAsSubContractor" name="payAsSubContractor" value="0.00">
                     </div>
+                    <div class="form-group">
+                        <label class="form-label" for="jobTypeStatus">Estado</label>
+                        <label class="switch">
+                            <input type="checkbox" id="jobTypeStatus" name="jobTypeStatus" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <small class="form-text">Activo/Inactivo</small>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn" onclick="closeModal('formModal')" style="background-color: var(--secondary-color); color: white;">
@@ -2116,7 +2694,8 @@ function loadJobTypesSection() {
                 const formData = {
                     name: document.getElementById('jobTypeName').value,
                     pay_as_contractor: document.getElementById('payAsContractor').value,
-                    pay_as_sub_contractor: document.getElementById('payAsSubContractor').value
+                    pay_as_sub_contractor: document.getElementById('payAsSubContractor').value,
+                    status: document.getElementById('jobTypeStatus').checked ? '1' : '0'
                 };
                 
                 // Enviar solicitud para crear el tipo
@@ -2177,6 +2756,15 @@ function loadJobTypesSection() {
                                 <input type="number" step="0.01" class="form-input" id="payAsSubContractor" name="payAsSubContractor" value="${jobTypeData.pay_as_sub_contractor || '0.00'}" min="0">
                                 <small class="form-text">Monto que se paga cuando actúa como subcontratista</small>
                             </div>
+                            
+                            <div class="form-group">
+                                <label class="form-label" for="jobTypeStatus">Estado</label>
+                                <label class="switch">
+                                    <input type="checkbox" id="jobTypeStatus" name="jobTypeStatus" ${jobTypeData.status === 'active' ? 'checked' : ''}>
+                                    <span class="slider"></span>
+                                </label>
+                                <small class="form-text">Activo/Inactivo</small>
+                            </div>
                         </div>
                         
                         <div class="modal-footer">
@@ -2216,7 +2804,8 @@ function loadJobTypesSection() {
                         const formData = {
                             name: document.getElementById('jobTypeName').value.trim(),
                             pay_as_contractor: parseFloat(document.getElementById('payAsContractor').value) || 0,
-                            pay_as_sub_contractor: parseFloat(document.getElementById('payAsSubContractor').value) || 0
+                            pay_as_sub_contractor: parseFloat(document.getElementById('payAsSubContractor').value) || 0,
+                            status: document.getElementById('jobTypeStatus').checked ? '1' : '0'
                         };
                         
                         // Validar datos
@@ -2342,6 +2931,99 @@ function loadJobTypesSection() {
         }
     });
     
+    // Funciones para filtro de estado
+    window.toggleJobTypesStatusFilterDropdown = function() {
+        const dropdown = document.getElementById('jobTypesStatusFilterDropdown');
+        if (dropdown) {
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        }
+    };
+
+    window.applyJobTypesStatusFilter = function(status) {
+        jobTypesStatusFilter = status;
+        
+        // Actualizar texto del botón
+        const filterText = document.getElementById('jobTypesStatusFilterText');
+        if (filterText) {
+            switch(status) {
+                case 'active':
+                    filterText.textContent = 'Solo activos';
+                    break;
+                case 'inactive':
+                    filterText.textContent = 'Solo inactivos';
+                    break;
+                default:
+                    filterText.textContent = 'Todos los estados';
+            }
+        }
+        
+        // Cerrar dropdown
+        const dropdown = document.getElementById('jobTypesStatusFilterDropdown');
+        if (dropdown) {
+            dropdown.style.display = 'none';
+        }
+        
+        // Recargar datos
+        loadJobTypesData(1);
+    };
+
+    // Función para toggle de estado
+    window.toggleJobTypeStatusFromSettings = function(jobTypeId, jobTypeName, currentStatus) {
+        const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
+        const actionText = newStatus === 'active' ? 'activar' : 'desactivar';
+        
+        // Configurar modal de confirmación
+        const message = document.getElementById('confirmJobTypeStatusMessage');
+        const confirmBtn = document.getElementById('confirmJobTypeStatusBtn');
+        
+        if (message) {
+            message.textContent = `¿Está seguro de que desea ${actionText} el tipo de trabajo "${jobTypeName}"?`;
+        }
+        
+        if (confirmBtn) {
+            confirmBtn.onclick = async function() {
+                try {
+                    const response = await fetch(`api/job_type/JobTypeController.php?action=toggleStatus&id=${jobTypeId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        }
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        showToast(result.message, 'success');
+                        closeModal('confirmJobTypeStatusModal');
+                        loadJobTypesData(jobTypesCurrentPage);
+                    } else {
+                        showToast(result.error || 'Error al cambiar el estado', 'error');
+                    }
+                    
+                } catch (error) {
+                    console.error('Error toggling job type status:', error);
+                    showToast('Error al cambiar el estado: ' + error.message, 'error');
+                }
+            };
+        }
+        
+        openModal('confirmJobTypeStatusModal');
+    };
+
+    // Cerrar dropdown al hacer clic fuera
+    document.addEventListener('click', function(event) {
+        const dropdown = document.getElementById('jobTypesStatusFilterDropdown');
+        const button = document.getElementById('jobTypesStatusFilterBtn');
+        
+        if (dropdown && button && !button.contains(event.target) && !dropdown.contains(event.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+
     // Cargar datos iniciales
     loadJobTypesData(1);
     

@@ -25,8 +25,8 @@ $pageTitle = 'Gestión de Equipos';
         
         <!-- Botón para agregar nuevo equipo -->
         <div class="card">
-            <div class="card-header" style="display: flex; justify-content: flex-end; align-items: center;">
-                <div style="flex: 1;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
+                <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
                     <input
                         type="text"
                         id="searchInput"
@@ -36,13 +36,49 @@ $pageTitle = 'Gestión de Equipos';
                         style="max-width: 300px;"
                         autocomplete="off"
                     >
+                    
+                    <!-- Filtro de estado -->
+                    <div class="filter-dropdown-container">
+                        <button type="button" class="btn btn-outline" id="statusFilterDropdownBtn" onclick="toggleStatusFilterDropdown()">
+                            <i class="fas fa-filter"></i>
+                            Estado
+                            <span id="activeStatusFiltersCount" class="filter-count" style="display: none;">1</span>
+                        </button>
+                        <div class="filter-dropdown" id="statusFilterDropdown">
+                            <div class="filter-section">
+                                <label class="filter-label">
+                                    <i class="fas fa-toggle-on"></i>
+                                    Estado del Equipo
+                                </label>
+                                <select id="statusFilter" class="form-input">
+                                    <option value="">Todos los equipos</option>
+                                    <option value="1">Solo activos</option>
+                                    <option value="0">Solo inactivos</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-actions">
+                                <button type="button" class="btn btn-secondary" onclick="clearStatusFilters()">
+                                    <i class="fas fa-times"></i>
+                                    Limpiar
+                                </button>
+                                <button type="button" class="btn btn-primary" onclick="applyStatusFilters()">
+                                    <i class="fas fa-search"></i>
+                                    Aplicar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Filtros activos -->
+                    <div id="activeStatusFiltersContainer" style="display: none; gap: 8px;"></div>
                 </div>
-            <div>
-                <button type="button" class="btn btn-primary" onclick="openModal('teamModal')">
-                    <i class="fas fa-plus"></i>
-                    Nuevo Equipo
-                </button>
-            </div>
+                <div>
+                    <button type="button" class="btn btn-primary" onclick="openModal('teamModal')">
+                        <i class="fas fa-plus"></i>
+                        Nuevo Equipo
+                    </button>
+                </div>
             </div>
         </div>
         <!-- Tabla de equipos -->
@@ -65,6 +101,10 @@ $pageTitle = 'Gestión de Equipos';
                     </th>
                     <th class="sortable" data-sort="description">
                         Descripción
+                        <i class="fas fa-sort sort-icon"></i>
+                    </th>
+                    <th class="sortable" data-sort="status">
+                        Estado
                         <i class="fas fa-sort sort-icon"></i>
                     </th>
                     <th style="vertical-align: middle; text-align: center;">Acciones</th>
@@ -106,6 +146,20 @@ $pageTitle = 'Gestión de Equipos';
                     <label class="form-label" for="teamDescription">Descripción</label>
                     <textarea class="form-input" id="teamDescription" name="teamDescription" rows="3"></textarea>
                 </div>
+                <div class="form-group">
+                    <label class="form-label">Estado del Equipo</label>
+                    <div style="display: flex; align-items: center; gap: 12px; margin-top: 8px;">
+                        <label class="switch">
+                            <input type="checkbox" id="teamStatus" name="teamStatus" checked>
+                            <span class="slider"></span>
+                        </label>
+                        <span id="teamStatusLabel" style="font-weight: 500; color: var(--success-color);">Activo</span>
+                    </div>
+                    <small class="form-text" style="color: var(--text-secondary); font-size: 12px; margin-top: 4px;">
+                        <i class="fas fa-info-circle"></i>
+                        Los equipos inactivos no aparecerán en las listas de selección para nuevos gastos e ingresos
+                    </small>
+                </div>
             </div>
             
             <div class="modal-footer">
@@ -140,6 +194,43 @@ $pageTitle = 'Gestión de Equipos';
     </div>
 </div>
 
+<!-- Modal de confirmación de cambio de estado -->
+<div class="modal" id="confirmStatusChangeModal" style="display:none;">
+    <div class="modal-overlay" onclick="closeModal('confirmStatusChangeModal')"></div>
+    <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+            <h2 id="confirmStatusTitle">Confirmar cambio de estado</h2>
+            <button type="button" class="modal-close" onclick="closeModal('confirmStatusChangeModal')">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
+                <div style="font-size: 48px; color: var(--warning-color);">
+                    <i class="fas fa-exclamation-triangle"></i>
+                </div>
+                <div>
+                    <p id="confirmStatusMessage" style="margin: 0; font-size: 16px; line-height: 1.4;">
+                        ¿Está seguro de que desea cambiar el estado de este equipo?
+                    </p>
+                    <p id="confirmStatusDetails" style="margin: 8px 0 0 0; font-size: 14px; color: var(--text-secondary);">
+                        
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn" onclick="closeModal('confirmStatusChangeModal')" style="background-color: var(--secondary-color); color: white;">
+                Cancelar
+            </button>
+            <button type="button" class="btn" id="confirmStatusBtn" style="min-width: 100px;">
+                <i id="confirmStatusIcon" class="fas fa-check"></i>
+                <span id="confirmStatusBtnText">Activar</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- Modal de confirmación de eliminación -->
 <div class="modal" id="confirmDeleteModal" style="display:none;">
     <div class="modal-overlay" onclick="closeModal('confirmDeleteModal')"></div>
@@ -168,339 +259,7 @@ $pageTitle = 'Gestión de Equipos';
 
 <?php include 'includes/footer.php'; ?>
 
-<script>
-// --- Configuración ---
-const API_URL = 'api/team/TeamController.php';
-let editingTeamId = null;
-let sortField = 'created_at';
-let sortDir = 'desc';
-
-// --- Cargar equipos al iniciar ---
-document.addEventListener('DOMContentLoaded', function() {
-    loadTeams();
-    
-    // Configurar ordenamiento después de un delay para asegurar que el DOM esté listo
-    setTimeout(() => {
-        setupTableSorting();
-    }, 100);
-});
-
-// --- Paginación ---
-let currentPage = 1;
-let pageSize = 10;
-let totalTeamsCount = 0;
-
-// Selector de líneas por página
-function renderPageSizeSelector() {
-    let container = document.getElementById('pageSizeSelectorContainer');
-    if (!container) return;
-    container.innerHTML = '';
-    const label = document.createElement('label');
-    label.textContent = 'Mostrar:';
-    label.style = 'margin-right: 4px; font-weight: 500; color: var(--text-secondary);';
-    const selector = document.createElement('select');
-    selector.id = 'pageSizeSelector';
-    selector.className = 'form-input';
-    selector.style = 'width: auto; display: inline-block;';
-    [5, 10, 20, 50, 100].forEach(size => {
-        const opt = document.createElement('option');
-        opt.value = size;
-        opt.textContent = `${size} por página`;
-        selector.appendChild(opt);
-    });
-    selector.value = pageSize;
-    selector.onchange = function() {
-        pageSize = parseInt(this.value);
-        loadTeams(1);
-    };
-    container.appendChild(label);
-    container.appendChild(selector);
-}
-
-// Llamar al renderizador del selector al cargar la página y tras cada render
-renderPageSizeSelector();
-
-// --- Configurar ordenamiento de tabla ---
-function setupTableSorting() {
-    const sortableElements = document.querySelectorAll('.sortable');
-    
-    sortableElements.forEach(th => {
-        th.addEventListener('click', function() {
-            const field = this.dataset.sort;
-            
-            if (sortField === field) {
-                sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-            } else {
-                sortField = field;
-                sortDir = 'asc';
-            }
-            
-            updateSortIcons();
-            loadTeams(1);
-        });
-    });
-}
-
-function updateSortIcons() {
-    document.querySelectorAll('.sortable').forEach(th => {
-        th.classList.remove('sort-asc', 'sort-desc');
-        if (th.dataset.sort === sortField) {
-            th.classList.add(`sort-${sortDir}`);
-        }
-    });
-}
-
-function loadTeams(page = 1) {
-    currentPage = page;
-    setTableLoading(true);
-    fetch(`${API_URL}?action=getAllTeams&limit=${pageSize}&offset=${(page-1)*pageSize}&sort=${sortField}&dir=${sortDir}`)
-        .then(res => res.json())
-        .then(data => {
-            const teams = data.data || data;
-            totalTeamsCount = data.total || teams.length;
-            renderTeamsTable(teams);
-            renderPagination();
-            
-            // Actualizar iconos de ordenamiento
-            updateSortIcons();
-        })
-        .catch(() => {
-            document.getElementById('teamsTableBody').innerHTML = '<tr><td colspan="5">Error al cargar equipos</td></tr>';
-        })
-        .finally(() => setTableLoading(false));
-}
-
-function setTableLoading(loading) {
-    const tbody = document.getElementById('teamsTableBody');
-    if (loading) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:40px 0;">
-            <div class="loading-spinner"></div>
-            <span style="display:block; margin-top:8px; color:var(--text-secondary);">Cargando equipos...</span>
-        </td></tr>`;
-    }
-}
-
-function renderTeamsTable(teams) {
-    const tbody = document.getElementById('teamsTableBody');
-    tbody.innerHTML = '';
-    if (!teams.length) {
-        tbody.innerHTML = '<tr><td colspan="3">No hay equipos registrados</td></tr>';
-        document.getElementById('totalTeams').textContent = '0';
-        return;
-    }
-    document.getElementById('totalTeams').textContent = teams.length;
-    teams.forEach(team => {
-        const created = team.created_at ? team.created_at.split(' ')[0] : '';
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-            <td>${team.name}</td>
-            <td>${team.description || ''}</td>
-            <td style="vertical-align: middle; text-align: center;">
-                <div style="display: flex; gap: 4px; justify-content: center; align-items: center;">
-                    <button type="button" class="btn-icon" onclick="editTeam('${team.id}')" title="Editar">
-                        <i class="fas fa-edit"></i>
-                    </button>
-                    <button type="button" class="btn-icon btn-danger" onclick="deleteTeam('${team.id}')" title="Eliminar">
-                        <i class="fas fa-trash"></i>
-                    </button>
-                </div>
-            </td>
-        `;
-        tbody.appendChild(tr);
-    });
-    renderPageSizeSelector();
-}
-
-function renderPagination() {
-    const container = document.getElementById('teamsPagination');
-    if (!container) return;
-    container.innerHTML = '';
-    const totalPages = Math.ceil(totalTeamsCount / pageSize);
-    if (totalPages <= 1) { container.style.display = 'none'; return; }
-    container.style.display = 'flex';
-    for (let i = 1; i <= totalPages; i++) {
-        const btn = document.createElement('button');
-        btn.className = 'btn' + (i === currentPage ? ' btn-primary' : '');
-        btn.textContent = i;
-        btn.style.minWidth = '36px';
-        btn.onclick = () => loadTeams(i);
-        container.appendChild(btn);
-    }
-}
-
-function openModal(modalId) {
-    document.getElementById(modalId).style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-}
-
-function closeModal(modalId) {
-    document.getElementById(modalId).style.display = 'none';
-    document.body.style.overflow = 'auto';
-    if (modalId === 'teamModal') {
-        document.getElementById('teamForm').reset();
-        document.getElementById('modalTitle').textContent = 'Nuevo Equipo';
-        editingTeamId = null;
-    }
-}
-
-function showNotification(message, title = 'Notificación') {
-    document.getElementById('notificationTitle').textContent = title;
-    document.getElementById('notificationMessage').textContent = message;
-    document.getElementById('notificationModal').style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-}
-
-function showToast(message, type = 'success') {
-    const toast = document.getElementById('toast');
-    const toastIcon = document.getElementById('toastIcon');
-    const toastMessage = document.getElementById('toastMessage');
-    toastMessage.textContent = message;
-    if (type === 'success') {
-        toast.style.background = 'var(--success-color, #059669)';
-        toastIcon.innerHTML = '<i class="fas fa-check-circle"></i>';
-    } else if (type === 'error') {
-        toast.style.background = 'var(--danger-color, #dc2626)';
-        toastIcon.innerHTML = '<i class="fas fa-times-circle"></i>';
-    } else {
-        toast.style.background = 'var(--primary-color, #2563eb)';
-        toastIcon.innerHTML = '<i class="fas fa-info-circle"></i>';
-    }
-    toast.style.display = 'flex';
-    setTimeout(() => { toast.style.display = 'none'; }, 3200);
-}
-
-function viewTeam(id) {
-    fetch(`${API_URL}?action=getTeamById&id=${id}`)
-        .then(res => res.json())
-        .then(team => {
-            alert(`Equipo: ${team.name}\nDescripción: ${team.description}`);
-        });
-}
-
-function editTeam(id) {
-    fetch(`${API_URL}?action=getTeamById&id=${id}`)
-        .then(res => res.json())
-        .then(team => {
-            document.getElementById('modalTitle').textContent = 'Editar Equipo';
-            document.getElementById('teamName').value = team.name || '';
-            document.getElementById('teamDescription').value = team.description || '';
-            editingTeamId = team.id;
-            openModal('teamModal');
-        });
-}
-
-let teamIdToDelete = null;
-function showDeleteModal(id) {
-    teamIdToDelete = id;
-    document.getElementById('confirmDeleteModal').style.display = 'flex';
-    document.body.style.overflow = 'hidden';
-}
-document.getElementById('confirmDeleteBtn').onclick = function() {
-    if (teamIdToDelete) {
-        deleteTeamConfirmed(teamIdToDelete);
-        teamIdToDelete = null;
-        closeModal('confirmDeleteModal');
-    }
-};
-function deleteTeam(id) {
-    showDeleteModal(id);
-}
-function deleteTeamConfirmed(id) {
-    fetch(`${API_URL}?action=deleteTeam&id=${id}`, { method: 'DELETE' })
-        .then(res => res.json())
-        .then(result => {
-            if (result && result.error) {
-                showNotification('No se puede eliminar el equipo porque tiene gastos, ingresos u otros datos relacionados.\n\nDetalle: ' + result.error, 'Error al eliminar equipo');
-                showToast('No se pudo eliminar el equipo.', 'error');
-                return;
-            }
-            showToast('Equipo eliminado con éxito.', 'success');
-            setTimeout(() => {
-                fetch(`${API_URL}?action=getAllTeams&limit=${pageSize}&offset=${(currentPage-1)*pageSize}`)
-                    .then(res => res.json())
-                    .then(data => {
-                        const teams = data.data || data;
-                        if (teams.length === 0 && currentPage > 1) {
-                            loadTeams(currentPage - 1);
-                        } else {
-                            loadTeams(currentPage);
-                        }
-                    });
-            }, 200);
-        })
-        .catch(() => {
-            showToast('Ocurrió un error al eliminar el equipo.', 'error');
-        });
-}
-
-document.getElementById('teamForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const data = {
-        name: document.getElementById('teamName').value,
-        description: document.getElementById('teamDescription').value
-    };
-    let url = API_URL;
-    let method = 'POST';
-    let isEdit = false;
-    if (editingTeamId) {
-        url += `?action=updateTeam&id=${editingTeamId}`;
-        method = 'PUT';
-        isEdit = true;
-    } else {
-        url += '?action=createTeam';
-    }
-    fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    })
-    .then(res => res.json())
-    .then(result => {
-        closeModal('teamModal');
-        if (result && result.error) {
-            showToast('Ocurrió un error al guardar el equipo.', 'error');
-        } else {
-            showToast(isEdit ? 'Equipo editado con éxito.' : 'Equipo creado con éxito.', 'success');
-        }
-        loadTeams();
-    })
-    .catch(() => {
-        showToast('Ocurrió un error al guardar el equipo.', 'error');
-    });
-});
-
-// --- Filtro de búsqueda local por nombre de equipo ---
-document.getElementById('searchInput').addEventListener('input', function() {
-    const search = this.value.trim().toLowerCase();
-    const rows = document.querySelectorAll('#teamsTableBody tr');
-    let count = 0;
-    rows.forEach(row => {
-        // El nombre del equipo está en la primera columna (índice 0)
-        const name = row.children[0]?.textContent.toLowerCase() || '';
-        if (name.includes(search)) {
-            row.style.display = '';
-            count++;
-        } else {
-            row.style.display = 'none';
-        }
-    });
-    document.getElementById('totalTeams').textContent = count;
-});
-
-// Estilos para tabla ordenable
-
-// Cerrar modal con ESC
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-        const modals = document.querySelectorAll('.modal');
-        modals.forEach(modal => {
-            if (modal.style.display === 'flex') {
-                closeModal(modal.id);
-            }
-        });
-    }
-});
-</script>
+<script src="assets/js/teams.js"></script>
 
 <!-- Estilos para tabla ordenable -->
 <style>
@@ -531,5 +290,149 @@ document.addEventListener('keydown', function(e) {
 .sortable-table th.sortable.sort-desc .sort-icon:before {
     content: "\f0dd"; /* fa-sort-down */
     color: var(--primary-color);
+}
+
+/* Estilos para el switch de estado */
+.switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+input:checked + .slider {
+    background-color: var(--primary-color);
+}
+
+input:focus + .slider {
+    box-shadow: 0 0 1px var(--primary-color);
+}
+
+input:checked + .slider:before {
+    transform: translateX(26px);
+}
+
+/* Estilos para badges de estado */
+.status-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-active {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.status-inactive {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+/* Estilos para filtros */
+.filter-dropdown-container {
+    position: relative;
+    display: inline-block;
+}
+
+.filter-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    padding: 16px;
+    min-width: 250px;
+    z-index: 1000;
+    display: none;
+}
+
+.filter-dropdown.show {
+    display: block;
+}
+
+.filter-section {
+    margin-bottom: 16px;
+}
+
+.filter-label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 8px;
+    color: var(--text-color);
+}
+
+.filter-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.filter-count {
+    background: var(--primary-color);
+    color: white;
+    border-radius: 50%;
+    width: 18px;
+    height: 18px;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 4px;
+}
+
+.active-filter-btn {
+    background: var(--primary-color);
+    color: white;
+    padding: 4px 8px;
+    border-radius: 16px;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.active-filter-btn i {
+    cursor: pointer;
+    opacity: 0.8;
+}
+
+.active-filter-btn i:hover {
+    opacity: 1;
 }
 </style>
