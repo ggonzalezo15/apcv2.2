@@ -92,14 +92,29 @@ $pageTitle = 'Cuentas Bancarias';
                 <p class="card-subtitle">Total: <span id="totalBankAccounts">0</span> cuentas registradas</p>
             </div>
             <div style="overflow-x: auto;">
-                <table class="data-table" id="bankAccountsTable" style="min-width: 900px;">
+                <table class="data-table sortable-table" id="bankAccountsTable" style="min-width: 900px;">
                     <thead>
                         <tr>
-                            <th>Nombre</th>
-                            <th>Banco</th>
-                            <th>Número de Cuenta</th>
-                            <th>Tipo</th>
-                            <th>Saldo</th>
+                            <th class="sortable" data-sort="name">
+                                Nombre
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="bank_name">
+                                Banco
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="account_number">
+                                Número de Cuenta
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="account_type">
+                                Tipo
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="balance">
+                                Saldo
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
                             <th>Estado</th>
                             <th style="vertical-align: middle; text-align: center;">Acciones</th>
                         </tr>
@@ -933,6 +948,35 @@ input:checked + .slider:before {
         min-width: 100px;
         font-size: 12px;
     }
+}
+
+/* Tabla ordenable */
+.sortable-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    transition: background-color 0.2s ease;
+}
+
+.sortable-table th.sortable:hover {
+    background-color: #f8fafc;
+}
+
+.sort-icon {
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    transition: color 0.2s ease;
+}
+
+.sortable-table th.sortable.sort-asc .sort-icon:before {
+    content: "\f0de"; /* fa-sort-up */
+    color: var(--primary-color);
+}
+
+.sortable-table th.sortable.sort-desc .sort-icon:before {
+    content: "\f0dd"; /* fa-sort-down */
+    color: var(--primary-color);
 }
 </style>
 

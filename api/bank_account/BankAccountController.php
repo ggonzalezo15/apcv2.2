@@ -177,6 +177,12 @@ function getTransactionsByAccount($id) {
         $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
         $offset = ($page - 1) * $limit;
         
+        // Parámetros de ordenamiento
+        $sort = $_GET['sort'] ?? 'transaction_date';
+        $dir = strtolower($_GET['dir'] ?? 'desc') === 'asc' ? 'ASC' : 'DESC';
+        $allowedSort = ['transaction_date', 'type', 'amount', 'description', 'id'];
+        if (!in_array($sort, $allowedSort)) $sort = 'transaction_date';
+        
         // Validar parámetros
         if ($page < 1) $page = 1;
         if ($limit < 1 || $limit > 100) $limit = 10;
@@ -212,7 +218,7 @@ function getTransactionsByAccount($id) {
         }
         
         // Obtener transacciones paginadas - usar LIMIT sin parámetros preparados
-        $sql = "SELECT * FROM transactions WHERE bank_account_id = ? ORDER BY transaction_date DESC, id DESC LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
+        $sql = "SELECT * FROM transactions WHERE bank_account_id = ? ORDER BY $sort $dir, id DESC LIMIT " . (int)$limit . " OFFSET " . (int)$offset;
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$id]);
         $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);

@@ -39,11 +39,17 @@ function loadPaymentTypesSection() {
                 <p class="card-subtitle">Total: <span id="totalPaymentTypes">0</span> tipos registrados</p>
             </div>
             <div style="overflow-x: auto;">
-                <table class="data-table" id="paymentTypesTable" style="min-width: 700px;">
+                <table class="data-table sortable-table" id="paymentTypesTable" style="min-width: 700px;">
                     <thead>
                         <tr>
-                            <th>Nombre</th>
-                            <th>Descripción</th>
+                            <th class="sortable" data-sort="name">
+                                Nombre
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="description">
+                                Descripción
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
                             <th>Cuenta Bancaria Asociada</th>
                             <th style="width: 120px; text-align: center;">Acciones</th>
                         </tr>
@@ -595,6 +601,75 @@ function loadPaymentTypesSection() {
     
     // Cargar datos iniciales
     loadPaymentTypes();
+    
+    // Variables de ordenamiento para tipos de pago
+    let paymentTypesSortField = 'name';
+    let paymentTypesSortDirection = 'asc';
+    
+    // Funciones de ordenamiento para tipos de pago
+    function setupPaymentTypesTableSorting() {
+        const table = document.getElementById('paymentTypesTable');
+        if (!table) return;
+        
+        const sortableHeaders = table.querySelectorAll('th.sortable');
+        sortableHeaders.forEach(header => {
+            header.addEventListener('click', () => {
+                const sortBy = header.getAttribute('data-sort');
+                if (paymentTypesSortField === sortBy) {
+                    paymentTypesSortDirection = paymentTypesSortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    paymentTypesSortField = sortBy;
+                    paymentTypesSortDirection = 'asc';
+                }
+                
+                sortPaymentTypesData();
+                updatePaymentTypesSortIcons();
+            });
+        });
+    }
+    
+    function sortPaymentTypesData() {
+        paymentTypesFilteredData.sort((a, b) => {
+            let valueA = a[paymentTypesSortField] || '';
+            let valueB = b[paymentTypesSortField] || '';
+            
+            if (typeof valueA === 'string') {
+                valueA = valueA.toLowerCase().trim();
+                valueB = valueB.toLowerCase().trim();
+            }
+            
+            if (valueA < valueB) return paymentTypesSortDirection === 'asc' ? -1 : 1;
+            if (valueA > valueB) return paymentTypesSortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+        
+        paymentTypesCurrentPage = 1;
+        renderPaymentTypesTable();
+        updatePaymentTypesPagination();
+    }
+    
+    function updatePaymentTypesSortIcons() {
+        const table = document.getElementById('paymentTypesTable');
+        if (!table) return;
+        
+        const sortableHeaders = table.querySelectorAll('th.sortable');
+        sortableHeaders.forEach(header => {
+            const icon = header.querySelector('.sort-icon');
+            const sortBy = header.getAttribute('data-sort');
+            
+            if (sortBy === paymentTypesSortField) {
+                icon.className = paymentTypesSortDirection === 'asc' ? 'fas fa-sort-up sort-icon' : 'fas fa-sort-down sort-icon';
+            } else {
+                icon.className = 'fas fa-sort sort-icon';
+            }
+        });
+    }
+    
+    // Configurar ordenamiento después de un breve delay para asegurar que el DOM esté listo
+    setTimeout(() => {
+        setupPaymentTypesTableSorting();
+        updatePaymentTypesSortIcons();
+    }, 100);
 }
 
 // Función global para escapar HTML
@@ -649,13 +724,22 @@ function loadExpenseCategoriesSection() {
                 <p class="card-subtitle">Total: <span id="totalCategories">0</span> categorías registradas</p>
             </div>
             <div style="overflow-x: auto;">
-                <table class="data-table" id="categoriesTable" style="min-width: 600px;">
+                <table class="data-table sortable-table" id="categoriesTable" style="min-width: 600px;">
                     <thead>
                         <tr>
-                            <th style="width: 100px;">Nombre</th>
-                            <th style="width: 80px;">Descripción</th>
+                            <th class="sortable" data-sort="name" style="width: 100px;">
+                                Nombre
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="description" style="width: 80px;">
+                                Descripción
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
                             <th style="width: 100px; text-align: center; vertical-align: middle;">Tipos</th>
-                            <th style="width: 80px; text-align: center; vertical-align: middle;">Estado</th>
+                            <th class="sortable" data-sort="is_active" style="width: 80px; text-align: center; vertical-align: middle;">
+                                Estado
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
                             <th style="width: 120px; text-align: center;">Acciones</th>
                         </tr>
                     </thead>
@@ -1078,6 +1162,81 @@ function loadExpenseCategoriesSection() {
     
     // Cargar datos iniciales
     loadCategories();
+    
+    // Variables de ordenamiento para categorías
+    let categoriesSortField = 'name';
+    let categoriesSortDirection = 'asc';
+    
+    // Funciones de ordenamiento para categorías
+    function setupCategoriesTableSorting() {
+        const table = document.getElementById('categoriesTable');
+        if (!table) return;
+        
+        const sortableHeaders = table.querySelectorAll('th.sortable');
+        sortableHeaders.forEach(header => {
+            header.addEventListener('click', () => {
+                const sortBy = header.getAttribute('data-sort');
+                if (categoriesSortField === sortBy) {
+                    categoriesSortDirection = categoriesSortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    categoriesSortField = sortBy;
+                    categoriesSortDirection = 'asc';
+                }
+                
+                sortCategoriesData();
+                updateCategoriesSortIcons();
+            });
+        });
+    }
+    
+    function sortCategoriesData() {
+        categoriesFilteredData.sort((a, b) => {
+            let valueA = a[categoriesSortField] || '';
+            let valueB = b[categoriesSortField] || '';
+            
+            if (typeof valueA === 'string') {
+                valueA = valueA.toLowerCase().trim();
+                valueB = valueB.toLowerCase().trim();
+            }
+            
+            // Para el campo is_active, convertir a boolean para ordenamiento
+            if (categoriesSortField === 'is_active') {
+                valueA = Boolean(valueA);
+                valueB = Boolean(valueB);
+            }
+            
+            if (valueA < valueB) return categoriesSortDirection === 'asc' ? -1 : 1;
+            if (valueA > valueB) return categoriesSortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+        
+        categoriesCurrentPage = 1;
+        renderCategoriesTable();
+        updateCategoriesPagination();
+    }
+    
+    function updateCategoriesSortIcons() {
+        const table = document.getElementById('categoriesTable');
+        if (!table) return;
+        
+        const sortableHeaders = table.querySelectorAll('th.sortable');
+        sortableHeaders.forEach(header => {
+            const icon = header.querySelector('.sort-icon');
+            const sortBy = header.getAttribute('data-sort');
+            
+            if (sortBy === categoriesSortField) {
+                icon.className = categoriesSortDirection === 'asc' ? 'fas fa-sort-up sort-icon' : 'fas fa-sort-down sort-icon';
+            } else {
+                icon.className = 'fas fa-sort sort-icon';
+            }
+        });
+    }
+    
+    // Configurar ordenamiento después de un breve delay
+    setTimeout(() => {
+        setupCategoriesTableSorting();
+        updateCategoriesSortIcons();
+    }, 100);
 }
 
 // SECCIÓN TIPOS DE GASTOS - Basado en expense_types.php funcional
@@ -1120,13 +1279,25 @@ function loadExpenseTypesSection() {
                 <p class="card-subtitle">Total: <span id="totalExpenseTypes">0</span> tipos registrados</p>
             </div>
             <div style="overflow-x: auto;">
-                <table class="data-table" id="expenseTypesTable" style="min-width: 700px;">
+                <table class="data-table sortable-table" id="expenseTypesTable" style="min-width: 700px;">
                     <thead>
                         <tr>
-                            <th>Nombre</th>
-                            <th>Descripción</th>
-                            <th>Categoría</th>
-                            <th style="width: 80px; text-align: center; vertical-align: middle;">Estado</th>
+                            <th class="sortable" data-sort="name">
+                                Nombre
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="description">
+                                Descripción
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="category_name">
+                                Categoría
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="is_active" style="width: 80px; text-align: center; vertical-align: middle;">
+                                Estado
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
                             <th style="width: 120px; text-align: center;">Acciones</th>
                         </tr>
                     </thead>
@@ -1610,6 +1781,81 @@ function loadExpenseTypesSection() {
     // Cargar datos iniciales
     loadExpenseTypesCategories();
     loadExpenseTypes();
+    
+    // Variables de ordenamiento para tipos de gastos
+    let expenseTypesSortField = 'name';
+    let expenseTypesSortDirection = 'asc';
+    
+    // Funciones de ordenamiento para tipos de gastos
+    function setupExpenseTypesTableSorting() {
+        const table = document.getElementById('expenseTypesTable');
+        if (!table) return;
+        
+        const sortableHeaders = table.querySelectorAll('th.sortable');
+        sortableHeaders.forEach(header => {
+            header.addEventListener('click', () => {
+                const sortBy = header.getAttribute('data-sort');
+                if (expenseTypesSortField === sortBy) {
+                    expenseTypesSortDirection = expenseTypesSortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    expenseTypesSortField = sortBy;
+                    expenseTypesSortDirection = 'asc';
+                }
+                
+                sortExpenseTypesData();
+                updateExpenseTypesSortIcons();
+            });
+        });
+    }
+    
+    function sortExpenseTypesData() {
+        typesFilteredData.sort((a, b) => {
+            let valueA = a[expenseTypesSortField] || '';
+            let valueB = b[expenseTypesSortField] || '';
+            
+            if (typeof valueA === 'string') {
+                valueA = valueA.toLowerCase().trim();
+                valueB = valueB.toLowerCase().trim();
+            }
+            
+            // Para el campo is_active, convertir a boolean para ordenamiento
+            if (expenseTypesSortField === 'is_active') {
+                valueA = Boolean(valueA);
+                valueB = Boolean(valueB);
+            }
+            
+            if (valueA < valueB) return expenseTypesSortDirection === 'asc' ? -1 : 1;
+            if (valueA > valueB) return expenseTypesSortDirection === 'asc' ? 1 : -1;
+            return 0;
+        });
+        
+        typesCurrentPage = 1;
+        renderExpenseTypesTable();
+        updateExpenseTypesPagination();
+    }
+    
+    function updateExpenseTypesSortIcons() {
+        const table = document.getElementById('expenseTypesTable');
+        if (!table) return;
+        
+        const sortableHeaders = table.querySelectorAll('th.sortable');
+        sortableHeaders.forEach(header => {
+            const icon = header.querySelector('.sort-icon');
+            const sortBy = header.getAttribute('data-sort');
+            
+            if (sortBy === expenseTypesSortField) {
+                icon.className = expenseTypesSortDirection === 'asc' ? 'fas fa-sort-up sort-icon' : 'fas fa-sort-down sort-icon';
+            } else {
+                icon.className = 'fas fa-sort sort-icon';
+            }
+        });
+    }
+    
+    // Configurar ordenamiento después de un breve delay
+    setTimeout(() => {
+        setupExpenseTypesTableSorting();
+        updateExpenseTypesSortIcons();
+    }, 100);
 }
 
 // SECCIÓN TIPOS DE TRABAJOS - Basado en job_types.php funcional
@@ -1653,12 +1899,21 @@ function loadJobTypesSection() {
                 <p class="card-subtitle">Total: <span id="totalJobTypes">0</span> tipos registrados</p>
             </div>
             <div style="overflow-x: auto;">
-                <table class="data-table" id="jobTypesTable" style="min-width: 700px;">
+                <table class="data-table sortable-table" id="jobTypesTable" style="min-width: 700px;">
                     <thead>
                         <tr>
-                            <th>Nombre</th>
-                            <th>Paga como Contratista</th>
-                            <th>Paga como Subcontratista</th>
+                            <th class="sortable" data-sort="name">
+                                Nombre
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="pay_as_contractor">
+                                Paga como Contratista
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="pay_as_sub_contractor">
+                                Paga como Subcontratista
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
                             <th style="vertical-align: middle; text-align: center;">Acciones</th>
                         </tr>
                     </thead>
@@ -2089,6 +2344,51 @@ function loadJobTypesSection() {
     
     // Cargar datos iniciales
     loadJobTypesData(1);
+    
+    // Funciones de ordenamiento para tipos de trabajo
+    function setupJobTypesTableSorting() {
+        const table = document.getElementById('jobTypesTable');
+        if (!table) return;
+        
+        const sortableHeaders = table.querySelectorAll('th.sortable');
+        sortableHeaders.forEach(header => {
+            header.addEventListener('click', () => {
+                const sortBy = header.getAttribute('data-sort');
+                if (jobTypesSortField === sortBy) {
+                    jobTypesSortDir = jobTypesSortDir === 'asc' ? 'desc' : 'asc';
+                } else {
+                    jobTypesSortField = sortBy;
+                    jobTypesSortDir = 'asc';
+                }
+                
+                loadJobTypesData(1);
+                updateJobTypesSortIcons();
+            });
+        });
+    }
+    
+    function updateJobTypesSortIcons() {
+        const table = document.getElementById('jobTypesTable');
+        if (!table) return;
+        
+        const sortableHeaders = table.querySelectorAll('th.sortable');
+        sortableHeaders.forEach(header => {
+            const icon = header.querySelector('.sort-icon');
+            const sortBy = header.getAttribute('data-sort');
+            
+            if (sortBy === jobTypesSortField) {
+                icon.className = jobTypesSortDir === 'asc' ? 'fas fa-sort-up sort-icon' : 'fas fa-sort-down sort-icon';
+            } else {
+                icon.className = 'fas fa-sort sort-icon';
+            }
+        });
+    }
+    
+    // Configurar ordenamiento después de un breve delay
+    setTimeout(() => {
+        setupJobTypesTableSorting();
+        updateJobTypesSortIcons();
+    }, 100);
 }
 
 // --- Configuración ---

@@ -13,6 +13,11 @@ document.addEventListener('DOMContentLoaded', function() {
     loadBankAccounts();
     loadAccountsForTransfers();
     setupStatusFilterEventListeners();
+    
+    // Configurar ordenamiento después de un delay para asegurar que el DOM esté listo
+    setTimeout(() => {
+        setupTableSorting();
+    }, 100);
 });
 
 // --- Paginación ---
@@ -45,6 +50,36 @@ function renderPageSizeSelector() {
     };
     container.appendChild(label);
     container.appendChild(selector);
+}
+
+// --- Configurar ordenamiento de tabla ---
+function setupTableSorting() {
+    const sortableElements = document.querySelectorAll('.sortable');
+    
+    sortableElements.forEach(th => {
+        th.addEventListener('click', function() {
+            const field = this.dataset.sort;
+            
+            if (sortField === field) {
+                sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortField = field;
+                sortDir = 'asc';
+            }
+            
+            updateSortIcons();
+            loadBankAccounts(1);
+        });
+    });
+}
+
+function updateSortIcons() {
+    document.querySelectorAll('.sortable').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        if (th.dataset.sort === sortField) {
+            th.classList.add(`sort-${sortDir}`);
+        }
+    });
 }
 
 renderPageSizeSelector();
@@ -84,6 +119,9 @@ function loadBankAccounts(page = 1) {
             
             renderPagination();
             updateActiveStatusFiltersDisplay();
+            
+            // Actualizar iconos de ordenamiento
+            updateSortIcons();
         })
         .catch(() => {
             document.getElementById('bankAccountsTableBody').innerHTML = '<tr><td colspan="7">Error al cargar cuentas</td></tr>';

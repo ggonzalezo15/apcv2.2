@@ -547,6 +547,35 @@ $pageTitle = 'Detalle de Cuenta - ' . $account['name'];
         font-size: 12px;
     }
 }
+
+/* Tabla ordenable */
+.sortable-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    transition: background-color 0.2s ease;
+}
+
+.sortable-table th.sortable:hover {
+    background-color: #f8fafc;
+}
+
+.sort-icon {
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    transition: color 0.2s ease;
+}
+
+.sortable-table th.sortable.sort-asc .sort-icon:before {
+    content: "\f0de"; /* fa-sort-up */
+    color: var(--primary-color);
+}
+
+.sortable-table th.sortable.sort-desc .sort-icon:before {
+    content: "\f0dd"; /* fa-sort-down */
+    color: var(--primary-color);
+}
 </style>
 
 <?php include 'includes/footer.php'; ?>
@@ -559,6 +588,10 @@ let currentTransactionsPage = 1;
 let transactionsPerPage = 10;
 let totalTransactions = 0;
 let totalTransactionsPages = 0;
+
+// Variables de ordenamiento para transacciones
+let transactionsSortField = 'transaction_date';
+let transactionsSortDir = 'desc';
 
 // Funciones para modales
 function openModal(modalId) {
@@ -871,7 +904,7 @@ function loadTransactions(page = 1) {
     const accountId = '<?php echo $accountId; ?>';
     currentTransactionsPage = page;
     
-    fetch(`${API_URL}?action=getTransactionsByAccount&id=${accountId}&page=${page}&limit=${transactionsPerPage}`)
+    fetch(`${API_URL}?action=getTransactionsByAccount&id=${accountId}&page=${page}&limit=${transactionsPerPage}&sort=${transactionsSortField}&dir=${transactionsSortDir}`)
         .then(res => res.json())
         .then(response => {
             const container = document.getElementById('transactionsContainer');
@@ -906,12 +939,21 @@ function loadTransactions(page = 1) {
             
             let html = `
                 <div style="overflow-x: auto;">
-                    <table class="data-table">
+                    <table class="data-table sortable-table">
                         <thead>
                             <tr>
-                                <th>Fecha</th>
-                                <th>Tipo</th>
-                                <th>Monto</th>
+                                <th class="sortable" data-sort="transaction_date">
+                                    Fecha
+                                    <i class="fas fa-sort sort-icon"></i>
+                                </th>
+                                <th class="sortable" data-sort="type">
+                                    Tipo
+                                    <i class="fas fa-sort sort-icon"></i>
+                                </th>
+                                <th class="sortable" data-sort="amount">
+                                    Monto
+                                    <i class="fas fa-sort sort-icon"></i>
+                                </th>
                                 <th>Descripción</th>
                             </tr>
                         </thead>
@@ -941,6 +983,10 @@ function loadTransactions(page = 1) {
             `;
             
             container.innerHTML = html;
+            
+            // Configurar ordenamiento después de que se crea la tabla
+            setupTransactionsTableSorting();
+            updateTransactionsSortIcons();
             
             // Mostrar footer con paginación y selector de página
             const footerContainer = document.getElementById('transactionsTableFooter');
@@ -1069,6 +1115,35 @@ function renderTransactionsPagination() {
     }
     
     container.innerHTML = html;
+}
+
+// --- Configurar ordenamiento de tabla ---
+function setupTransactionsTableSorting() {
+    const sortableElements = document.querySelectorAll('#transactionsContainer .sortable');
+    
+    sortableElements.forEach(th => {
+        th.addEventListener('click', function() {
+            const field = this.dataset.sort;
+            
+            if (transactionsSortField === field) {
+                transactionsSortDir = transactionsSortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                transactionsSortField = field;
+                transactionsSortDir = 'asc';
+            }
+            
+            loadTransactions(1); // Reiniciar a la primera página
+        });
+    });
+}
+
+function updateTransactionsSortIcons() {
+    document.querySelectorAll('#transactionsContainer .sortable').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        if (th.dataset.sort === transactionsSortField) {
+            th.classList.add(`sort-${transactionsSortDir}`);
+        }
+    });
 }
 
 // Cargar transacciones al iniciar

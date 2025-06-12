@@ -50,12 +50,21 @@ $pageTitle = 'Gestión de Proveedores';
                 <p class="card-subtitle">Total: <span id="totalVendors">0</span> proveedores registrados</p>
             </div>
             <div style="overflow-x: auto;">
-                <table class="data-table" id="vendorsTable" style="min-width: 700px;">
+                <table class="data-table sortable-table" id="vendorsTable" style="min-width: 700px;">
                     <thead>
                         <tr>
-                            <th>Nombre</th>
-                            <th>Email</th>
-                            <th>Teléfono</th>
+                            <th class="sortable" data-sort="name">
+                                Nombre
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="email">
+                                Email
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
+                            <th class="sortable" data-sort="phone">
+                                Teléfono
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
                             <th>Dirección</th>
                             <th style="vertical-align: middle; text-align: center;">Acciones</th>
                         </tr>
@@ -160,6 +169,38 @@ $pageTitle = 'Gestión de Proveedores';
     <span id="toastIcon" style="margin-right: 8px;"></span>
     <span id="toastMessage"></span>
 </div>
+
+<!-- Estilos para tabla ordenable -->
+<style>
+/* Tabla ordenable */
+.sortable-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    transition: background-color 0.2s ease;
+}
+
+.sortable-table th.sortable:hover {
+    background-color: #f8fafc;
+}
+
+.sort-icon {
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    transition: color 0.2s ease;
+}
+
+.sortable-table th.sortable.sort-asc .sort-icon:before {
+    content: "\f0de"; /* fa-sort-up */
+    color: var(--primary-color);
+}
+
+.sortable-table th.sortable.sort-desc .sort-icon:before {
+    content: "\f0dd"; /* fa-sort-down */
+    color: var(--primary-color);
+}
+</style>
 
 <?php include 'includes/footer.php'; ?>
 

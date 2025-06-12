@@ -225,6 +225,37 @@ $pageTitle = 'Configuración';
     margin: 16px 0;
     opacity: 0.4;
 }
+
+/* Estilos para tablas con ordenamiento */
+.sortable-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    padding-right: 30px;
+}
+
+.sortable-table th.sortable:hover {
+    background-color: var(--bg-secondary, #f8fafc);
+}
+
+.sortable-table th.sortable .sort-icon {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-secondary, #6b7280);
+    font-size: 12px;
+    transition: color 0.2s ease;
+}
+
+.sortable-table th.sortable:hover .sort-icon {
+    color: var(--primary-color, #2563eb);
+}
+
+.sortable-table th.sortable .sort-icon.fas.fa-sort-up,
+.sortable-table th.sortable .sort-icon.fas.fa-sort-down {
+    color: var(--primary-color, #2563eb);
+}
 </style>
 
 <script>

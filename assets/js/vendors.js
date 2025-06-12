@@ -5,7 +5,14 @@ let sortField = 'created_at';
 let sortDir = 'desc';
 
 // --- Cargar proveedores al iniciar ---
-document.addEventListener('DOMContentLoaded', loadVendors);
+document.addEventListener('DOMContentLoaded', function() {
+    loadVendors();
+    
+    // Configurar ordenamiento después de un delay para asegurar que el DOM esté listo
+    setTimeout(() => {
+        setupTableSorting();
+    }, 100);
+});
 
 // --- Paginación ---
 let currentPage = 1;
@@ -41,6 +48,36 @@ function renderPageSizeSelector() {
 
 renderPageSizeSelector();
 
+// --- Configurar ordenamiento de tabla ---
+function setupTableSorting() {
+    const sortableElements = document.querySelectorAll('.sortable');
+    
+    sortableElements.forEach(th => {
+        th.addEventListener('click', function() {
+            const field = this.dataset.sort;
+            
+            if (sortField === field) {
+                sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortField = field;
+                sortDir = 'asc';
+            }
+            
+            updateSortIcons();
+            loadVendors(1);
+        });
+    });
+}
+
+function updateSortIcons() {
+    document.querySelectorAll('.sortable').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        if (th.dataset.sort === sortField) {
+            th.classList.add(`sort-${sortDir}`);
+        }
+    });
+}
+
 function loadVendors(page = 1) {
     currentPage = page;
     setTableLoading(true);
@@ -51,6 +88,9 @@ function loadVendors(page = 1) {
             totalVendorsCount = data.total || vendors.length;
             renderVendorsTable(vendors);
             renderPagination();
+            
+            // Actualizar iconos de ordenamiento
+            updateSortIcons();
         })
             .catch(() => {
         document.getElementById('vendorsTableBody').innerHTML = '<tr><td colspan="5">Error al cargar proveedores</td></tr>';

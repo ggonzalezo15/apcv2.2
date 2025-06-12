@@ -12,6 +12,11 @@ document.addEventListener('DOMContentLoaded', function() {
     loadBankAccountsForPayment();
     // Establecer fecha actual por defecto
     document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
+    
+    // Configurar ordenamiento después de un delay para asegurar que el DOM esté listo
+    setTimeout(() => {
+        setupTableSorting();
+    }, 100);
 });
 
 // --- Paginación ---
@@ -48,6 +53,36 @@ function renderPageSizeSelector() {
 
 renderPageSizeSelector();
 
+// --- Configurar ordenamiento de tabla ---
+function setupTableSorting() {
+    const sortableElements = document.querySelectorAll('.sortable');
+    
+    sortableElements.forEach(th => {
+        th.addEventListener('click', function() {
+            const field = this.dataset.sort;
+            
+            if (sortField === field) {
+                sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortField = field;
+                sortDir = 'asc';
+            }
+            
+            updateSortIcons();
+            loadContractors(1);
+        });
+    });
+}
+
+function updateSortIcons() {
+    document.querySelectorAll('.sortable').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        if (th.dataset.sort === sortField) {
+            th.classList.add(`sort-${sortDir}`);
+        }
+    });
+}
+
 function loadContractors(page = 1) {
     currentPage = page;
     setTableLoading(true);
@@ -58,6 +93,9 @@ function loadContractors(page = 1) {
             totalContractorsCount = data.total || contractors.length;
             renderContractorsTable(contractors);
             renderPagination();
+            
+            // Actualizar iconos de ordenamiento
+            updateSortIcons();
         })
         .catch(() => {
             document.getElementById('contractorsTableBody').innerHTML = '<tr><td colspan="5">Error al cargar contratistas</td></tr>';

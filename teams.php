@@ -56,11 +56,17 @@ $pageTitle = 'Gestión de Equipos';
             </div>
             
             <div style="overflow-x: auto;">
-            <table class="data-table" id="teamsTable" style="min-width: 500px;">
+            <table class="data-table sortable-table" id="teamsTable" style="min-width: 500px;">
                 <thead>
                 <tr>
-                    <th>Nombre del Equipo</th>
-                    <th>Descripción</th>
+                    <th class="sortable" data-sort="name">
+                        Nombre del Equipo
+                        <i class="fas fa-sort sort-icon"></i>
+                    </th>
+                    <th class="sortable" data-sort="description">
+                        Descripción
+                        <i class="fas fa-sort sort-icon"></i>
+                    </th>
                     <th style="vertical-align: middle; text-align: center;">Acciones</th>
                 </tr>
                 </thead>
@@ -170,7 +176,14 @@ let sortField = 'created_at';
 let sortDir = 'desc';
 
 // --- Cargar equipos al iniciar ---
-document.addEventListener('DOMContentLoaded', loadTeams);
+document.addEventListener('DOMContentLoaded', function() {
+    loadTeams();
+    
+    // Configurar ordenamiento después de un delay para asegurar que el DOM esté listo
+    setTimeout(() => {
+        setupTableSorting();
+    }, 100);
+});
 
 // --- Paginación ---
 let currentPage = 1;
@@ -207,6 +220,36 @@ function renderPageSizeSelector() {
 // Llamar al renderizador del selector al cargar la página y tras cada render
 renderPageSizeSelector();
 
+// --- Configurar ordenamiento de tabla ---
+function setupTableSorting() {
+    const sortableElements = document.querySelectorAll('.sortable');
+    
+    sortableElements.forEach(th => {
+        th.addEventListener('click', function() {
+            const field = this.dataset.sort;
+            
+            if (sortField === field) {
+                sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortField = field;
+                sortDir = 'asc';
+            }
+            
+            updateSortIcons();
+            loadTeams(1);
+        });
+    });
+}
+
+function updateSortIcons() {
+    document.querySelectorAll('.sortable').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+        if (th.dataset.sort === sortField) {
+            th.classList.add(`sort-${sortDir}`);
+        }
+    });
+}
+
 function loadTeams(page = 1) {
     currentPage = page;
     setTableLoading(true);
@@ -217,6 +260,9 @@ function loadTeams(page = 1) {
             totalTeamsCount = data.total || teams.length;
             renderTeamsTable(teams);
             renderPagination();
+            
+            // Actualizar iconos de ordenamiento
+            updateSortIcons();
         })
         .catch(() => {
             document.getElementById('teamsTableBody').innerHTML = '<tr><td colspan="5">Error al cargar equipos</td></tr>';
@@ -441,25 +487,7 @@ document.getElementById('searchInput').addEventListener('input', function() {
     document.getElementById('totalTeams').textContent = count;
 });
 
-// --- Sort interactivo en la tabla ---
-document.addEventListener('DOMContentLoaded', function() {
-    const ths = document.querySelectorAll('#teamsTable thead th');
-    ths.forEach((th, idx) => {
-        if (idx < 2) { // Solo para columnas Nombre y Descripción
-            th.style.cursor = 'pointer';
-            th.addEventListener('click', function() {
-                const field = idx === 0 ? 'name' : 'description';
-                if (sortField === field) {
-                    sortDir = sortDir === 'asc' ? 'desc' : 'asc';
-                } else {
-                    sortField = field;
-                    sortDir = 'asc';
-                }
-                loadTeams(1);
-            });
-        }
-    });
-});
+// Estilos para tabla ordenable
 
 // Cerrar modal con ESC
 document.addEventListener('keydown', function(e) {
@@ -473,3 +501,35 @@ document.addEventListener('keydown', function(e) {
     }
 });
 </script>
+
+<!-- Estilos para tabla ordenable -->
+<style>
+/* Tabla ordenable */
+.sortable-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    transition: background-color 0.2s ease;
+}
+
+.sortable-table th.sortable:hover {
+    background-color: #f8fafc;
+}
+
+.sort-icon {
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    transition: color 0.2s ease;
+}
+
+.sortable-table th.sortable.sort-asc .sort-icon:before {
+    content: "\f0de"; /* fa-sort-up */
+    color: var(--primary-color);
+}
+
+.sortable-table th.sortable.sort-desc .sort-icon:before {
+    content: "\f0dd"; /* fa-sort-down */
+    color: var(--primary-color);
+}
+</style>
