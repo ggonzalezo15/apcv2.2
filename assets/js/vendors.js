@@ -120,12 +120,19 @@ function renderVendorsTable(vendors) {
     vendors.forEach(vendor => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${vendor.name}</td>
+            <td>
+                <a href="vendor_details.php?id=${vendor.id}" class="vendor-name-link" title="Ver detalles del proveedor">
+                    ${vendor.name}
+                </a>
+            </td>
             <td>${vendor.email || ''}</td>
             <td>${vendor.phone || ''}</td>
             <td>${vendor.address || ''}</td>
             <td style="vertical-align: middle; text-align: center;">
                 <div style="display: flex; gap: 4px; justify-content: center; align-items: center;">
+                    <button type="button" class="btn-icon" onclick="viewVendor('${vendor.id}')" title="Ver detalles">
+                        <i class="fas fa-eye"></i>
+                    </button>
                     <button type="button" class="btn-icon" onclick="editVendor('${vendor.id}')" title="Editar">
                         <i class="fas fa-edit"></i>
                     </button>
@@ -196,6 +203,10 @@ function showToast(message, type = 'success') {
     }
     toast.style.display = 'flex';
     setTimeout(() => { toast.style.display = 'none'; }, 3200);
+}
+
+function viewVendor(id) {
+    window.location.href = `vendor_details.php?id=${id}`;
 }
 
 function editVendor(id) {

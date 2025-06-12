@@ -200,6 +200,23 @@ $pageTitle = 'Gestión de Proveedores';
     content: "\f0dd"; /* fa-sort-down */
     color: var(--primary-color);
 }
+
+/* Estilos para nombres de proveedores clickeables */
+.vendor-name-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.vendor-name-link:hover {
+    color: var(--primary-dark, #1d4ed8);
+    text-decoration: underline;
+}
+
+.vendor-name-link:visited {
+    color: var(--primary-color);
+}
 </style>
 
 <?php include 'includes/footer.php'; ?>
