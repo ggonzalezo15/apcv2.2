@@ -55,12 +55,12 @@ $pageTitle = 'Detalles del Contratista';
 
         <!-- Historial de pagos -->
         <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">
-                    <i class="fas fa-money-bill-wave"></i>
-                    Historial de Pagos
-                </h3>
-                <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+                <div style="display: flex; align-items: center; gap: 16px; flex: 1;">
+                    <h3 class="card-title">
+                        <i class="fas fa-money-bill-wave"></i>
+                        Historial de Pagos
+                    </h3>
                     <!-- Filtros de fecha -->
                     <div class="filter-dropdown-container">
                         <button type="button" class="btn btn-outline" id="filterDropdownBtn" onclick="toggleFilterDropdown()">
@@ -97,71 +97,46 @@ $pageTitle = 'Detalles del Contratista';
                     <div id="activeFiltersContainer" class="active-filters-container" style="display: none;">
                         <!-- Se llenarán dinámicamente -->
                     </div>
-                    
-                    <button type="button" class="btn btn-success" onclick="openNewPaymentModal()">
+                </div>
+                
+                <div>
+                    <button type="button" class="btn btn-primary" onclick="openNewPaymentModal()">
                         <i class="fas fa-plus"></i>
                         Nuevo Pago
                     </button>
                 </div>
             </div>
             <div style="overflow-x: auto;">
-                <table class="data-table" id="paymentsTable" style="min-width: 800px;">
+                <table class="data-table sortable-table" id="paymentsTable" style="min-width: 800px;">
                     <thead>
                         <tr>
-                            <th class="sortable" onclick="sortTable('payment_date')" style="cursor: pointer;">
+                            <th class="sortable" data-sort="payment_date" onclick="sortTable('payment_date')">
                                 Fecha de Pago
-                                <span class="sort-indicator"></span>
+                                <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th class="sortable" onclick="sortTable('amount')" style="cursor: pointer;">
+                            <th class="sortable" data-sort="amount" onclick="sortTable('amount')">
                                 Monto
-                                <span class="sort-indicator"></span>
+                                <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th class="sortable" onclick="sortTable('account_name')" style="cursor: pointer;">
+                            <th class="sortable" data-sort="account_name" onclick="sortTable('account_name')">
                                 Cuenta Bancaria
-                                <span class="sort-indicator"></span>  
+                                <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th class="sortable" onclick="sortTable('reference_number')" style="cursor: pointer;">
+                            <th class="sortable" data-sort="reference_number" onclick="sortTable('reference_number')">
                                 Referencia
-                                <span class="sort-indicator"></span>
+                                <i class="fas fa-sort sort-icon"></i>
                             </th>
                             <th>Notas</th>
-                            <th style="text-align: center;">Acciones</th>
+                            <th style="text-align: center; width: 120px;">Acciones</th>
                         </tr>
                     </thead>
                     <tbody id="paymentsTableBody">
                         <!-- Se llena dinámicamente -->
                     </tbody>
                 </table>
-            </div>
-            
-            <!-- Paginación -->
-            <div id="paginationContainer" class="pagination-container" style="display: none;">
-                <!-- Se llena dinámicamente -->
-            </div>
-        </div>
-
-        <!-- Estadísticas de pagos -->
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">
-                    <i class="fas fa-chart-bar"></i>
-                    Estadísticas de Pagos
-                </h3>
-            </div>
-            <div class="card-body">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px;">
-                    <div class="stat-card">
-                        <div class="stat-label">Total Pagado</div>
-                        <div class="stat-value" id="totalPaid">$0.00</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Promedio por Pago</div>
-                        <div class="stat-value" id="averagePayment">$0.00</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-label">Último Pago</div>
-                        <div class="stat-value" id="lastPaymentDate">-</div>
-                    </div>
+                <div id="paymentsTableFooter" style="display: flex; justify-content: space-between; align-items: center; padding: 12px 0 0 0;">
+                    <div id="pageSizeSelectorContainer"></div>
+                    <div id="paymentsPagination"></div>
                 </div>
             </div>
         </div>
@@ -253,25 +228,6 @@ $pageTitle = 'Detalles del Contratista';
 </div>
 
 <style>
-.stat-card {
-    background: linear-gradient(135deg, var(--primary-color, #2563eb) 0%, var(--primary-dark, #1d4ed8) 100%);
-    color: white;
-    padding: 16px;
-    border-radius: 8px;
-    text-align: center;
-}
-
-.stat-label {
-    font-size: 14px;
-    opacity: 0.9;
-    margin-bottom: 4px;
-}
-
-.stat-value {
-    font-size: 24px;
-    font-weight: 700;
-}
-
 .badge {
     background: var(--success-color, #059669);
     color: white;
@@ -299,6 +255,26 @@ $pageTitle = 'Detalles del Contratista';
 .filter-dropdown-container {
     position: relative;
     display: inline-block;
+}
+
+/* Estilo del botón de filtros */
+.btn-outline {
+    background: white;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
 }
 
 .filter-count {
@@ -449,96 +425,101 @@ $pageTitle = 'Detalles del Contratista';
 }
 
 /* Estilos para paginación */
-.pagination-container {
+#pageSizeSelectorContainer {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    padding: 16px 0;
-    margin-top: 16px;
-    border-top: 1px solid var(--border-color);
-    gap: 16px;
-    flex-wrap: wrap;
-}
-
-.pagination-info {
-    color: var(--text-secondary);
-    font-size: 14px;
-    flex-shrink: 0;
-}
-
-.pagination-controls {
-    display: flex;
     gap: 8px;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
-.pagination-btn {
-    min-width: 40px;
-    height: 36px;
-    padding: 0 12px;
     font-size: 14px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 4px;
 }
 
-.pagination-btn:disabled {
+#pageSizeSelectorContainer label {
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+#pageSizeSelectorContainer select {
+    width: auto;
+    min-width: 140px;
+    padding: 6px 10px;
+    font-size: 14px;
+}
+
+/* Paginación mejorada */
+.btn-pagination {
+    background: white;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    margin: 0 2px;
+    transition: all 0.2s ease;
+    min-width: 40px;
+    text-align: center;
+}
+
+.btn-pagination:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+.btn-pagination.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+.btn-pagination:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
-.pagination-ellipsis {
-    padding: 0 8px;
-    color: var(--text-secondary);
-    font-size: 14px;
-}
-
-.pagination-size {
-    flex-shrink: 0;
-}
-
-.pagination-size .form-input {
-    min-width: 140px;
-    font-size: 14px;
-    padding: 6px 8px;
-}
-
 /* Estilos para sorting */
-.sortable {
+.sortable-table th.sortable {
+    cursor: pointer;
     user-select: none;
     position: relative;
     transition: background-color 0.2s ease;
 }
 
-.sortable:hover {
-    background-color: rgba(37, 99, 235, 0.05);
+.sortable-table th.sortable:hover {
+    background-color: #f8fafc;
 }
 
-.sort-indicator {
+.sort-icon {
+    margin-left: 8px;
     font-size: 12px;
+    color: var(--text-secondary);
+    transition: color 0.2s ease;
+}
+
+.sortable-table th.sortable.sort-asc .sort-icon:before {
+    content: "\f0de"; /* fa-sort-up */
     color: var(--primary-color);
-    margin-left: 4px;
-    font-weight: bold;
+}
+
+.sortable-table th.sortable.sort-desc .sort-icon:before {
+    content: "\f0dd"; /* fa-sort-down */
+    color: var(--primary-color);
 }
 
 /* Responsive para paginación */
 @media (max-width: 768px) {
-    .pagination-container {
+    #paymentsTableFooter {
         flex-direction: column;
-        gap: 12px;
         align-items: stretch;
+        gap: 12px;
     }
     
-    .pagination-controls {
+    #pageSizeSelectorContainer {
         justify-content: center;
     }
     
-    .pagination-info,
-    .pagination-size {
-        text-align: center;
+    #paymentsPagination {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
     }
 }
 </style>

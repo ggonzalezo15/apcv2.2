@@ -957,20 +957,38 @@ $pageTitle = 'Gestión de Ingresos';
     position: relative;
 }
 
+/* Estilo del botón de filtros */
+.btn-outline {
+    background: white;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
 .filter-count {
-    background: var(--primary-color, #2563eb);
+    background: var(--primary-color);
     color: white;
     border-radius: 50%;
-    padding: 2px 6px;
-    font-size: 11px;
-    font-weight: 600;
-    margin-left: 8px;
-    min-width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
+    font-size: 12px;
+    font-weight: bold;
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: pulse 0.5s ease-in-out;
+    margin-left: 4px;
 }
 
 @keyframes pulse {

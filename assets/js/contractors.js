@@ -125,7 +125,11 @@ function renderContractorsTable(contractors) {
     contractors.forEach(contractor => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-            <td>${contractor.name}</td>
+            <td>
+                <a href="contractor_details.php?id=${contractor.id}" class="contractor-name-link" title="Ver detalles del contratista">
+                    ${contractor.name}
+                </a>
+            </td>
             <td>${contractor.email || ''}</td>
             <td>${contractor.phone || ''}</td>
             <td>${contractor.address || ''}</td>

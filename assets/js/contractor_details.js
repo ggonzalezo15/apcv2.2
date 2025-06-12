@@ -156,12 +156,12 @@ function loadContractorDetails() {
                             <span style="color: var(--text-secondary);">${contractor.address || 'No especificada'}</span>
                         </div>
                         <div>
-                            <strong>Fecha de Registro:</strong><br>
-                            <span style="color: var(--text-secondary);">${formatDate(contractor.created_at)}</span>
+                            <strong>Total Pagado:</strong><br>
+                            <span id="totalPaidInHeader" style="color: var(--primary-color); font-weight: 600; font-size: 16px;">$0.00</span>
                         </div>
                         <div>
-                            <strong>Última Actualización:</strong><br>
-                            <span style="color: var(--text-secondary);">${formatDate(contractor.updated_at)}</span>
+                            <strong>Promedio por Pago:</strong><br>
+                            <span id="averagePaymentInHeader" style="color: var(--primary-color); font-weight: 600; font-size: 16px;">$0.00</span>
                         </div>
                     </div>
                 `;
@@ -523,25 +523,22 @@ function updateStatistics() {
     fetch(`${API_PAYMENT_URL}?${params.toString()}`)
         .then(res => res.json())
         .then(stats => {
-            const totalPaidEl = document.getElementById('totalPaid');
-            const averagePaymentEl = document.getElementById('averagePayment');
-            const lastPaymentDateEl = document.getElementById('lastPaymentDate');
+            // Actualizar elementos en el header del contratista
+            const totalPaidInHeaderEl = document.getElementById('totalPaidInHeader');
+            const averagePaymentInHeaderEl = document.getElementById('averagePaymentInHeader');
             
-            if (totalPaidEl) totalPaidEl.textContent = '$' + parseFloat(stats.totalPaid || 0).toFixed(2);
-            if (averagePaymentEl) averagePaymentEl.textContent = '$' + parseFloat(stats.averagePayment || 0).toFixed(2);
-            if (lastPaymentDateEl) lastPaymentDateEl.textContent = stats.lastPaymentDate || 'N/A';
+            if (totalPaidInHeaderEl) totalPaidInHeaderEl.textContent = '$' + parseFloat(stats.totalPaid || 0).toFixed(2);
+            if (averagePaymentInHeaderEl) averagePaymentInHeaderEl.textContent = '$' + parseFloat(stats.averagePayment || 0).toFixed(2);
         })
         .catch(err => {
             console.error('Error cargando estadísticas:', err);
             // Fallback usando datos locales
             const stats = calculateStatistics(allPayments);
-            const totalPaidEl = document.getElementById('totalPaid');
-            const averagePaymentEl = document.getElementById('averagePayment');
-            const lastPaymentDateEl = document.getElementById('lastPaymentDate');
+            const totalPaidInHeaderEl = document.getElementById('totalPaidInHeader');
+            const averagePaymentInHeaderEl = document.getElementById('averagePaymentInHeader');
             
-            if (totalPaidEl) totalPaidEl.textContent = '$' + stats.totalPaid.toFixed(2);
-            if (averagePaymentEl) averagePaymentEl.textContent = '$' + stats.averagePayment.toFixed(2);
-            if (lastPaymentDateEl) lastPaymentDateEl.textContent = stats.lastPaymentDate;
+            if (totalPaidInHeaderEl) totalPaidInHeaderEl.textContent = '$' + stats.totalPaid.toFixed(2);
+            if (averagePaymentInHeaderEl) averagePaymentInHeaderEl.textContent = '$' + stats.averagePayment.toFixed(2);
         });
 }
 
@@ -760,24 +757,22 @@ function goBack() {
 // --- Funciones de paginación ---
 function renderPagination() {
     const totalPages = Math.ceil(totalPaymentsCount / pageSize);
-    const paginationContainer = document.getElementById('paginationContainer');
+    
+    // Actualizar selector de tamaño de página
+    renderPageSizeSelector();
+    
+    // Renderizar paginación
+    const paginationContainer = document.getElementById('paymentsPagination');
     
     if (!paginationContainer || totalPages <= 1) {
-        if (paginationContainer) paginationContainer.style.display = 'none';
+        if (paginationContainer) paginationContainer.innerHTML = '';
         return;
     }
     
-    paginationContainer.style.display = 'flex';
-    
     let paginationHTML = `
-        <div class="pagination-info">
-            Mostrando ${((currentPage - 1) * pageSize) + 1} - ${Math.min(currentPage * pageSize, totalPaymentsCount)} de ${totalPaymentsCount} registros
-        </div>
-        <div class="pagination-controls">
-            <button type="button" class="btn btn-outline pagination-btn" ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">
-                <i class="fas fa-chevron-left"></i>
-                Anterior
-            </button>
+        <button type="button" class="btn-pagination" ${currentPage === 1 ? 'disabled' : ''} onclick="changePage(${currentPage - 1})">
+            <i class="fas fa-chevron-left"></i>
+        </button>
     `;
     
     // Generar botones de páginas
@@ -785,40 +780,48 @@ function renderPagination() {
     const endPage = Math.min(totalPages, currentPage + 2);
     
     if (startPage > 1) {
-        paginationHTML += `<button type="button" class="btn btn-outline pagination-btn" onclick="changePage(1)">1</button>`;
+        paginationHTML += `<button type="button" class="btn-pagination" onclick="changePage(1)">1</button>`;
         if (startPage > 2) {
-            paginationHTML += `<span class="pagination-ellipsis">...</span>`;
+            paginationHTML += `<span style="padding: 0 8px; color: var(--text-secondary);">...</span>`;
         }
     }
     
     for (let i = startPage; i <= endPage; i++) {
-        paginationHTML += `<button type="button" class="btn ${i === currentPage ? 'btn-primary' : 'btn-outline'} pagination-btn" onclick="changePage(${i})">${i}</button>`;
+        paginationHTML += `<button type="button" class="btn-pagination ${i === currentPage ? 'active' : ''}" onclick="changePage(${i})">${i}</button>`;
     }
     
     if (endPage < totalPages) {
         if (endPage < totalPages - 1) {
-            paginationHTML += `<span class="pagination-ellipsis">...</span>`;
+            paginationHTML += `<span style="padding: 0 8px; color: var(--text-secondary);">...</span>`;
         }
-        paginationHTML += `<button type="button" class="btn btn-outline pagination-btn" onclick="changePage(${totalPages})">${totalPages}</button>`;
+        paginationHTML += `<button type="button" class="btn-pagination" onclick="changePage(${totalPages})">${totalPages}</button>`;
     }
     
     paginationHTML += `
-            <button type="button" class="btn btn-outline pagination-btn" ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">
-                Siguiente
-                <i class="fas fa-chevron-right"></i>
-            </button>
-        </div>
-        <div class="pagination-size">
-            <select class="form-input" id="pageSizeSelect" onchange="changePageSize(this.value)">
-                <option value="10" ${pageSize === 10 ? 'selected' : ''}>10 por página</option>
-                <option value="25" ${pageSize === 25 ? 'selected' : ''}>25 por página</option>
-                <option value="50" ${pageSize === 50 ? 'selected' : ''}>50 por página</option>
-                <option value="100" ${pageSize === 100 ? 'selected' : ''}>100 por página</option>
-            </select>
-        </div>
+        <button type="button" class="btn-pagination" ${currentPage === totalPages ? 'disabled' : ''} onclick="changePage(${currentPage + 1})">
+            <i class="fas fa-chevron-right"></i>
+        </button>
     `;
     
     paginationContainer.innerHTML = paginationHTML;
+}
+
+function renderPageSizeSelector() {
+    const container = document.getElementById('pageSizeSelectorContainer');
+    if (!container) return;
+    
+    const showingFrom = ((currentPage - 1) * pageSize) + 1;
+    const showingTo = Math.min(currentPage * pageSize, totalPaymentsCount);
+    
+    container.innerHTML = `
+        <label>Mostrando ${showingFrom} - ${showingTo} de ${totalPaymentsCount} registros</label>
+        <select onchange="changePageSize(this.value)" class="form-input">
+            <option value="10" ${pageSize === 10 ? 'selected' : ''}>10 por página</option>
+            <option value="25" ${pageSize === 25 ? 'selected' : ''}>25 por página</option>
+            <option value="50" ${pageSize === 50 ? 'selected' : ''}>50 por página</option>
+            <option value="100" ${pageSize === 100 ? 'selected' : ''}>100 por página</option>
+        </select>
+    `;
 }
 
 function changePage(page) {
@@ -848,24 +851,14 @@ function sortTable(field) {
 }
 
 function updateSortHeaders() {
-    // Remove existing sort indicators
-    document.querySelectorAll('.data-table th .sort-indicator').forEach(el => el.remove());
+    // Remover clases de ordenamiento existentes
+    document.querySelectorAll('.sortable-table th.sortable').forEach(th => {
+        th.classList.remove('sort-asc', 'sort-desc');
+    });
     
-    // Add sort indicator to current field
-    const headers = {
-        'payment_date': 0,
-        'amount': 1,
-        'account_name': 2,
-        'reference_number': 3
-    };
-    
-    if (headers.hasOwnProperty(sortField)) {
-        const th = document.querySelectorAll('.data-table th')[headers[sortField]];
-        if (th) {
-            const indicator = document.createElement('span');
-            indicator.className = 'sort-indicator';
-            indicator.innerHTML = sortDir === 'asc' ? ' ↑' : ' ↓';
-            th.appendChild(indicator);
-        }
+    // Agregar clase de ordenamiento al campo actual
+    const currentHeader = document.querySelector(`.sortable-table th.sortable[data-sort="${sortField}"]`);
+    if (currentHeader) {
+        currentHeader.classList.add(sortDir === 'asc' ? 'sort-asc' : 'sort-desc');
     }
 }

@@ -21,8 +21,8 @@ $pageTitle = 'Gestión de Contratistas';
             <p class="content-subtitle">Administración de contratistas externos</p>
         </div>
         <div class="card">
-            <div class="card-header" style="display: flex; justify-content: flex-end; align-items: center;">
-                <div style="flex: 1;">
+            <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
+                <div style="flex: 1; display: flex; align-items: center; gap: 12px;">
                     <input
                         type="text"
                         id="searchInput"
@@ -33,12 +33,12 @@ $pageTitle = 'Gestión de Contratistas';
                         autocomplete="off"
                     >
                 </div>
-                <div style="display: flex; gap: 8px;">
-                    <button type="button" class="btn btn-success" onclick="openModal('paymentModal')">
+                <div style="display: flex; gap: 12px;">
+                    <button type="button" class="btn btn-primary header-btn" onclick="openModal('paymentModal')">
                         <i class="fas fa-money-bill-wave"></i>
                         Registrar Pago
                     </button>
-                    <button type="button" class="btn btn-primary" onclick="openModal('contractorModal')">
+                    <button type="button" class="btn btn-primary header-btn" onclick="openModal('contractorModal')">
                         <i class="fas fa-plus"></i>
                         Nuevo Contratista
                     </button>
@@ -264,6 +264,30 @@ $pageTitle = 'Gestión de Contratistas';
 
 .sortable-table th.sortable.sort-desc .sort-icon:before {
     content: "\f0dd"; /* fa-sort-down */
+    color: var(--primary-color);
+}
+
+/* Estilos para botones del header - ancho automático */
+.header-btn {
+    width: auto !important;
+    white-space: nowrap;
+    min-width: auto;
+}
+
+/* Estilo para enlaces de nombre de contratista */
+.contractor-name-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.contractor-name-link:hover {
+    color: var(--primary-dark, #1d4ed8);
+    text-decoration: underline;
+}
+
+.contractor-name-link:visited {
     color: var(--primary-color);
 }
 </style>
