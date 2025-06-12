@@ -25,6 +25,7 @@ let tempFilters = {
 document.addEventListener('DOMContentLoaded', function() {
     initializeFlatpickr();
     setupEventListeners();
+    renderPageSizeSelector(); // Renderizar selector por defecto
     loadVendorDetails();
     loadVendorExpenses();
 });
@@ -155,6 +156,7 @@ function loadVendorExpenses() {
             
             renderExpensesTable(allExpenses);
             renderPagination(totalCount);
+            renderPageSizeSelector(); // Actualizar selector
             updateStatistics();
             updateSortHeaders();
         })
@@ -333,7 +335,9 @@ function renderExpensesTable(expenses = null) {
         tr.innerHTML = `
             <td>${formatDate(expense.expense_date)}</td>
             <td>
-                <span style="font-weight: 500; color: var(--primary-color);">${expense.expense_number || '-'}</span>
+                <a href="javascript:void(0)" onclick="viewExpense('${expense.id}')" class="expense-number-link" title="Ver detalles del gasto">
+                    <span style="font-weight: 500; color: var(--primary-color);">${expense.expense_number || '-'}</span>
+                </a>
             </td>
             <td>
                 <span style="font-weight: 600; color: var(--success-color);">$${parseFloat(expense.total_amount || 0).toFixed(2)}</span>
@@ -425,6 +429,7 @@ function calculateStatistics(expenses) {
 
 // --- Funciones auxiliares ---
 function viewExpense(id) {
+    // Navegar a expenses.php y cargar automáticamente la vista del gasto específico
     window.location.href = `expenses.php?view=${id}`;
 }
 
@@ -511,23 +516,39 @@ function renderPagination(totalCount) {
         nextBtn.onclick = () => changePage(currentPage + 1);
         container.appendChild(nextBtn);
     }
-    
-    renderPageSizeSelector();
 }
 
 function renderPageSizeSelector() {
     const container = document.getElementById('pageSizeSelectorContainer');
     if (!container) return;
     
-    container.innerHTML = `
-        <label>Mostrar:</label>
-        <select id="pageSizeSelector" class="form-input" onchange="changePageSize(this.value)">
-            <option value="5" ${pageSize === 5 ? 'selected' : ''}>5 por página</option>
-            <option value="10" ${pageSize === 10 ? 'selected' : ''}>10 por página</option>
-            <option value="20" ${pageSize === 20 ? 'selected' : ''}>20 por página</option>
-            <option value="50" ${pageSize === 50 ? 'selected' : ''}>50 por página</option>
-        </select>
-    `;
+    // Solo actualizar el valor seleccionado si el selector ya existe
+    const existingSelector = document.getElementById('pageSizeSelector');
+    if (existingSelector) {
+        existingSelector.value = pageSize;
+        return;
+    }
+    
+    container.innerHTML = '';
+    const label = document.createElement('label');
+    label.textContent = 'Mostrar:';
+    label.style = 'margin-right: 4px; font-weight: 500; color: var(--text-secondary);';
+    const selector = document.createElement('select');
+    selector.id = 'pageSizeSelector';
+    selector.className = 'form-input';
+    selector.style = 'width: auto; display: inline-block;';
+    [5, 10, 20, 50].forEach(size => {
+        const opt = document.createElement('option');
+        opt.value = size;
+        opt.textContent = `${size} por página`;
+        selector.appendChild(opt);
+    });
+    selector.value = pageSize;
+    selector.onchange = function() {
+        changePageSize(this.value);
+    };
+    container.appendChild(label);
+    container.appendChild(selector);
 }
 
 function changePage(page) {

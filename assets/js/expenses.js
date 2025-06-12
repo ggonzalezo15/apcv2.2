@@ -48,7 +48,26 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(() => {
         setupTableSorting();
     }, 100);
+    
+    // Verificar si hay un parámetro 'view' en la URL para abrir automáticamente la vista del gasto
+    checkForViewParameter();
 });
+
+// --- Verificar parámetro view en URL ---
+function checkForViewParameter() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const viewExpenseId = urlParams.get('view');
+    
+    if (viewExpenseId) {
+        // Esperar un poco para que se carguen los datos de referencia
+        setTimeout(() => {
+            viewExpense(viewExpenseId);
+            // Limpiar el parámetro de la URL sin recargar la página
+            const newUrl = window.location.pathname + window.location.search.replace(/[?&]view=[^&]*/, '').replace(/^&/, '?');
+            window.history.replaceState({}, '', newUrl);
+        }, 500);
+    }
+}
 
 // --- Inicializar Flatpickr ---
 function initializeFlatpickr() {

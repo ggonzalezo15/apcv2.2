@@ -350,26 +350,6 @@ $pageTitle = 'Detalles del Proveedor';
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
 }
 
-/* Estilos para paginación */
-#pageSizeSelectorContainer {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-}
-
-#pageSizeSelectorContainer label {
-    color: var(--text-secondary);
-    font-weight: 500;
-}
-
-#pageSizeSelectorContainer select {
-    width: auto;
-    min-width: 140px;
-    padding: 6px 10px;
-    font-size: 14px;
-}
-
 /* Paginación mejorada */
 .btn-pagination {
     background: white;
@@ -430,16 +410,29 @@ $pageTitle = 'Detalles del Proveedor';
     color: var(--primary-color);
 }
 
+/* Estilos para números de gastos clickeables */
+.expense-number-link {
+    color: var(--primary-color);
+    text-decoration: none;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.expense-number-link:hover {
+    color: var(--primary-dark, #1d4ed8);
+    text-decoration: underline;
+}
+
+.expense-number-link:visited {
+    color: var(--primary-color);
+}
+
 /* Responsive para paginación */
 @media (max-width: 768px) {
     #expensesTableFooter {
         flex-direction: column;
         align-items: stretch;
         gap: 12px;
-    }
-    
-    #pageSizeSelectorContainer {
-        justify-content: center;
     }
     
     #expensesPagination {
