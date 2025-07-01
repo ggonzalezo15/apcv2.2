@@ -204,8 +204,8 @@ function loadPaymentTypesSection() {
             
             // Crear badge de estado
             const statusBadge = type.status === 'active' 
-                ? '<span class="status-badge status-active"><i class="fas fa-check-circle"></i> Activo</span>'
-                : '<span class="status-badge status-inactive"><i class="fas fa-times-circle"></i> Inactivo</span>';
+                ? '<span class="status-badge status-active">Activo</span>'
+                : '<span class="status-badge status-inactive">Inactivo</span>';
             
             row.innerHTML = `
                 <td>
@@ -1113,7 +1113,6 @@ function loadExpenseCategoriesSection() {
                 </td>
                 <td style="text-align: center;">
                     <span class="status-badge ${statusBadgeClass}">
-                        <i class="fas fa-circle" style="font-size: 8px;"></i>
                         ${statusText}
                     </span>
                 </td>
@@ -1859,7 +1858,6 @@ function loadExpenseTypesSection() {
                 </td>
                 <td style="text-align: center;">
                     <span class="status-badge ${statusBadgeClass}">
-                        <i class="fas fa-circle" style="font-size: 8px;"></i>
                         ${statusText}
                     </span>
                 </td>
@@ -2582,7 +2580,6 @@ function loadJobTypesSection() {
                 <td>$${parseFloat(type.pay_as_sub_contractor).toLocaleString('es-MX', {minimumFractionDigits:2})}</td>
                 <td style="text-align: center;">
                     <span class="status-badge ${statusBadgeClass}">
-                        <i class="fas fa-circle" style="font-size: 8px;"></i>
                         ${statusText}
                     </span>
                 </td>

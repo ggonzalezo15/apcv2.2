@@ -56,6 +56,12 @@ try {
         case 'getIncomeStats':
             getIncomeStats();
             break;
+        case 'recalculateStatus':
+            recalculateIncomeStatus($_POST['id'] ?? ($jsonData['id'] ?? ''));
+            break;
+        case 'recalculateAllStatus':
+            recalculateAllIncomeStatus();
+            break;
             
         default:
             throw new Exception('Acción no válida: ' . $action);
@@ -116,6 +122,13 @@ function getIncomes() {
         $params[] = $dateTo;
     }
     
+    // Agregar filtro de status si se especifica
+    $statusFilter = $_GET['status_filter'] ?? '';
+    if (!empty($statusFilter)) {
+        $whereConditions[] = "i.status = ?";
+        $params[] = $statusFilter;
+    }
+    
     $whereClause = empty($whereConditions) ? '' : 'WHERE ' . implode(' AND ', $whereConditions);
     
     // Query para obtener total de registros
@@ -129,29 +142,25 @@ function getIncomes() {
     $countStmt->execute($params);
     $totalRecords = $countStmt->fetch(PDO::FETCH_ASSOC)['total'];
     
-    // Query principal
+    // Query principal - ahora usa la columna status de la base de datos
     $query = "
         SELECT 
             i.*,
             t.name as team_name,
             i.income_date as date,
             i.note as general_note,
+            i.status,
             COUNT(DISTINCT il.id) as lines_count,
             COUNT(DISTINCT ip.id) as payments_count,
             COALESCE(SUM(DISTINCT il.total_amount), 0) as total_income,
             COALESCE(SUM(DISTINCT ip.amount), 0) as total_payments,
-            COALESCE(SUM(DISTINCT ip.fee), 0) as total_fees,
-            CASE 
-                WHEN (COALESCE(SUM(DISTINCT il.total_amount), 0) - COALESCE(SUM(DISTINCT ip.amount), 0)) > 0 THEN 'pending'
-                WHEN (COALESCE(SUM(DISTINCT il.total_amount), 0) - COALESCE(SUM(DISTINCT ip.amount), 0)) = 0 THEN 'paid'
-                ELSE 'overpaid'
-            END as status
+            COALESCE(SUM(DISTINCT ip.fee), 0) as total_fees
         FROM incomes i
         LEFT JOIN teams t ON i.team_id = t.id
         LEFT JOIN income_lines il ON i.id = il.income_id
         LEFT JOIN income_payments ip ON i.id = ip.income_id
         {$whereClause}
-        GROUP BY i.id, i.team_id, i.total_amount, i.invoice_number, i.income_date, i.contractor_ids, i.note, i.created_at, i.updated_at, t.name
+        GROUP BY i.id, i.team_id, i.total_amount, i.status, i.invoice_number, i.income_date, i.contractor_ids, i.note, i.created_at, i.updated_at, t.name
         ORDER BY i.{$sortBy} {$sortOrder}
         LIMIT {$limit} OFFSET {$offset}
     ";
@@ -735,21 +744,33 @@ function getIncomeStats() {
     $stmt = $pdo->query("
         SELECT 
             COUNT(*) as total_incomes,
-            SUM(total_income) as total_income_amount,
-            SUM(total_payments) as total_payments_amount,
-            SUM(balance) as total_balance,
-            COUNT(CASE WHEN status = 'draft' THEN 1 END) as draft_count,
+            COALESCE(SUM(total_amount), 0) as total_income_amount,
             COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending_count,
-            COUNT(CASE WHEN status = 'partial_paid' THEN 1 END) as partial_paid_count,
             COUNT(CASE WHEN status = 'paid' THEN 1 END) as paid_count,
-            COUNT(CASE WHEN status = 'cancelled' THEN 1 END) as cancelled_count
+            COUNT(CASE WHEN status = 'overpaid' THEN 1 END) as overpaid_count
         FROM incomes
     ");
     $stats = $stmt->fetch(PDO::FETCH_ASSOC);
     
+    // Obtener totales calculados de líneas y pagos
+    $detailsStmt = $pdo->query("
+        SELECT 
+            COALESCE(SUM(il.total_amount), 0) as total_income_lines,
+            COALESCE(SUM(ip.amount), 0) as total_payments_amount,
+            COALESCE(SUM(ip.fee), 0) as total_fees
+        FROM incomes i
+        LEFT JOIN income_lines il ON i.id = il.income_id
+        LEFT JOIN income_payments ip ON i.id = ip.income_id
+    ");
+    $details = $detailsStmt->fetch(PDO::FETCH_ASSOC);
+    
+    // Combinar estadísticas
+    $combinedStats = array_merge($stats, $details);
+    $combinedStats['total_balance'] = $details['total_income_lines'] - $details['total_payments_amount'];
+    
     echo json_encode([
         'success' => true,
-        'data' => $stats
+        'data' => $combinedStats
     ]);
 }
 
@@ -903,6 +924,89 @@ function deleteAllIncomeTransactions($incomeId) {
     // Eliminar transacciones de cada payment
     foreach ($paymentIds as $paymentId) {
         deleteIncomeTransactions($paymentId);
+    }
+}
+
+// ============================================================================
+// FUNCIONES PARA MANEJAR STATUS
+// ============================================================================
+
+/**
+ * Recalcular el status de un ingreso específico
+ * @param string $incomeId ID del ingreso
+ */
+function recalculateIncomeStatus($incomeId) {
+    global $pdo;
+    
+    if (empty($incomeId)) {
+        throw new Exception('ID de ingreso requerido');
+    }
+    
+    try {
+        // Verificar que el ingreso existe
+        $checkStmt = $pdo->prepare("SELECT id FROM incomes WHERE id = ?");
+        $checkStmt->execute([$incomeId]);
+        if (!$checkStmt->fetch()) {
+            throw new Exception('Ingreso no encontrado');
+        }
+        
+        // Llamar al procedimiento almacenado para actualizar el status
+        $stmt = $pdo->prepare("CALL UpdateIncomeStatus(?)");
+        $stmt->execute([$incomeId]);
+        
+        // Obtener el nuevo status
+        $statusStmt = $pdo->prepare("SELECT status FROM incomes WHERE id = ?");
+        $statusStmt->execute([$incomeId]);
+        $result = $statusStmt->fetch(PDO::FETCH_ASSOC);
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'Status actualizado correctamente',
+            'new_status' => $result['status']
+        ]);
+        
+    } catch (Exception $e) {
+        throw new Exception('Error al recalcular status: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Recalcular el status de todos los ingresos
+ */
+function recalculateAllIncomeStatus() {
+    global $pdo;
+    
+    try {
+        // Llamar al procedimiento almacenado para recalcular todos los status
+        $stmt = $pdo->prepare("CALL RecalculateAllIncomeStatus()");
+        $stmt->execute();
+        
+        // Obtener estadísticas del resultado
+        $statsStmt = $pdo->prepare("
+            SELECT 
+                status,
+                COUNT(*) as count
+            FROM incomes 
+            GROUP BY status
+            ORDER BY status
+        ");
+        $statsStmt->execute();
+        $stats = $statsStmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Obtener total de registros
+        $totalStmt = $pdo->prepare("SELECT COUNT(*) as total FROM incomes");
+        $totalStmt->execute();
+        $total = $totalStmt->fetch(PDO::FETCH_ASSOC)['total'];
+        
+        echo json_encode([
+            'success' => true,
+            'message' => "Todos los status han sido recalculados. Total: {$total} registros",
+            'total_records' => $total,
+            'statistics' => $stats
+        ]);
+        
+    } catch (Exception $e) {
+        throw new Exception('Error al recalcular todos los status: ' . $e->getMessage());
     }
 }
 ?> 
