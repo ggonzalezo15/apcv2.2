@@ -553,7 +553,7 @@ function renderExpensesTable(expenses) {
             message = 'No se encontraron gastos que coincidan con los filtros aplicados';
         }
         
-        tbody.innerHTML = `<tr><td colspan="8" class="text-center text-muted" style="padding: 40px 20px;">${message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted" style="padding: 40px 20px;">${message}</td></tr>`;
         return;
     }
     
@@ -586,6 +586,7 @@ function renderExpensesTable(expenses) {
         
         return `
             <tr>
+                <td><strong>${generateExpenseNumber(expense)}</strong></td>
                 <td>${formatDate(expense.expense_date)}</td>
                 <td>${escapeHtml(expense.team_name || 'N/A')}</td>
                 <td>${escapeHtml(expense.vendor_name || 'N/A')}</td>
@@ -1149,7 +1150,7 @@ function viewExpense(id) {
 
 function populateViewModal(expense) {
     // Header
-    document.getElementById('viewExpenseNumber').textContent = expense.expense_number || 'N/A';
+    document.getElementById('viewExpenseNumber').textContent = generateExpenseNumber(expense);
     
     // Información general
     document.getElementById('viewExpenseDate').textContent = formatDate(expense.expense_date);
@@ -1426,6 +1427,17 @@ function deleteExpenseConfirmed() {
 }
 
 // --- Utilidades ---
+// --- Generar número de gasto ---
+function generateExpenseNumber(expense) {
+    if (expense.expense_number) {
+        return expense.expense_number;
+    }
+    
+    // Si no hay expense_number, generar uno basado en el ID
+    const id = expense.id || 0;
+    return 'EXP' + String(id).padStart(6, '0');
+}
+
 function formatDate(dateString) {
     if (!dateString) return 'N/A';
     

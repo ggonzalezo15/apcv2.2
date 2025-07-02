@@ -56,11 +56,12 @@ function getAllExpenses() {
     $dateFrom = $_GET['dateFrom'] ?? '';
     $dateTo = $_GET['dateTo'] ?? '';
     
-    $allowedSort = ['expense_date', 'total_amount', 'created_at', 'team_name', 'vendor_name'];
+    $allowedSort = ['expense_number', 'expense_date', 'total_amount', 'created_at', 'team_name', 'vendor_name'];
     if (!in_array($sort, $allowedSort)) $sort = 'expense_date';
     
     // Mapear campos de ordenamiento a la tabla correcta
     $sortFieldMap = [
+        'expense_number' => 'e.expense_number',
         'expense_date' => 'e.expense_date',
         'total_amount' => 'e.total_amount',
         'created_at' => 'e.created_at',

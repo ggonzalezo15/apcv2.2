@@ -62,6 +62,9 @@ try {
         case 'recalculateAllStatus':
             recalculateAllIncomeStatus();
             break;
+        case 'checkInvoiceNumber':
+            checkInvoiceNumber();
+            break;
             
         default:
             throw new Exception('Acción no válida: ' . $action);
@@ -147,7 +150,7 @@ function getIncomes() {
         SELECT 
             i.*,
             t.name as team_name,
-            i.income_date as date,
+            DATE_FORMAT(i.income_date, '%Y-%m-%d') as date,
             i.note as general_note,
             i.status,
             COUNT(DISTINCT il.id) as lines_count,
@@ -228,7 +231,8 @@ function getIncome($id) {
     $stmt = $pdo->prepare("
         SELECT 
             i.*,
-            t.name as team_name
+            t.name as team_name,
+            DATE_FORMAT(i.income_date, '%Y-%m-%d') as formatted_date
         FROM incomes i
         LEFT JOIN teams t ON i.team_id = t.id
         WHERE i.id = ?
@@ -298,7 +302,7 @@ function getIncome($id) {
     $payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
     // Renombrar campos para compatibilidad con frontend
-    $income['date'] = $income['income_date'];  // Mapear income_date a date
+    $income['date'] = $income['formatted_date'] ?: $income['income_date'];  // Usar fecha formateada
     $income['general_note'] = $income['note']; // Mapear note a general_note
     
     echo json_encode([
@@ -328,6 +332,19 @@ function createIncome() {
     
     try {
         $incomeId = generateUUID();
+        
+        // Validar número de factura único
+        $invoiceNumber = trim($data['invoice_number'] ?? '');
+        if (empty($invoiceNumber)) {
+            throw new Exception('El número de factura es obligatorio');
+        }
+        
+        // Verificar si ya existe un ingreso con ese número de factura
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM incomes WHERE LOWER(TRIM(invoice_number)) = LOWER(TRIM(?))");
+        $stmt->execute([$invoiceNumber]);
+        if ($stmt->fetchColumn() > 0) {
+            throw new Exception('El número de factura ya existe');
+        }
         
         // Preparar contractor_ids como JSON
         $contractorIds = null;
@@ -473,6 +490,19 @@ function updateIncome() {
     $pdo->beginTransaction();
     
     try {
+        // Validar número de factura único
+        $invoiceNumber = trim($data['invoice_number'] ?? '');
+        if (empty($invoiceNumber)) {
+            throw new Exception('El número de factura es obligatorio');
+        }
+        
+        // Verificar si ya existe otro ingreso con ese número de factura (excluyendo el actual)
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM incomes WHERE LOWER(TRIM(invoice_number)) = LOWER(TRIM(?)) AND id != ?");
+        $stmt->execute([$invoiceNumber, $incomeId]);
+        if ($stmt->fetchColumn() > 0) {
+            throw new Exception('El número de factura ya existe');
+        }
+        
         // Preparar contractor_ids como JSON
         $contractorIds = null;
         if (!empty($data['contractors'])) {
@@ -1007,6 +1037,43 @@ function recalculateAllIncomeStatus() {
         
     } catch (Exception $e) {
         throw new Exception('Error al recalcular todos los status: ' . $e->getMessage());
+    }
+}
+
+/**
+ * Verificar si un número de factura ya existe
+ */
+function checkInvoiceNumber() {
+    global $pdo;
+    
+    $invoiceNumber = trim($_GET['invoice_number'] ?? '');
+    $excludeId = $_GET['exclude_id'] ?? '';
+    
+    if (empty($invoiceNumber)) {
+        echo json_encode(['exists' => false, 'message' => 'Número de factura requerido']);
+        return;
+    }
+    
+    try {
+        if (!empty($excludeId)) {
+            // Para edición - excluir el ID actual
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM incomes WHERE LOWER(TRIM(invoice_number)) = LOWER(TRIM(?)) AND id != ?");
+            $stmt->execute([$invoiceNumber, $excludeId]);
+        } else {
+            // Para creación
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM incomes WHERE LOWER(TRIM(invoice_number)) = LOWER(TRIM(?))");
+            $stmt->execute([$invoiceNumber]);
+        }
+        
+        $exists = $stmt->fetchColumn() > 0;
+        
+        echo json_encode([
+            'exists' => $exists,
+            'message' => $exists ? 'El número de factura ya existe' : 'Número de factura disponible'
+        ]);
+        
+    } catch (Exception $e) {
+        throw new Exception('Error verificando número de factura: ' . $e->getMessage());
     }
 }
 ?> 

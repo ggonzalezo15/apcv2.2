@@ -111,9 +111,13 @@ $pageTitle = 'Gestión de Gastos';
                 <p class="card-subtitle">Total: <span id="totalExpenses">0</span> gastos registrados</p>
             </div>
             <div style="overflow-x: auto;">
-                <table class="data-table sortable-table" id="expensesTable" style="min-width: 1400px;">
+                <table class="data-table sortable-table" id="expensesTable" style="min-width: 1500px;">
                     <thead>
                         <tr>
+                            <th class="sortable" data-sort="expense_number">
+                                Número
+                                <i class="fas fa-sort sort-icon"></i>
+                            </th>
                             <th class="sortable" data-sort="expense_date">
                                 Fecha
                                 <i class="fas fa-sort sort-icon"></i>

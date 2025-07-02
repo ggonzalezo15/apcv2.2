@@ -201,7 +201,7 @@ $pageTitle = 'Gestión de Ingresos';
                             <input type="text" class="form-input" id="incomeDate" required>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Equipo *</label>
+                            <label class="form-label" for="team">Equipo *</label>
                             <select id="team" class="form-input" required>
                                 <option value="">Seleccionar equipo...</option>
                             </select>
@@ -248,8 +248,8 @@ $pageTitle = 'Gestión de Ingresos';
                     <div class="income-lines-wrapper">
                         <div class="income-lines-header">
                             <div class="header-cell type-header">Tipo de Trabajo *</div>
-                            <div class="header-cell units-header">Unidades</div>
-                            <div class="header-cell price-header">Precio Unit.</div>
+                            <div class="header-cell units-header">Unidades *</div>
+                            <div class="header-cell price-header">Precio Unit. * (≥0)</div>
                             <div class="header-cell total-header">Total</div>
                             <div class="header-cell actions-header">Acción</div>
                         </div>
@@ -1752,6 +1752,127 @@ $pageTitle = 'Gestión de Ingresos';
         min-width: auto;
         max-width: none;
     }
+}
+
+/* Estilos para validación de campos */
+.form-input.error,
+select.form-input.error {
+    border-color: var(--danger-color) !important;
+    background-color: #fef2f2;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1) !important;
+}
+
+.form-input.success,
+select.form-input.success {
+    border-color: #10b981 !important;
+    background-color: #f0fdf4;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1) !important;
+}
+
+/* Estilos para validación simplificada - solo marcado visual */
+
+/* Indicadores de campos obligatorios */
+.form-label::after {
+    content: "";
+}
+
+.form-label[for="invoiceNumber"]::after,
+.form-label[for="incomeDate"]::after,
+.form-label[for="team"]::after {
+    content: " *";
+    color: var(--danger-color);
+    font-weight: bold;
+}
+
+/* Mejorar apariencia de campos requeridos */
+.form-input:required {
+    border-left: 3px solid #e5e7eb;
+}
+
+.form-input:required:focus {
+    border-left-color: var(--primary-color);
+}
+
+.form-input.error:required {
+    border-left-color: var(--danger-color);
+}
+
+.form-input.success:required {
+    border-left-color: #10b981;
+}
+
+/* Validación para inputs en líneas de ingreso */
+.income-line .form-input.error,
+.payment-line .form-input.error {
+    border-color: var(--danger-color) !important;
+    background-color: #fef2f2;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.1) !important;
+}
+
+.income-line .form-input.success,
+.payment-line .form-input.success {
+    border-color: #10b981 !important;
+    background-color: #f0fdf4;
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.1) !important;
+}
+
+/* Estilos de validación mantenidos para líneas con errores */
+
+/* Resaltar líneas con errores */
+.income-line:has(.form-input.error) {
+    background-color: #fef7f7;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    margin: 2px 0;
+}
+
+.payment-line:has(.form-input.error) {
+    background-color: #fef7f7;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    margin: 2px 0;
+}
+
+/* Mejorar visibilidad de campos obligatorios en headers */
+.header-cell {
+    font-weight: 600;
+}
+
+.header-cell:has-text("*") {
+    color: #374151;
+}
+
+/* Tooltip para precio unitario */
+.price-header {
+    position: relative;
+    cursor: help;
+}
+
+.price-header:hover::after {
+    content: "El precio puede ser 0 (gratis) o cualquier valor positivo";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #374151;
+    color: white;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    margin-bottom: 4px;
+}
+
+.price-header:hover::before {
+    content: "";
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: #374151;
+    z-index: 1000;
 }
 </style>
 
