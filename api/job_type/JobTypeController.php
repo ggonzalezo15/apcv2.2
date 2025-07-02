@@ -93,34 +93,72 @@ function getJobTypeById($id) {
 function createJobType() {
     global $pdo;
     $data = json_decode(file_get_contents("php://input"), true);
-    $uuid = uniqid('', true);
-    $status = isset($data['status']) ? ($data['status'] === '1' || $data['status'] === 'active' ? 'active' : 'inactive') : 'active';
     
-    $stmt = $pdo->prepare("INSERT INTO job_types (id, name, pay_as_contractor, pay_as_sub_contractor, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
-    $stmt->execute([
-        $uuid,
-        $data['name'],
-        $data['pay_as_contractor'] ?? 0.00,
-        $data['pay_as_sub_contractor'] ?? 0.00,
-        $status
-    ]);
-    echo json_encode(["message" => "Job type created", "id" => $uuid]);
+    try {
+        $name = trim($data['name'] ?? '');
+        
+        if (empty($name)) {
+            throw new Exception('El nombre es obligatorio');
+        }
+        
+        // Verificar si ya existe un tipo con ese nombre (case-insensitive y trimmed)
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM job_types WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))");
+        $stmt->execute([$name]);
+        if ($stmt->fetchColumn() > 0) {
+            throw new Exception('El nombre de tipo de trabajo ya existe');
+        }
+        
+        $uuid = uniqid('', true);
+        $status = isset($data['status']) ? ($data['status'] === '1' || $data['status'] === 'active' ? 'active' : 'inactive') : 'active';
+        
+        $stmt = $pdo->prepare("INSERT INTO job_types (id, name, pay_as_contractor, pay_as_sub_contractor, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())");
+        $stmt->execute([
+            $uuid,
+            $name,
+            $data['pay_as_contractor'] ?? 0.00,
+            $data['pay_as_sub_contractor'] ?? 0.00,
+            $status
+        ]);
+        echo json_encode(["message" => "Job type created", "id" => $uuid]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['error' => $e->getMessage()]);
+    }
 }
 
 function updateJobType($id) {
     global $pdo;
     $data = json_decode(file_get_contents("php://input"), true);
-    $status = isset($data['status']) ? ($data['status'] === '1' || $data['status'] === 'active' ? 'active' : 'inactive') : 'active';
     
-    $stmt = $pdo->prepare("UPDATE job_types SET name = ?, pay_as_contractor = ?, pay_as_sub_contractor = ?, status = ?, updated_at = NOW() WHERE id = ?");
-    $stmt->execute([
-        $data['name'],
-        $data['pay_as_contractor'] ?? 0.00,
-        $data['pay_as_sub_contractor'] ?? 0.00,
-        $status,
-        $id
-    ]);
-    echo json_encode(["message" => "Job type updated"]);
+    try {
+        $name = trim($data['name'] ?? '');
+        
+        if (empty($name)) {
+            throw new Exception('El nombre es obligatorio');
+        }
+        
+        // Verificar si ya existe otro tipo con ese nombre (case-insensitive y trimmed)
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM job_types WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ?");
+        $stmt->execute([$name, $id]);
+        if ($stmt->fetchColumn() > 0) {
+            throw new Exception('El nombre de tipo de trabajo ya existe');
+        }
+        
+        $status = isset($data['status']) ? ($data['status'] === '1' || $data['status'] === 'active' ? 'active' : 'inactive') : 'active';
+        
+        $stmt = $pdo->prepare("UPDATE job_types SET name = ?, pay_as_contractor = ?, pay_as_sub_contractor = ?, status = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([
+            $name,
+            $data['pay_as_contractor'] ?? 0.00,
+            $data['pay_as_sub_contractor'] ?? 0.00,
+            $status,
+            $id
+        ]);
+        echo json_encode(["message" => "Job type updated"]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['error' => $e->getMessage()]);
+    }
 }
 
 function deleteJobType($id) {

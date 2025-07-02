@@ -118,11 +118,6 @@ function loadPaymentTypesSection() {
     async function loadPaymentTypes() {
         try {
             const response = await fetch('api/payment_type/PaymentTypeController.php');
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
             const result = await response.json();
             
             if (result.error) {
@@ -138,7 +133,7 @@ function loadPaymentTypesSection() {
             
         } catch (error) {
             console.error('Error loading payment types:', error);
-            showToast('Error al cargar los tipos de pago: ' + error.message, 'error');
+            showToast('Error al conectar con el servidor', 'error');
             paymentTypesData = [];
             bankAccountsData = [];
             filterPaymentTypes();
@@ -541,10 +536,6 @@ function loadPaymentTypesSection() {
                 body: JSON.stringify(data)
             });
             
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
             const result = await response.json();
             
             if (result.error) {
@@ -557,7 +548,7 @@ function loadPaymentTypesSection() {
             
         } catch (error) {
             console.error('Error saving payment type:', error);
-            showToast('Error al guardar el tipo: ' + error.message, 'error');
+            showToast('Error al conectar con el servidor', 'error');
         }
     }
 
@@ -689,10 +680,6 @@ function loadPaymentTypesSection() {
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: `id=${encodeURIComponent(typeId)}&csrf_token=${encodeURIComponent(window.CSRF_TOKEN || 'dummy_token')}`
                 });
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
                 
                 const result = await response.json();
                 
@@ -1017,11 +1004,6 @@ function loadExpenseCategoriesSection() {
             }
             
             const response = await fetch(url);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
             const result = await response.json();
             
             if (result.success) {
@@ -1292,10 +1274,6 @@ function loadExpenseCategoriesSection() {
                 body: formData
             });
             
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
             const result = await response.json();
             
             if (result.success) {
@@ -1316,10 +1294,6 @@ function loadExpenseCategoriesSection() {
     window.editCategoryFromSettings = async function(categoryId) {
         try {
             const response = await fetch(`api/expense_category/ExpenseCategoryController.php?action=get&id=${categoryId}`);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
             
             const result = await response.json();
             
@@ -1400,10 +1374,6 @@ function loadExpenseCategoriesSection() {
                     method: 'DELETE'
                 });
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
                 const result = await response.json();
                 
                 if (result.success) {
@@ -1482,9 +1452,7 @@ function loadExpenseCategoriesSection() {
                         }
                     });
                     
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
+
                     
                     const result = await response.json();
                     
@@ -1723,10 +1691,6 @@ function loadExpenseTypesSection() {
         try {
             const response = await fetch('api/expense_type/ExpenseTypeController.php?action=categories');
             
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
             const result = await response.json();
             
             if (result.success) {
@@ -1763,10 +1727,6 @@ function loadExpenseTypesSection() {
             }
             
             const response = await fetch(url);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
             
             const result = await response.json();
             
@@ -2056,10 +2016,6 @@ function loadExpenseTypesSection() {
                 body: formData
             });
             
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
             const result = await response.json();
             
             if (result.error) {
@@ -2072,7 +2028,7 @@ function loadExpenseTypesSection() {
             
         } catch (error) {
             console.error('Error saving type:', error);
-            showToast('Error al guardar el tipo: ' + error.message, 'error');
+            showToast(error.message || 'Error al guardar el tipo', 'error');
         }
     }
 
@@ -2080,10 +2036,6 @@ function loadExpenseTypesSection() {
     window.editExpenseTypeFromSettings = async function(typeId) {
         try {
             const response = await fetch(`api/expense_type/ExpenseTypeController.php?action=get&id=${typeId}`);
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
             
             const result = await response.json();
             
@@ -2156,7 +2108,7 @@ function loadExpenseTypesSection() {
             
         } catch (error) {
             console.error('Error loading type for edit:', error);
-            showToast('Error al cargar el tipo: ' + error.message, 'error');
+            showToast(error.message || 'Error al cargar el tipo', 'error');
         }
     };
 
@@ -2171,10 +2123,6 @@ function loadExpenseTypesSection() {
                     method: 'DELETE'
                 });
                 
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
                 const result = await response.json();
                 
                 if (result.success) {
@@ -2187,7 +2135,7 @@ function loadExpenseTypesSection() {
                 
             } catch (error) {
                 console.error('Error deleting type:', error);
-                showToast('Error al eliminar el tipo: ' + error.message, 'error');
+                showToast(error.message || 'Error al eliminar el tipo', 'error');
             }
         };
         
@@ -2705,7 +2653,7 @@ function loadJobTypesSection() {
                 .then(result => {
                     closeModal('formModal');
                     if (result && result.error) {
-                        showToast('Error al guardar el tipo: ' + result.error, 'error');
+                        showToast(result.error, 'error');
                     } else {
                         showToast('Tipo creado con éxito', 'success');
                         loadJobTypesData(jobTypesCurrentPage);
@@ -2713,7 +2661,7 @@ function loadJobTypesSection() {
                 })
                 .catch(error => {
                     console.error('Error saving job type:', error);
-                    showToast('Error al guardar el tipo', 'error');
+                    showToast(error.message || 'Error al guardar el tipo', 'error');
                 });
             });
         }
@@ -2821,7 +2769,7 @@ function loadJobTypesSection() {
                         .then(result => {
                             closeModal('formModal');
                             if (result && result.error) {
-                                showToast('Error al actualizar el tipo: ' + result.error, 'error');
+                                showToast(result.error, 'error');
                             } else {
                                 showToast('Tipo actualizado con éxito', 'success');
                                 loadJobTypesData(jobTypesCurrentPage);
@@ -2986,10 +2934,6 @@ function loadJobTypesSection() {
                             'Content-Type': 'application/x-www-form-urlencoded',
                         }
                     });
-                    
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
                     
                     const result = await response.json();
                     

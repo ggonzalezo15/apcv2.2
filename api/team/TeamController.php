@@ -91,32 +91,75 @@ function getTeamById($id) {
 function createTeam() {
     global $pdo;
     $data = json_decode(file_get_contents("php://input"), true);
-    $uuid = uniqid('', true);
     
-    // Convertir status numérico a ENUM
-    $status = 'active'; // Por defecto activo
-    if (isset($data['status'])) {
-        $status = $data['status'] == 1 || $data['status'] === 'active' ? 'active' : 'inactive';
+    try {
+        // Validar que el nombre no esté vacío
+        if (empty(trim($data['name']))) {
+            echo json_encode(['error' => 'El nombre del equipo es obligatorio']);
+            return;
+        }
+        
+        // Verificar si ya existe un equipo con el mismo nombre
+        $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM teams WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))");
+        $checkStmt->execute([$data['name']]);
+        $count = $checkStmt->fetchColumn();
+        
+        if ($count > 0) {
+            echo json_encode(['error' => 'El nombre de equipo ya existe']);
+            return;
+        }
+        
+        $uuid = uniqid('', true);
+        
+        // Convertir status numérico a ENUM
+        $status = 'active'; // Por defecto activo
+        if (isset($data['status'])) {
+            $status = $data['status'] == 1 || $data['status'] === 'active' ? 'active' : 'inactive';
+        }
+        
+        $stmt = $pdo->prepare("INSERT INTO teams (id, name, description, status, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())");
+        $stmt->execute([$uuid, $data['name'], $data['description'] ?? '', $status]);
+        echo json_encode(["message" => "Team created", "id" => $uuid]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['error' => 'Error al crear el equipo: ' . $e->getMessage()]);
     }
-    
-    $stmt = $pdo->prepare("INSERT INTO teams (id, name, description, status, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())");
-    $stmt->execute([$uuid, $data['name'], $data['description'] ?? '', $status]);
-    echo json_encode(["message" => "Team created", "id" => $uuid]);
 }
 
 function updateTeam($id) {
     global $pdo;
     $data = json_decode(file_get_contents("php://input"), true);
     
-    // Convertir status numérico a ENUM
-    $status = 'active'; // Por defecto activo
-    if (isset($data['status'])) {
-        $status = $data['status'] == 1 || $data['status'] === 'active' ? 'active' : 'inactive';
+    try {
+        // Validar que el nombre no esté vacío
+        if (empty(trim($data['name']))) {
+            echo json_encode(['error' => 'El nombre del equipo es obligatorio']);
+            return;
+        }
+        
+        // Verificar si ya existe otro equipo con el mismo nombre (excluyendo el actual)
+        $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM teams WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ?");
+        $checkStmt->execute([$data['name'], $id]);
+        $count = $checkStmt->fetchColumn();
+        
+        if ($count > 0) {
+            echo json_encode(['error' => 'El nombre de equipo ya existe']);
+            return;
+        }
+        
+        // Convertir status numérico a ENUM
+        $status = 'active'; // Por defecto activo
+        if (isset($data['status'])) {
+            $status = $data['status'] == 1 || $data['status'] === 'active' ? 'active' : 'inactive';
+        }
+        
+        $stmt = $pdo->prepare("UPDATE teams SET name = ?, description = ?, status = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([$data['name'], $data['description'] ?? '', $status, $id]);
+        echo json_encode(["message" => "Team updated"]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['error' => 'Error al actualizar el equipo: ' . $e->getMessage()]);
     }
-    
-    $stmt = $pdo->prepare("UPDATE teams SET name = ?, description = ?, status = ?, updated_at = NOW() WHERE id = ?");
-    $stmt->execute([$data['name'], $data['description'] ?? '', $status, $id]);
-    echo json_encode(["message" => "Team updated"]);
 }
 
 function deleteTeam($id) {

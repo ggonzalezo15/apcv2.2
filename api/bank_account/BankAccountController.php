@@ -83,6 +83,20 @@ function createBankAccount() {
     
     try {
         $data = json_decode(file_get_contents("php://input"), true);
+        
+        // Validar datos requeridos
+        $name = trim($data['name'] ?? '');
+        if (empty($name)) {
+            throw new Exception('El nombre de la cuenta es obligatorio');
+        }
+        
+        // Verificar si ya existe una cuenta con ese nombre (case-insensitive y trimmed)
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM bank_accounts WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))");
+        $stmt->execute([$name]);
+        if ($stmt->fetchColumn() > 0) {
+            throw new Exception('El nombre de cuenta ya existe');
+        }
+        
         $uuid = uniqid('', true);
         $balance = floatval($data['balance'] ?? 0.00);
         
@@ -94,7 +108,7 @@ function createBankAccount() {
         $stmt = $pdo->prepare("INSERT INTO bank_accounts (id, name, bank_name, account_number, account_type, balance, active, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())");
         $stmt->execute([
             $uuid,
-            $data['name'],
+            $name,
             $data['bank_name'],
             $data['account_number'],
             $data['account_type'],
@@ -139,20 +153,39 @@ function createBankAccount() {
 
 function updateBankAccount($id) {
     global $pdo;
-    $data = json_decode(file_get_contents("php://input"), true);
     
-    // Actualizar los campos editables: nombre, banco, número de cuenta y estado
-    // NO se actualiza account_type ni balance
-    $active = isset($data['active']) ? (int)$data['active'] : 1;
-    $stmt = $pdo->prepare("UPDATE bank_accounts SET name = ?, bank_name = ?, account_number = ?, active = ?, updated_at = NOW() WHERE id = ?");
-    $stmt->execute([
-        $data['name'],
-        $data['bank_name'],
-        $data['account_number'],
-        $active,
-        $id
-    ]);
-    echo json_encode(["message" => "Bank account updated"]);
+    try {
+        $data = json_decode(file_get_contents("php://input"), true);
+        
+        // Validar datos requeridos
+        $name = trim($data['name'] ?? '');
+        if (empty($name)) {
+            throw new Exception('El nombre de la cuenta es obligatorio');
+        }
+        
+        // Verificar si ya existe otra cuenta con ese nombre (case-insensitive y trimmed)
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM bank_accounts WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ?");
+        $stmt->execute([$name, $id]);
+        if ($stmt->fetchColumn() > 0) {
+            throw new Exception('El nombre de cuenta ya existe');
+        }
+        
+        // Actualizar los campos editables: nombre, banco, número de cuenta y estado
+        // NO se actualiza account_type ni balance
+        $active = isset($data['active']) ? (int)$data['active'] : 1;
+        $stmt = $pdo->prepare("UPDATE bank_accounts SET name = ?, bank_name = ?, account_number = ?, active = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([
+            $name,
+            $data['bank_name'],
+            $data['account_number'],
+            $active,
+            $id
+        ]);
+        echo json_encode(["message" => "Bank account updated"]);
+        
+    } catch (Exception $e) {
+        echo json_encode(["error" => $e->getMessage()]);
+    }
 }
 
 function deleteBankAccount($id) {

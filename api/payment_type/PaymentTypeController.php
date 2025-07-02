@@ -107,63 +107,89 @@ switch ($method) {
         echo json_encode(['data' => $data, 'total' => $total, 'bank_accounts' => $bankAccounts]);
         break;
     case 'POST':
-        $data = json_decode(file_get_contents('php://input'), true);
-        if (!verifyCSRFToken($data['csrf_token'] ?? '')) {
-            http_response_code(403);
-            echo json_encode(['error' => 'CSRF inválido']);
-            exit;
-        }
-        $name = trim($data['name'] ?? '');
-        $description = trim($data['description'] ?? '');
-        $bank_account_id = $data['bank_account_id'] ?? '';
-        $status = isset($data['status']) ? ($data['status'] ? 'active' : 'inactive') : 'active';
-        
-        if ($name === '' || $bank_account_id === '') {
+        try {
+            $data = json_decode(file_get_contents('php://input'), true);
+            if (!verifyCSRFToken($data['csrf_token'] ?? '')) {
+                throw new Exception('CSRF inválido');
+            }
+            
+            $name = trim($data['name'] ?? '');
+            $description = trim($data['description'] ?? '');
+            $bank_account_id = $data['bank_account_id'] ?? '';
+            $status = isset($data['status']) ? ($data['status'] ? 'active' : 'inactive') : 'active';
+            
+            if ($name === '' || $bank_account_id === '') {
+                throw new Exception('Nombre y cuenta bancaria requeridos');
+            }
+            
+            // Verificar si ya existe un tipo de pago con el mismo nombre
+            $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM payment_types WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))");
+            $checkStmt->execute([$name]);
+            $count = $checkStmt->fetchColumn();
+            
+            if ($count > 0) {
+                throw new Exception('El nombre de tipo de pago ya existe');
+            }
+            
+            // Validar que la cuenta existe y es tipo checking/business
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM bank_accounts WHERE id=? AND account_type != 'credito'");
+            $stmt->execute([$bank_account_id]);
+            if ($stmt->fetchColumn() == 0) {
+                throw new Exception('Cuenta bancaria inválida');
+            }
+            
+            $id = bin2hex(random_bytes(16));
+            $stmt = $pdo->prepare('INSERT INTO payment_types (id, name, description, bank_account_id, status) VALUES (?, ?, ?, ?, ?)');
+            $stmt->execute([$id, $name, $description, $bank_account_id, $status]);
+            
+            echo json_encode(['success' => true, 'id' => $id, 'message' => 'Tipo de pago creado correctamente']);
+            
+        } catch (Exception $e) {
             http_response_code(400);
-            echo json_encode(['error' => 'Nombre y cuenta bancaria requeridos']);
-            exit;
+            echo json_encode(['error' => $e->getMessage()]);
         }
-        // Validar que la cuenta existe y es tipo checking/business
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM bank_accounts WHERE id=? AND account_type != 'credito'");
-        $stmt->execute([$bank_account_id]);
-        if ($stmt->fetchColumn() == 0) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Cuenta bancaria inválida']);
-            exit;
-        }
-        $id = bin2hex(random_bytes(16));
-        $stmt = $pdo->prepare('INSERT INTO payment_types (id, name, description, bank_account_id, status) VALUES (?, ?, ?, ?, ?)');
-        $stmt->execute([$id, $name, $description, $bank_account_id, $status]);
-        echo json_encode(['success' => true, 'id' => $id, 'message' => 'Tipo de pago creado correctamente']);
         break;
     case 'PUT':
-        $data = json_decode(file_get_contents('php://input'), true);
-        if (!verifyCSRFToken($data['csrf_token'] ?? '')) {
-            http_response_code(403);
-            echo json_encode(['error' => 'CSRF inválido']);
-            exit;
-        }
-        $id = $data['id'] ?? '';
-        $name = trim($data['name'] ?? '');
-        $description = trim($data['description'] ?? '');
-        $bank_account_id = $data['bank_account_id'] ?? '';
-        $status = isset($data['status']) ? ($data['status'] ? 'active' : 'inactive') : 'active';
-        
-        if ($id === '' || $name === '' || $bank_account_id === '') {
+        try {
+            $data = json_decode(file_get_contents('php://input'), true);
+            if (!verifyCSRFToken($data['csrf_token'] ?? '')) {
+                throw new Exception('CSRF inválido');
+            }
+            
+            $id = $data['id'] ?? '';
+            $name = trim($data['name'] ?? '');
+            $description = trim($data['description'] ?? '');
+            $bank_account_id = $data['bank_account_id'] ?? '';
+            $status = isset($data['status']) ? ($data['status'] ? 'active' : 'inactive') : 'active';
+            
+            if ($id === '' || $name === '' || $bank_account_id === '') {
+                throw new Exception('Datos requeridos');
+            }
+            
+            // Verificar si ya existe otro tipo de pago con el mismo nombre (excluyendo el actual)
+            $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM payment_types WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ?");
+            $checkStmt->execute([$name, $id]);
+            $count = $checkStmt->fetchColumn();
+            
+            if ($count > 0) {
+                throw new Exception('El nombre de tipo de pago ya existe');
+            }
+            
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM bank_accounts WHERE id=? AND account_type != 'credito'");
+            $stmt->execute([$bank_account_id]);
+            if ($stmt->fetchColumn() == 0) {
+                throw new Exception('Cuenta bancaria inválida');
+            }
+            
+            $stmt = $pdo->prepare('UPDATE payment_types SET name=?, description=?, bank_account_id=?, status=? WHERE id=?');
+            $stmt->execute([$name, $description, $bank_account_id, $status, $id]);
+            
+            echo json_encode(['success' => true, 'message' => 'Tipo de pago actualizado correctamente']);
+            
+        } catch (Exception $e) {
             http_response_code(400);
-            echo json_encode(['error' => 'Datos requeridos']);
-            exit;
+            echo json_encode(['error' => $e->getMessage()]);
         }
-        $stmt = $pdo->prepare("SELECT COUNT(*) FROM bank_accounts WHERE id=? AND account_type != 'credito'");
-        $stmt->execute([$bank_account_id]);
-        if ($stmt->fetchColumn() == 0) {
-            http_response_code(400);
-            echo json_encode(['error' => 'Cuenta bancaria inválida']);
-            exit;
-        }
-        $stmt = $pdo->prepare('UPDATE payment_types SET name=?, description=?, bank_account_id=?, status=? WHERE id=?');
-        $stmt->execute([$name, $description, $bank_account_id, $status, $id]);
-        echo json_encode(['success' => true, 'message' => 'Tipo de pago actualizado correctamente']);
         break;
     case 'DELETE':
         parse_str(file_get_contents('php://input'), $data);

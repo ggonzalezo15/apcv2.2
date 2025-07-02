@@ -103,11 +103,11 @@ try {
                 throw new Exception('La categoría seleccionada no existe');
             }
             
-            // Verificar si ya existe un tipo con ese nombre en la misma categoría
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM expense_types WHERE name = ? AND category_id = ?");
-            $stmt->execute([$name, $category_id]);
+            // Verificar si ya existe un tipo con ese nombre (case-insensitive y trimmed)
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM expense_types WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))");
+            $stmt->execute([$name]);
             if ($stmt->fetchColumn() > 0) {
-                throw new Exception('Ya existe un tipo de gasto con ese nombre en esta categoría');
+                throw new Exception('El nombre de tipo de gasto ya existe');
             }
             
             // Generar ID único
@@ -158,11 +158,11 @@ try {
                 throw new Exception('La categoría seleccionada no existe');
             }
             
-            // Verificar si ya existe otro tipo con ese nombre en la misma categoría
-            $stmt = $pdo->prepare("SELECT COUNT(*) FROM expense_types WHERE name = ? AND category_id = ? AND id != ?");
-            $stmt->execute([$name, $category_id, $id]);
+            // Verificar si ya existe otro tipo con ese nombre (case-insensitive y trimmed)
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM expense_types WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ?");
+            $stmt->execute([$name, $id]);
             if ($stmt->fetchColumn() > 0) {
-                throw new Exception('Ya existe otro tipo de gasto con ese nombre en esta categoría');
+                throw new Exception('El nombre de tipo de gasto ya existe');
             }
             
             // Actualizar tipo
@@ -268,8 +268,7 @@ try {
 } catch (Exception $e) {
     ob_clean();
     echo json_encode([
-        'success' => false,
-        'message' => $e->getMessage()
+        'error' => $e->getMessage()
     ]);
 }
 

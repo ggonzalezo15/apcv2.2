@@ -345,16 +345,16 @@ document.getElementById('contractorForm').addEventListener('submit', function(e)
     })
     .then(res => res.json())
     .then(result => {
-        closeModal('contractorModal');
         if (result && result.error) {
-            showToast('Ocurrió un error al guardar el contratista.', 'error');
+            showToast(result.error, 'error');
         } else {
+            closeModal('contractorModal');
             showToast(isEdit ? 'Contratista editado con éxito.' : 'Contratista creado con éxito.', 'success');
+            loadContractors();
         }
-        loadContractors();
     })
     .catch(() => {
-        showToast('Ocurrió un error al guardar el contratista.', 'error');
+        showToast('Ocurrió un error al conectar con el servidor.', 'error');
     });
 });
 

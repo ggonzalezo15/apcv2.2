@@ -86,40 +86,83 @@ function getVendorById($id) {
 function createVendor() {
     global $pdo;
     $data = json_decode(file_get_contents("php://input"), true);
-    $uuid = uniqid('', true);
     
-    // Convertir status numérico a ENUM
-    $status = isset($data['status']) && $data['status'] == 0 ? 'inactive' : 'active';
-    
-    $stmt = $pdo->prepare("INSERT INTO vendors (id, name, email, phone, address, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())");
-    $stmt->execute([
-        $uuid,
-        $data['name'],
-        $data['email'] ?? null,
-        $data['phone'] ?? null,
-        $data['address'] ?? null,
-        $status
-    ]);
-    echo json_encode(["message" => "Vendor created", "id" => $uuid]);
+    try {
+        // Validar que el nombre no esté vacío
+        if (empty(trim($data['name']))) {
+            echo json_encode(['error' => 'El nombre del proveedor es obligatorio']);
+            return;
+        }
+        
+        // Verificar si ya existe un proveedor con el mismo nombre
+        $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM vendors WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))");
+        $checkStmt->execute([$data['name']]);
+        $count = $checkStmt->fetchColumn();
+        
+        if ($count > 0) {
+            echo json_encode(['error' => 'El nombre de proveedor ya existe']);
+            return;
+        }
+        
+        $uuid = uniqid('', true);
+        
+        // Convertir status numérico a ENUM
+        $status = isset($data['status']) && $data['status'] == 0 ? 'inactive' : 'active';
+        
+        $stmt = $pdo->prepare("INSERT INTO vendors (id, name, email, phone, address, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())");
+        $stmt->execute([
+            $uuid,
+            $data['name'],
+            $data['email'] ?? null,
+            $data['phone'] ?? null,
+            $data['address'] ?? null,
+            $status
+        ]);
+        echo json_encode(["message" => "Vendor created", "id" => $uuid]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['error' => 'Error al crear el proveedor: ' . $e->getMessage()]);
+    }
 }
 
 function updateVendor($id) {
     global $pdo;
     $data = json_decode(file_get_contents("php://input"), true);
     
-    // Convertir status numérico a ENUM
-    $status = isset($data['status']) && $data['status'] == 0 ? 'inactive' : 'active';
-    
-    $stmt = $pdo->prepare("UPDATE vendors SET name = ?, email = ?, phone = ?, address = ?, status = ?, updated_at = NOW() WHERE id = ?");
-    $stmt->execute([
-        $data['name'],
-        $data['email'] ?? null,
-        $data['phone'] ?? null,
-        $data['address'] ?? null,
-        $status,
-        $id
-    ]);
-    echo json_encode(["message" => "Vendor updated"]);
+    try {
+        // Validar que el nombre no esté vacío
+        if (empty(trim($data['name']))) {
+            echo json_encode(['error' => 'El nombre del proveedor es obligatorio']);
+            return;
+        }
+        
+        // Verificar si ya existe otro proveedor con el mismo nombre (excluyendo el actual)
+        $checkStmt = $pdo->prepare("SELECT COUNT(*) FROM vendors WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND id != ?");
+        $checkStmt->execute([$data['name'], $id]);
+        $count = $checkStmt->fetchColumn();
+        
+        if ($count > 0) {
+            echo json_encode(['error' => 'El nombre de proveedor ya existe']);
+            return;
+        }
+        
+        // Convertir status numérico a ENUM
+        $status = isset($data['status']) && $data['status'] == 0 ? 'inactive' : 'active';
+        
+        $stmt = $pdo->prepare("UPDATE vendors SET name = ?, email = ?, phone = ?, address = ?, status = ?, updated_at = NOW() WHERE id = ?");
+        $stmt->execute([
+            $data['name'],
+            $data['email'] ?? null,
+            $data['phone'] ?? null,
+            $data['address'] ?? null,
+            $status,
+            $id
+        ]);
+        echo json_encode(["message" => "Vendor updated"]);
+        
+    } catch (Exception $e) {
+        echo json_encode(['error' => 'Error al actualizar el proveedor: ' . $e->getMessage()]);
+    }
 }
 
 function toggleVendorStatus($id) {

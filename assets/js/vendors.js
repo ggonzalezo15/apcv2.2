@@ -518,16 +518,16 @@ document.getElementById('vendorForm').addEventListener('submit', function(e) {
     })
     .then(res => res.json())
     .then(result => {
-        closeModal('vendorModal');
         if (result && result.error) {
-            showToast('Ocurrió un error al guardar el proveedor.', 'error');
+            showToast(result.error, 'error');
         } else {
+            closeModal('vendorModal');
             showToast(isEdit ? 'Proveedor editado con éxito.' : 'Proveedor creado con éxito.', 'success');
+            loadVendors();
         }
-        loadVendors();
     })
     .catch(() => {
-        showToast('Ocurrió un error al guardar el proveedor.', 'error');
+        showToast('Ocurrió un error al conectar con el servidor.', 'error');
     });
 });
 

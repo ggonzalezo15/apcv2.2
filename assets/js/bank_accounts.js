@@ -847,13 +847,13 @@ document.getElementById('bankAccountForm').addEventListener('submit', function(e
     })
     .then(res => res.json())
     .then(result => {
-        closeModal('bankAccountModal');
         if (result && result.error) {
-            showToast('Ocurrió un error al guardar la cuenta.', 'error');
+            showToast(result.error, 'error');
         } else {
+            closeModal('bankAccountModal');
             showToast(isEdit ? 'Cuenta editada con éxito.' : 'Cuenta creada con éxito.', 'success');
+            loadBankAccounts();
         }
-        loadBankAccounts();
     })
     .catch(() => {
         showToast('Ocurrió un error al guardar la cuenta.', 'error');
