@@ -160,14 +160,8 @@ function renderVendorsTable(vendors) {
             <td>${formatVendorStatus(vendor.status)}</td>
             <td style="text-align: center;">
                 <div style="display: flex; gap: 4px; justify-content: center; align-items: center;">
-                    <button type="button" class="btn-icon" onclick="viewVendor('${vendor.id}')" title="Ver detalles">
-                        <i class="fas fa-eye"></i>
-                    </button>
                     <button type="button" class="btn-icon" onclick="editVendor('${vendor.id}')" title="Editar">
                         <i class="fas fa-edit"></i>
-                    </button>
-                    <button type="button" class="btn-icon ${vendor.status == 1 ? 'btn-warning' : 'btn-success'}" onclick="toggleVendorStatus('${vendor.id}', ${vendor.status})" title="${vendor.status == 1 ? 'Desactivar' : 'Activar'}">
-                        <i class="fas fa-${vendor.status == 1 ? 'ban' : 'check'}"></i>
                     </button>
                     <button type="button" class="btn-icon btn-danger" onclick="deleteVendor('${vendor.id}')" title="Eliminar">
                         <i class="fas fa-trash"></i>

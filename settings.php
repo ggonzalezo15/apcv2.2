@@ -217,6 +217,67 @@ $pageTitle = 'Configuración';
     margin-right: 6px;
 }
 
+/* Estilos para botón outline */
+.btn-outline {
+    background: white;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+}
+
+/* Botones de acciones - Asegurar hover azul consistente */
+.btn-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 6px;
+    background-color: var(--bg-primary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    text-decoration: none;
+}
+
+.btn-action:hover {
+    background-color: var(--primary-color, #2563eb) !important;
+    color: white !important;
+    transform: translateY(-1px);
+}
+
+.btn-action.btn-danger {
+    background-color: rgb(220 38 38 / 0.1);
+    color: var(--danger-color);
+}
+
+.btn-action.btn-danger:hover {
+    background-color: var(--danger-color, #dc2626) !important;
+    color: white !important;
+}
+
+/* Contenedor de botones de acciones */
+.table-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    align-items: center;
+}
+
 /* HR específico para el sidebar interno de configuración */
 .card hr {
     border: none;

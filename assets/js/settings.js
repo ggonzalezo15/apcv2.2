@@ -22,7 +22,7 @@ function loadPaymentTypesSection() {
                         autocomplete="off"
                     >
                     <div class="status-filter-container" style="position: relative;">
-                        <button type="button" class="btn" id="paymentTypesStatusFilterBtn" onclick="togglePaymentTypesStatusFilterDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px;">
+                        <button type="button" class="btn btn-outline" id="paymentTypesStatusFilterBtn" onclick="togglePaymentTypesStatusFilterDropdown()">
                             <i class="fas fa-filter"></i>
                             <span id="paymentTypesStatusFilterText">Todos los estados</span>
                             <i class="fas fa-chevron-down" style="font-size: 12px;"></i>
@@ -221,9 +221,6 @@ function loadPaymentTypesSection() {
                 </td>
                 <td style="text-align: center;">
                     <div style="display: flex; gap: 8px; justify-content: center;">
-                        <button type="button" class="btn-action" onclick="togglePaymentTypeStatus('${type.id}', '${type.name || ''}', '${type.status}')" title="${type.status === 'active' ? 'Desactivar' : 'Activar'}">
-                            <i class="fas fa-${type.status === 'active' ? 'toggle-on' : 'toggle-off'}"></i>
-                        </button>
                         <button type="button" class="btn-action" onclick="editPaymentTypeFromSettings('${type.id}')" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -634,16 +631,17 @@ function loadPaymentTypesSection() {
         
         // Cargar cuentas bancarias y seleccionar la actual
         renderBankAccountsSelect();
-        setTimeout(() => {
-            document.getElementById('paymentTypeBankAccount').value = type.bank_account_id || '';
-        }, 100);
         
         openModal('formModal');
         
         editingPaymentTypeId = type.id;
         
-        // Validación en tiempo real
-        setupPaymentTypeValidation();
+        // Establecer la cuenta bancaria y configurar validación después
+        setTimeout(() => {
+            document.getElementById('paymentTypeBankAccount').value = type.bank_account_id || '';
+            // Configurar validación después de establecer los valores
+            setupPaymentTypeValidation();
+        }, 100);
         
         // Event listener para el switch de estado
         const statusSwitch = document.getElementById('paymentTypeStatus');
@@ -903,7 +901,7 @@ function loadExpenseCategoriesSection() {
                         autocomplete="off"
                     >
                     <div class="status-filter-container" style="position: relative;">
-                        <button type="button" class="btn" id="categoriesStatusFilterBtn" onclick="toggleCategoriesStatusFilterDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px;">
+                        <button type="button" class="btn btn-outline" id="categoriesStatusFilterBtn" onclick="toggleCategoriesStatusFilterDropdown()">
                             <i class="fas fa-filter"></i>
                             <span id="categoriesStatusFilterText">Todos los estados</span>
                             <i class="fas fa-chevron-down" style="font-size: 12px;"></i>
@@ -1100,9 +1098,6 @@ function loadExpenseCategoriesSection() {
                 </td>
                 <td style="text-align: center;">
                     <div style="display: flex; gap: 8px; justify-content: center;">
-                        <button type="button" class="btn-action" onclick="toggleCategoryStatusFromSettings('${category.id}', '${escapeHtml(category.name)}', '${category.status}')" title="${isActive ? 'Desactivar' : 'Activar'}">
-                            <i class="fas ${isActive ? 'fa-toggle-on' : 'fa-toggle-off'}"></i>
-                        </button>
                         <button type="button" class="btn-action" onclick="editCategoryFromSettings('${category.id}')" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -1591,7 +1586,7 @@ function loadExpenseTypesSection() {
                         autocomplete="off"
                     >
                     <div class="status-filter-container" style="position: relative;">
-                        <button type="button" class="btn" id="typesStatusFilterBtn" onclick="toggleTypesStatusFilterDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px;">
+                        <button type="button" class="btn btn-outline" id="typesStatusFilterBtn" onclick="toggleTypesStatusFilterDropdown()">
                             <i class="fas fa-filter"></i>
                             <span id="typesStatusFilterText">Todos los estados</span>
                             <i class="fas fa-chevron-down" style="font-size: 12px;"></i>
@@ -1823,10 +1818,6 @@ function loadExpenseTypesSection() {
                 </td>
                 <td style="text-align: center;">
                     <div style="display: flex; gap: 8px; justify-content: center;">
-                        <label class="switch" title="Cambiar estado">
-                            <input type="checkbox" ${isActive ? 'checked' : ''} onchange="toggleExpenseTypeStatus('${type.id}', '${escapeHtml(type.name || '')}')">
-                            <span class="slider"></span>
-                        </label>
                         <button type="button" class="btn-action" onclick="editExpenseTypeFromSettings('${type.id}')" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>
@@ -2335,7 +2326,7 @@ function loadJobTypesSection() {
                         autocomplete="off"
                     >
                     <div class="status-filter-container" style="position: relative;">
-                        <button type="button" class="btn" id="jobTypesStatusFilterBtn" onclick="toggleJobTypesStatusFilterDropdown()" style="background: var(--bg-secondary); border: 1px solid var(--border-color); display: flex; align-items: center; gap: 8px;">
+                        <button type="button" class="btn btn-outline" id="jobTypesStatusFilterBtn" onclick="toggleJobTypesStatusFilterDropdown()">
                             <i class="fas fa-filter"></i>
                             <span id="jobTypesStatusFilterText">Todos los estados</span>
                             <i class="fas fa-chevron-down" style="font-size: 12px;"></i>
@@ -2533,9 +2524,6 @@ function loadJobTypesSection() {
                 </td>
                 <td style="text-align: center;">
                     <div style="display: flex; gap: 8px; justify-content: center;">
-                        <button type="button" class="btn-action" onclick="toggleJobTypeStatusFromSettings('${type.id}', '${escapeHtml(type.name)}', '${type.status}')" title="${isActive ? 'Desactivar' : 'Activar'}">
-                            <i class="fas ${isActive ? 'fa-toggle-on' : 'fa-toggle-off'}"></i>
-                        </button>
                         <button type="button" class="btn-action" onclick="editJobType('${type.id}')" title="Editar">
                             <i class="fas fa-edit"></i>
                         </button>

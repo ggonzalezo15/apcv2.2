@@ -193,15 +193,15 @@ $pageTitle = 'Gestión de Ingresos';
                     </h3>
                     <div class="form-row-three">
                         <div class="form-group">
-                            <label class="form-label" for="invoiceNumber">Número de Factura *</label>
+                            <label class="form-label" for="invoiceNumber">Número de Factura </label>
                             <input type="text" class="form-input" id="invoiceNumber" required placeholder="Ingrese el número de factura...">
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="incomeDate">Fecha *</label>
+                            <label class="form-label" for="incomeDate">Fecha </label>
                             <input type="text" class="form-input" id="incomeDate" required>
                         </div>
                         <div class="form-group">
-                            <label class="form-label" for="team">Equipo *</label>
+                            <label class="form-label" for="team">Equipo </label>
                             <select id="team" class="form-input" required>
                                 <option value="">Seleccionar equipo...</option>
                             </select>
@@ -247,9 +247,9 @@ $pageTitle = 'Gestión de Ingresos';
                     
                     <div class="income-lines-wrapper">
                         <div class="income-lines-header">
-                            <div class="header-cell type-header">Tipo de Trabajo *</div>
-                            <div class="header-cell units-header">Unidades *</div>
-                            <div class="header-cell price-header">Precio Unit. * (≥0)</div>
+                            <div class="header-cell type-header">Tipo de Trabajo </div>
+                            <div class="header-cell units-header">Unidades </div>
+                            <div class="header-cell price-header">Precio Unit.</div>
                             <div class="header-cell total-header">Total</div>
                             <div class="header-cell actions-header">Acción</div>
                         </div>
@@ -1139,7 +1139,12 @@ $pageTitle = 'Gestión de Ingresos';
 .flatpickr-calendar {
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    z-index: 9999 !important;
+    z-index: 1001 !important; /* Asegurar que esté por encima del dropdown */
+}
+
+/* Evitar que el dropdown se cierre al interactuar con flatpickr */
+.filter-dropdown .flatpickr-calendar {
+    position: fixed !important;
 }
 
 .filter-dropdown .date-picker {
@@ -1770,6 +1775,30 @@ select.form-input.success {
 }
 
 /* Estilos para validación simplificada - solo marcado visual */
+
+/* Número de factura clickeable */
+.clickable-invoice-number {
+    color: var(--primary-color, #2563eb);
+    cursor: pointer;
+    font-weight: 600;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s ease;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.clickable-invoice-number:hover {
+    color: var(--primary-dark, #1d4ed8);
+    background-color: rgba(37, 99, 235, 0.1);
+    border-bottom-color: var(--primary-color, #2563eb);
+    text-decoration: none;
+}
+
+.clickable-invoice-number:active {
+    transform: translateY(1px);
+    background-color: rgba(37, 99, 235, 0.2);
+}
 
 /* Indicadores de campos obligatorios */
 .form-label::after {

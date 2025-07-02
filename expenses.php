@@ -1602,6 +1602,26 @@ $pageTitle = 'Gestión de Gastos';
     opacity: 1;
 }
 
+/* Número de gasto clickeable */
+.clickable-expense-number {
+    color: var(--primary-color);
+    font-weight: bold;
+    cursor: pointer;
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: all 0.2s ease;
+    padding: 2px 4px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+.clickable-expense-number:hover {
+    color: var(--primary-dark);
+    background-color: rgba(37, 99, 235, 0.1);
+    border-bottom-color: var(--primary-color);
+    text-decoration: none;
+}
+
 /* Responsive para dropdowns */
 @media (max-width: 768px) {
     .attachments-dropdown {

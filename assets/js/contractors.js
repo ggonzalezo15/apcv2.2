@@ -165,12 +165,6 @@ function renderContractorsTable(contractors) {
             <td>${statusBadge}</td>
             <td style="vertical-align: middle; text-align: center;">
                 <div style="display: flex; gap: 4px; justify-content: center; align-items: center;">
-                    <button type="button" class="btn-icon" onclick="toggleContractorStatus('${contractor.id}', ${isActive ? 0 : 1}, '${contractor.name}')" title="${isActive ? 'Desactivar' : 'Activar'} contratista">
-                        <i class="fas fa-toggle-${isActive ? 'on' : 'off'}" style="color: ${isActive ? 'var(--success-color)' : 'var(--text-secondary)'}"></i>
-                    </button>
-                    <button type="button" class="btn-icon" onclick="viewContractor('${contractor.id}')" title="Ver detalles">
-                        <i class="fas fa-eye"></i>
-                    </button>
                     <button type="button" class="btn-icon" onclick="editContractor('${contractor.id}')" title="Editar">
                         <i class="fas fa-edit"></i>
                     </button>
@@ -657,3 +651,4 @@ function setupSearchInput() {
         });
     }
 }
+

@@ -210,7 +210,7 @@ function renderBankAccountsTable(accounts) {
         }
         
         tr.innerHTML = `
-            <td><a href="bank_account_detail.php?id=${account.id}" class="account-name-link">${account.name}</a></td>
+            <td><span class="account-name-link" onclick="viewBankAccount('${account.id}')">${account.name}</span></td>
             <td>${account.bank_name}</td>
             <td>${account.account_number}</td>
             <td><span class="account-type-badge account-type-${account.account_type}">${formatAccountType(account.account_type)}</span></td>
@@ -218,16 +218,10 @@ function renderBankAccountsTable(accounts) {
             <td>${formatAccountStatus(account.active)}</td>
             <td class="acciones">
                 <div class="table-actions">
-                    <button type="button" class="btn-action" onclick="viewBankAccount('${account.id}')" title="Ver">
-                        <i class="fas fa-eye"></i>
-                    </button>
                     <button type="button" class="btn-action" onclick="editBankAccount('${account.id}')" title="Editar">
                         <i class="fas fa-edit"></i>
                     </button>
                     ${additionalButtons}
-                    <button type="button" class="btn-action ${account.active == 1 ? 'btn-warning' : 'btn-success'}" onclick="toggleAccountStatus('${account.id}', ${account.active})" title="${account.active == 1 ? 'Desactivar' : 'Activar'}">
-                        <i class="fas fa-${account.active == 1 ? 'ban' : 'check'}"></i>
-                    </button>
                     <button type="button" class="btn-action btn-danger" onclick="deleteBankAccount('${account.id}')" title="Eliminar">
                         <i class="fas fa-trash"></i>
                     </button>
@@ -470,15 +464,81 @@ function handleBalanceBlur() {
     }
 }
 
-// Función para manejar el cambio del switch de estado
+// Función para manejar el cambio del switch de estado con validación
 function handleAccountStatusChange() {
     const accountStatusLabel = document.getElementById('accountStatusLabel');
+    const switch_ = this;
+    
     if (this.checked) {
+        // Activar: permitir sin validación
         accountStatusLabel.textContent = 'Activa';
         accountStatusLabel.style.color = 'var(--success-color)';
     } else {
-        accountStatusLabel.textContent = 'Inactiva';
-        accountStatusLabel.style.color = 'var(--danger-color)';
+        // Desactivar: validar si hay tipos de pago asociados
+        if (!editingBankAccountId) {
+            accountStatusLabel.textContent = 'Inactiva';
+            accountStatusLabel.style.color = 'var(--danger-color)';
+            return;
+        }
+        
+        // Verificar si hay tipos de pago asociados
+        fetch(`${API_URL}?action=toggleAccountStatus&id=${editingBankAccountId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ active: 0 })
+        })
+        .then(res => res.json())
+        .then(result => {
+            if (result && result.error) {
+                // Si hay payment types asociados, no permitir desactivar
+                if (result.details && result.details.payment_types && result.details.payment_types.length > 0) {
+                    // Revertir el switch
+                    switch_.checked = true;
+                    accountStatusLabel.textContent = 'Activa';
+                    accountStatusLabel.style.color = 'var(--success-color)';
+                    
+                    // Mostrar modal de conflicto con payment types
+                    fetch(`${API_URL}?action=getBankAccountById&id=${editingBankAccountId}`)
+                        .then(res => res.json())
+                        .then(account => {
+                            // Cerrar el modal de edición temporalmente
+                            closeModal('bankAccountModal');
+                            // Mostrar el modal de conflicto
+                            setTimeout(() => {
+                                showPaymentTypesConflictModal(result, account);
+                            }, 200);
+                        })
+                        .catch(() => {
+                            showToast('Error al obtener información de la cuenta.', 'error');
+                        });
+                } else {
+                    // Otro tipo de error
+                    switch_.checked = true;
+                    accountStatusLabel.textContent = 'Activa';
+                    accountStatusLabel.style.color = 'var(--success-color)';
+                    const errorMessage = result.message || result.error || 'Error al cambiar el estado de la cuenta.';
+                    showToast(errorMessage, 'error');
+                }
+            } else if (result && result.message) {
+                // Éxito: el cambio se aplicó correctamente
+                accountStatusLabel.textContent = 'Inactiva';
+                accountStatusLabel.style.color = 'var(--danger-color)';
+                showToast('Estado de la cuenta actualizado.', 'success');
+            } else {
+                // Sin respuesta clara: revertir por seguridad
+                switch_.checked = true;
+                accountStatusLabel.textContent = 'Activa';
+                accountStatusLabel.style.color = 'var(--success-color)';
+                showToast('Respuesta inesperada del servidor.', 'error');
+            }
+        })
+        .catch(() => {
+            // Error en la petición: revertir el switch
+            switch_.checked = true;
+            accountStatusLabel.textContent = 'Activa';
+            accountStatusLabel.style.color = 'var(--success-color)';
+            showToast('Error al validar el estado de la cuenta.', 'error');
+        });
     }
 }
 
@@ -1214,6 +1274,17 @@ function openPaymentTypesSettings() {
     closeModal('paymentTypesConflictModal');
     // Redirigir a la página de configuración de tipos de pago
     window.location.href = 'settings.php#payment-types';
+}
+
+// Función para cerrar el modal de conflicto y reabrir el de edición si es necesario
+function closePaymentTypesConflictModal() {
+    closeModal('paymentTypesConflictModal');
+    // Si se está editando una cuenta, reabrir el modal de edición
+    if (editingBankAccountId) {
+        setTimeout(() => {
+            openModal('bankAccountModal');
+        }, 200);
+    }
 }
 
 // --- Funciones para filtro de estado ---

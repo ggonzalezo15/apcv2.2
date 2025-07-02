@@ -296,13 +296,19 @@ $pageTitle = 'Gestión de Proveedores';
 .vendor-name-link {
     color: var(--primary-color);
     text-decoration: none;
-    font-weight: 500;
+    font-weight: 600;
+    border-bottom: 1px solid transparent;
     transition: all 0.2s ease;
+    padding: 2px 4px;
+    border-radius: 4px;
+    cursor: pointer;
 }
 
 .vendor-name-link:hover {
     color: var(--primary-dark, #1d4ed8);
-    text-decoration: underline;
+    background-color: rgba(37, 99, 235, 0.1);
+    border-bottom-color: var(--primary-color);
+    text-decoration: none;
 }
 
 .vendor-name-link:visited {
@@ -377,6 +383,26 @@ input:checked + .slider:before {
 .status-inactive {
     background-color: #fef2f2;
     color: #dc2626;
+}
+
+/* Estilos para botón outline */
+.btn-outline {
+    background: white;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
 }
 
 /* Estilos para filtros */

@@ -586,7 +586,7 @@ function renderExpensesTable(expenses) {
         
         return `
             <tr>
-                <td><strong>${generateExpenseNumber(expense)}</strong></td>
+                <td><span class="clickable-expense-number" onclick="viewExpense('${expense.id}')" title="Click para ver detalles del gasto">${generateExpenseNumber(expense)}</span></td>
                 <td>${formatDate(expense.expense_date)}</td>
                 <td>${escapeHtml(expense.team_name || 'N/A')}</td>
                 <td>${escapeHtml(expense.vendor_name || 'N/A')}</td>
@@ -595,9 +595,6 @@ function renderExpensesTable(expenses) {
                 <td style="text-align: left;">${attachmentIcon}</td>
                 <td style="max-width: 200px;">${notes}</td>
                 <td class="table-actions">
-                    <button onclick="viewExpense('${expense.id}')" class="btn-action" title="Ver detalles">
-                        <i class="fas fa-eye"></i>
-                    </button>
                     <button onclick="editExpense('${expense.id}')" class="btn-action" title="Editar">
                         <i class="fas fa-edit"></i>
                     </button>

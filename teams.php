@@ -194,42 +194,7 @@ $pageTitle = 'Gestión de Equipos';
     </div>
 </div>
 
-<!-- Modal de confirmación de cambio de estado -->
-<div class="modal" id="confirmStatusChangeModal" style="display:none;">
-    <div class="modal-overlay" onclick="closeModal('confirmStatusChangeModal')"></div>
-    <div class="modal-content" style="max-width: 450px;">
-        <div class="modal-header">
-            <h2 id="confirmStatusTitle">Confirmar cambio de estado</h2>
-            <button type="button" class="modal-close" onclick="closeModal('confirmStatusChangeModal')">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="modal-body">
-            <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 16px;">
-                <div style="font-size: 48px; color: var(--warning-color);">
-                    <i class="fas fa-exclamation-triangle"></i>
-                </div>
-                <div>
-                    <p id="confirmStatusMessage" style="margin: 0; font-size: 16px; line-height: 1.4;">
-                        ¿Está seguro de que desea cambiar el estado de este equipo?
-                    </p>
-                    <p id="confirmStatusDetails" style="margin: 8px 0 0 0; font-size: 14px; color: var(--text-secondary);">
-                        
-                    </p>
-                </div>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn" onclick="closeModal('confirmStatusChangeModal')" style="background-color: var(--secondary-color); color: white;">
-                Cancelar
-            </button>
-            <button type="button" class="btn" id="confirmStatusBtn" style="min-width: 100px;">
-                <i id="confirmStatusIcon" class="fas fa-check"></i>
-                <span id="confirmStatusBtnText">Activar</span>
-            </button>
-        </div>
-    </div>
-</div>
+
 
 <!-- Modal de confirmación de eliminación -->
 <div class="modal" id="confirmDeleteModal" style="display:none;">
@@ -360,6 +325,26 @@ input:checked + .slider:before {
 .status-inactive {
     background-color: #fef2f2;
     color: #dc2626;
+}
+
+/* Estilos para botón outline */
+.btn-outline {
+    background: white;
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
 }
 
 /* Estilos para filtros */

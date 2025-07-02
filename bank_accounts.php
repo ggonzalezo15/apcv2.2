@@ -429,11 +429,11 @@ $pageTitle = 'Cuentas Bancarias';
 
 <!-- Modal de conflicto con payment types -->
 <div class="modal" id="paymentTypesConflictModal" style="display:none;">
-    <div class="modal-overlay" onclick="closeModal('paymentTypesConflictModal')"></div>
+    <div class="modal-overlay" onclick="closePaymentTypesConflictModal()"></div>
     <div class="modal-content" style="max-width: 520px;">
         <div class="modal-header">
             <h2>No se puede desactivar la cuenta</h2>
-            <button type="button" class="modal-close" onclick="closeModal('paymentTypesConflictModal')">
+            <button type="button" class="modal-close" onclick="closePaymentTypesConflictModal()">
                 <i class="fas fa-times"></i>
             </button>
         </div>
@@ -467,7 +467,7 @@ $pageTitle = 'Cuentas Bancarias';
             </div>
         </div>
         <div class="modal-footer">
-            <button type="button" class="btn" onclick="closeModal('paymentTypesConflictModal')" style="background-color: var(--secondary-color); color: white;">
+            <button type="button" class="btn" onclick="closePaymentTypesConflictModal()" style="background-color: var(--secondary-color); color: white;">
                 Entendido
             </button>
             <button type="button" class="btn btn-primary" onclick="openPaymentTypesSettings()">
@@ -793,17 +793,28 @@ input:checked + .slider:before {
     font-size: 14px;
 }
 
-/* Estilo para enlaces de nombre de cuenta */
+/* Estilo para enlaces de nombre de cuenta - consistente con incomes y expenses */
 .account-name-link {
-    color: var(--primary-color);
+    color: var(--primary-color, #2563eb);
+    cursor: pointer;
+    font-weight: 600;
     text-decoration: none;
-    font-weight: 500;
+    border-bottom: 1px solid transparent;
     transition: all 0.2s ease;
+    padding: 2px 4px;
+    border-radius: 4px;
 }
 
 .account-name-link:hover {
     color: var(--primary-dark, #1d4ed8);
-    text-decoration: underline;
+    background-color: rgba(37, 99, 235, 0.1);
+    border-bottom-color: var(--primary-color, #2563eb);
+    text-decoration: none;
+}
+
+.account-name-link:active {
+    transform: translateY(1px);
+    background-color: rgba(37, 99, 235, 0.2);
 }
 
 .account-name-link:visited {
