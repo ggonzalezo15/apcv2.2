@@ -488,6 +488,35 @@ function getSessionTimeoutInfo() {
     ];
 }
 
+// Configuración de BackBlaze B2
+define('B2_KEY_ID', '0058ab3df0e6ae30000000009');
+define('B2_APPLICATION_KEY', 'K005gUIaeFIdQOggIlVrHubsVM/rqsA');
+define('B2_BUCKET_NAME', 'apcuadrev2'); // Nombre exacto del bucket
+define('B2_BUCKET_ID', '488a4b93edafd05e967a0e13'); // ID específico del bucket
+define('B2_REGION', 'us-east-005'); // Región específica de tu cuenta
+define('B2_ENDPOINT', 'https://s3.us-east-005.backblazeb2.com'); // Endpoint específico
+
+// Configuración de archivos
+define('ALLOWED_FILE_TYPES', ['image/jpeg', 'image/png', 'application/pdf']);
+define('MAX_FILE_SIZE', 2 * 1024 * 1024); // 2MB
+define('MAX_FILES_PER_EXPENSE', 4);
+define('IMAGE_COMPRESSION_QUALITY', 85);
+
+// Función para obtener configuración de BackBlaze B2
+function getB2Config() {
+    return [
+        'version' => 'latest',
+        'region' => B2_REGION,
+        'endpoint' => B2_ENDPOINT,
+        'credentials' => [
+            'key' => B2_KEY_ID,
+            'secret' => B2_APPLICATION_KEY
+        ],
+        'bucket' => B2_BUCKET_NAME,
+        'bucket_id' => B2_BUCKET_ID
+    ];
+}
+
 // Establecer encabezados de seguridad HTTP automáticamente
 setSecurityHeaders();
 ?>

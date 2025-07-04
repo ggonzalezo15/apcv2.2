@@ -1188,22 +1188,21 @@ function populateViewModal(expense) {
     
     if (expense.lines && expense.lines.length > 0) {
         expense.lines.forEach(line => {
-            const deducibleBadge = line.deducible 
-                ? '<span class="deducible-badge yes">Sí</span>'
-                : '<span class="deducible-badge no">No</span>';
+            const deducibleText = line.deducible ? 'Sí' : 'No';
+            const deducibleClass = line.deducible ? 'yes' : 'no';
                 
             const lineHtml = `
-                <div class="line-item">
+                <div class="expense-line-view">
                     <div class="line-description">${escapeHtml(line.description || 'Sin descripción')}</div>
                     <div class="line-type">${escapeHtml(line.expense_type_name || 'N/A')}</div>
                     <div class="line-amount">$${parseFloat(line.amount || 0).toLocaleString('es-MX', {minimumFractionDigits: 2})}</div>
-                    <div class="line-deducible">${deducibleBadge}</div>
+                    <div class="line-deducible ${deducibleClass}">${deducibleText}</div>
                 </div>
             `;
             linesContainer.insertAdjacentHTML('beforeend', lineHtml);
         });
     } else {
-        linesContainer.innerHTML = '<div class="line-item"><div colspan="4" style="text-align: center; color: var(--text-secondary);">No hay líneas de gasto</div></div>';
+        linesContainer.innerHTML = '<div class="expense-line-view"><div style="text-align: center; color: var(--text-secondary); grid-column: 1 / -1; padding: 20px;">No hay líneas de gasto</div></div>';
     }
     
     // Total
@@ -1266,44 +1265,7 @@ function editExpenseFromView(expenseId = null) {
     }, 300);
 }
 
-function printExpense() {
-    // Crear ventana de impresión
-    const printWindow = window.open('', '_blank');
-    const expenseContent = document.querySelector('.expense-invoice').cloneNode(true);
-    
-    // Remover botones de acción del contenido de impresión
-    const footer = expenseContent.querySelector('.invoice-footer');
-    if (footer) footer.remove();
-    
-    const printContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Detalle de Gasto</title>
-            <style>
-                body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
-                ${document.querySelector('style').textContent}
-                .invoice-header .modal-close { display: none; }
-                @media print {
-                    body { margin: 0; }
-                    .invoice-header { background: #2563eb !important; }
-                }
-            </style>
-        </head>
-        <body>
-            ${expenseContent.outerHTML}
-        </body>
-        </html>
-    `;
-    
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    
-    setTimeout(() => {
-        printWindow.print();
-        printWindow.close();
-    }, 500);
-}
+
 
 // --- Editar gasto ---
 function editExpense(id, readOnly = false) {

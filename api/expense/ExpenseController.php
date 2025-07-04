@@ -43,6 +43,9 @@ switch ($action) {
     case 'getExpenseAttachments':
         getExpenseAttachments($_GET['id'] ?? '');
         break;
+    case 'getExpenseAttachmentsB2':
+        getExpenseAttachmentsB2($_GET['id'] ?? '');
+        break;
     default:
         echo json_encode(['error' => 'Acción no válida']);
 }
@@ -148,10 +151,13 @@ function getExpenseById($id) {
     $stmt = $pdo->prepare("
         SELECT e.*, 
                t.name as team_name, 
-               v.name as vendor_name
+               v.name as vendor_name,
+               ba.name as bank_account_name,
+               ba.account_type as bank_account_type
         FROM expenses e
         LEFT JOIN teams t ON e.team_id = t.id
         LEFT JOIN vendors v ON e.vendor_id = v.id
+        LEFT JOIN bank_accounts ba ON e.bank_account_id = ba.id
         WHERE e.id = ?
     ");
     $stmt->execute([$id]);
@@ -175,12 +181,18 @@ function getExpenseById($id) {
     
     // Obtener los archivos adjuntos
     $stmt = $pdo->prepare("
-        SELECT * FROM expense_attachments 
+        SELECT *, file_key, compressed FROM expense_attachments 
         WHERE expense_id = ?
         ORDER BY created_at
     ");
     $stmt->execute([$id]);
-    $expense['attachments'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $attachments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Convertir el campo compressed a boolean
+    foreach ($attachments as &$attachment) {
+        $attachment['compressed'] = (bool)$attachment['compressed'];
+    }
+    $expense['attachments'] = $attachments;
     
     echo json_encode($expense);
 }
@@ -478,7 +490,7 @@ function updateExpense($id) {
         }
         
         $pdo->commit();
-        echo json_encode(['success' => true, 'message' => 'Gasto actualizado exitosamente']);
+        echo json_encode(['success' => true, 'message' => 'Gasto actualizado exitosamente', 'id' => $id]);
         
     } catch (Exception $e) {
         $pdo->rollBack();
@@ -806,6 +818,35 @@ function getExpenseAttachments($expenseId) {
         ");
         $stmt->execute([$expenseId]);
         $attachments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        echo json_encode($attachments);
+        
+    } catch (Exception $e) {
+        http_response_code(500);
+        echo json_encode(['error' => 'Error al obtener archivos: ' . $e->getMessage()]);
+    }
+}
+
+function getExpenseAttachmentsB2($expenseId) {
+    global $pdo;
+    
+    try {
+        // Obtener los archivos adjuntos del gasto incluyendo información B2
+        $stmt = $pdo->prepare("
+            SELECT id, original_filename, mime_type, file_size, created_at,
+                   file_key, compressed
+            FROM expense_attachments 
+            WHERE expense_id = ? 
+            ORDER BY created_at
+        ");
+        $stmt->execute([$expenseId]);
+        $attachments = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Convertir el campo compressed a boolean
+        foreach ($attachments as &$attachment) {
+            $attachment['compressed'] = (bool)$attachment['compressed'];
+            $attachment['original_name'] = $attachment['original_filename'];
+        }
         
         echo json_encode($attachments);
         

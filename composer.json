@@ -1,5 +1,8 @@
 {
     "require": {
-        "tecnickcom/tcpdf": "^6.10"
+        "tecnickcom/tcpdf": "^6.10",
+        "aws/aws-sdk-php": "^3.0",
+        "spatie/image-optimizer": "^1.7",
+        "intervention/image": "^2.7"
     }
 }

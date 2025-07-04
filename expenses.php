@@ -422,9 +422,6 @@ if (typeof flatpickr === 'undefined') {
                     <button type="button" class="btn btn-primary" onclick="editExpenseFromView()" id="editFromViewBtn">
                         <i class="fas fa-edit"></i> Editar
                     </button>
-                    <button type="button" class="btn" onclick="printExpense()" style="background-color: var(--info-color); color: white;">
-                        <i class="fas fa-print"></i> Imprimir
-                    </button>
                 </div>
             </div>
         </div>
@@ -440,6 +437,7 @@ if (typeof flatpickr === 'undefined') {
 <?php include 'includes/footer.php'; ?>
 
 <script src="assets/js/expenses.js"></script>
+<script src="assets/js/expenses-b2.js"></script>
 
 <style>
 .form-section {
@@ -2032,5 +2030,339 @@ if (typeof flatpickr === 'undefined') {
 
 .active-filter-btn .remove-filter:hover {
     background: rgba(255, 255, 255, 0.5);
+}
+
+/* Estilos para el modal de vista de gasto (estilo factura) */
+.expense-invoice {
+    background: white;
+    padding: 20px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.invoice-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.invoice-title h1 {
+    color: var(--text-primary);
+    font-size: 24px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.expense-number {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--primary-color);
+    background: #f0f8ff;
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: 1px solid var(--primary-color);
+}
+
+.invoice-info {
+    margin-bottom: 30px;
+}
+
+.info-section h3 {
+    color: var(--text-primary);
+    font-size: 16px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.info-item label {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.info-item span {
+    font-size: 14px;
+    color: var(--text-primary);
+    font-weight: 500;
+}
+
+.invoice-lines {
+    margin-bottom: 30px;
+}
+
+.invoice-lines h3 {
+    color: var(--text-primary);
+    font-size: 16px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.lines-table {
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+}
+
+.lines-header {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 0;
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    font-size: 14px;
+    color: var(--text-primary);
+}
+
+.lines-header > div {
+    padding: 12px 16px;
+    border-right: 1px solid var(--border-color);
+}
+
+.lines-header > div:last-child {
+    border-right: none;
+}
+
+.lines-body {
+    display: contents;
+}
+
+.expense-line-view {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
+    gap: 0;
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s ease;
+}
+
+.expense-line-view:hover {
+    background: var(--bg-primary);
+}
+
+.expense-line-view:last-child {
+    border-bottom: none;
+}
+
+.expense-line-view > div {
+    padding: 12px 16px;
+    border-right: 1px solid var(--border-color);
+    font-size: 14px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+}
+
+.expense-line-view > div:last-child {
+    border-right: none;
+}
+
+.expense-line-view .line-description {
+    font-weight: 500;
+}
+
+.expense-line-view .line-type {
+    color: var(--text-secondary);
+}
+
+.expense-line-view .line-amount {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.expense-line-view .line-deductible {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+    text-align: center;
+    max-width: 60px;
+}
+
+.expense-line-view .line-deductible.yes {
+    background: #dcfce7;
+    color: #16a34a;
+}
+
+.expense-line-view .line-deductible.no {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
+.invoice-total {
+    text-align: right;
+    margin-bottom: 30px;
+    padding: 20px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.total-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.total-label {
+    color: var(--text-primary);
+}
+
+.total-amount {
+    color: var(--primary-color);
+    font-size: 20px;
+    font-weight: 700;
+}
+
+.invoice-attachments,
+.invoice-notes {
+    margin-bottom: 30px;
+}
+
+.invoice-attachments h3,
+.invoice-notes h3 {
+    color: var(--text-primary);
+    font-size: 16px;
+    margin-bottom: 15px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+}
+
+.attachments-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.attachment-item {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 14px;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.attachment-item:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.notes-content {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 15px;
+    font-size: 14px;
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+
+.invoice-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+    margin-top: 20px;
+}
+
+.footer-actions {
+    display: flex;
+    gap: 12px;
+}
+
+/* Responsive para el modal de vista */
+@media (max-width: 768px) {
+    .expense-invoice {
+        padding: 15px;
+    }
+    
+    .invoice-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .lines-header,
+    .expense-line-view {
+        grid-template-columns: 1fr;
+    }
+    
+    .lines-header > div,
+    .expense-line-view > div {
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        padding: 8px 12px;
+    }
+    
+    .lines-header > div:last-child,
+    .expense-line-view > div:last-child {
+        border-bottom: none;
+    }
+    
+    .expense-line-view {
+        margin-bottom: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+    }
+    
+    .expense-line-view:hover {
+        background: white;
+    }
+    
+    .invoice-footer {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .footer-actions {
+        width: 100%;
+    }
+    
+    .footer-actions button {
+        flex: 1;
+    }
 }
 </style> 
