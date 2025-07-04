@@ -1,6 +1,9 @@
 <?php
 require_once '../../config.php';
 
+// Verificar autenticación
+checkAPIAuthentication();
+
 header('Content-Type: application/json');
 
 $pdo = getConnection();

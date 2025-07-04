@@ -106,25 +106,51 @@ function preselectVendorAndOpenModal(vendorId) {
 
 // --- Inicializar Flatpickr ---
 function initializeFlatpickr() {
-    // Configuración en español
-    flatpickr.localize(flatpickr.l10ns.es);
+    // Verificar que flatpickr esté disponible
+    if (typeof flatpickr === 'undefined') {
+        console.error('Flatpickr no está disponible en expenses. Esperando...');
+        setTimeout(() => {
+            if (typeof flatpickr !== 'undefined') {
+                initializeFlatpickr();
+            }
+        }, 500);
+        return;
+    }
+
+    // Configuración base
+    const baseConfig = {
+        dateFormat: "Y-m-d",
+        allowInput: true,
+        clickOpens: true
+    };
+    
+    // Configuración para modal
+    const modalConfig = {
+        ...baseConfig,
+        defaultDate: new Date(),
+        allowInput: false
+    };
+    
+    // Configuración para filtros
+    const filterConfig = {
+        ...baseConfig,
+        appendTo: document.body // Renderizar en el body para evitar problemas con el dropdown
+    };
+    
+    // Agregar localización española si está disponible
+    if (flatpickr.l10ns && flatpickr.l10ns.es) {
+        flatpickr.localize(flatpickr.l10ns.es);
+        baseConfig.locale = 'es';
+        modalConfig.locale = 'es';
+        filterConfig.locale = 'es';
+    }
     
     // Date picker para modal
-    flatpickr("#expenseDate", {
-        dateFormat: "Y-m-d",
-        defaultDate: new Date(),
-        locale: "es",
-        allowInput: false,
-        clickOpens: true
-    });
+    flatpickr("#expenseDate", modalConfig);
     
     // Date pickers para filtros con configuración mejorada
     window.dateFromPicker = flatpickr("#dateFromFilter", {
-        dateFormat: "Y-m-d",
-        locale: "es",
-        allowInput: true,
-        clickOpens: true,
-        appendTo: document.body, // Renderizar en el body para evitar problemas con el dropdown
+        ...filterConfig,
         onChange: function(selectedDates, dateStr) {
             tempFilters.dateFrom = dateStr;
             
@@ -149,11 +175,7 @@ function initializeFlatpickr() {
     });
     
     window.dateToPicker = flatpickr("#dateToFilter", {
-        dateFormat: "Y-m-d", 
-        locale: "es",
-        allowInput: true,
-        clickOpens: true,
-        appendTo: document.body, // Renderizar en el body para evitar problemas con el dropdown
+        ...filterConfig,
         onChange: function(selectedDates, dateStr) {
             tempFilters.dateTo = dateStr;
         },

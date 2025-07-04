@@ -1,6 +1,9 @@
 <?php
 require_once '../../config.php';
 
+// Verificar autenticación
+checkAPIAuthentication();
+
 header('Content-Type: application/json');
 
 $pdo = getConnection();
@@ -173,12 +176,8 @@ function getPaymentsByContractor($contractorId) {
     
     // Devolver datos con información de paginación
     echo json_encode([
-        'success' => true,
         'data' => $payments,
-        'total' => intval($totalCount),
-        'page' => $page,
-        'pageSize' => $pageSize,
-        'totalPages' => ceil($totalCount / $pageSize)
+        'total' => intval($totalCount)
     ]);
 }
 

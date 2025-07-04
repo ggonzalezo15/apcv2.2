@@ -32,22 +32,39 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // --- Configuración de Flatpickr ---
 function initializeFlatpickr() {
-    // Configurar date pickers para filtros
-    const dateFromPicker = flatpickr("#dateFromFilter", {
-        locale: "es",
+    // Verificar que flatpickr esté disponible
+    if (typeof flatpickr === 'undefined') {
+        console.error('Flatpickr no está disponible en vendor_details. Esperando...');
+        setTimeout(() => {
+            if (typeof flatpickr !== 'undefined') {
+                initializeFlatpickr();
+            }
+        }, 500);
+        return;
+    }
+
+    // Configuración base para date pickers
+    const baseConfig = {
         dateFormat: "Y-m-d",
         allowInput: true,
-        clickOpens: true,
+        clickOpens: true
+    };
+    
+    // Agregar localización española si está disponible
+    if (flatpickr.l10ns && flatpickr.l10ns.es) {
+        baseConfig.locale = 'es';
+    }
+    
+    // Configurar date pickers para filtros
+    const dateFromPicker = flatpickr("#dateFromFilter", {
+        ...baseConfig,
         onChange: function(selectedDates, dateStr) {
             tempFilters.dateFrom = dateStr;
         }
     });
 
     const dateToPicker = flatpickr("#dateToFilter", {
-        locale: "es", 
-        dateFormat: "Y-m-d",
-        allowInput: true,
-        clickOpens: true,
+        ...baseConfig,
         onChange: function(selectedDates, dateStr) {
             tempFilters.dateTo = dateStr;
         }

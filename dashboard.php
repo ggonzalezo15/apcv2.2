@@ -891,11 +891,16 @@ try {
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
 
 <script>
-// Inicializar Flatpickr para los selectores de fecha
-flatpickr('.flatpickr-date', {
-    dateFormat: 'Y-m-d',
-    allowInput: true
-});
+// Verificar que flatpickr esté disponible antes de usarlo
+if (typeof flatpickr !== 'undefined') {
+    // Inicializar Flatpickr para los selectores de fecha
+    flatpickr('.flatpickr-date', {
+        dateFormat: 'Y-m-d',
+        allowInput: true
+    });
+} else {
+    console.error('Flatpickr no está disponible en dashboard');
+}
 
 // Variables globales
 let incomeExpenseChart;

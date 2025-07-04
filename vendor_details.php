@@ -21,6 +21,18 @@ $pageTitle = 'Detalles del Proveedor';
 <!-- Flatpickr JS -->
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+<script>
+// Verificar que flatpickr esté disponible
+if (typeof flatpickr === 'undefined') {
+    console.error('Flatpickr no está disponible. Recargando la página...');
+    if (!sessionStorage.getItem('flatpickrReload')) {
+        sessionStorage.setItem('flatpickrReload', 'true');
+        window.location.reload();
+    } else {
+        sessionStorage.removeItem('flatpickrReload');
+    }
+}
+</script>
 
 <div class="main-layout">
     <?php include 'includes/sidebar.php'; ?>

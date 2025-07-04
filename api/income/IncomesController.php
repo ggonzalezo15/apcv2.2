@@ -1,6 +1,9 @@
 <?php
 require_once '../../config.php';
 
+// Verificar autenticación
+checkAPIAuthentication();
+
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
@@ -209,14 +212,8 @@ function getIncomes() {
     }
     
     echo json_encode([
-        'success' => true,
         'data' => $incomes,
-        'pagination' => [
-            'current_page' => $page,
-            'total_pages' => ceil($totalRecords / $limit),
-            'total_records' => (int)$totalRecords,
-            'limit' => $limit
-        ]
+        'total' => (int)$totalRecords
     ]);
 }
 
@@ -306,13 +303,10 @@ function getIncome($id) {
     $income['general_note'] = $income['note']; // Mapear note a general_note
     
     echo json_encode([
-        'success' => true,
-        'data' => [
-            'income' => $income,
-            'contractors' => $contractors,
-            'lines' => $lines,
-            'payments' => $payments
-        ]
+        'income' => $income,
+        'contractors' => $contractors,
+        'lines' => $lines,
+        'payments' => $payments
     ]);
 }
 
@@ -689,10 +683,7 @@ function getTeams() {
     $stmt = $pdo->query("SELECT id, name, description FROM teams WHERE status = 'active' ORDER BY name");
     $teams = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    echo json_encode([
-        'success' => true,
-        'data' => $teams
-    ]);
+    echo json_encode($teams);
 }
 
 function getContractors() {
@@ -701,10 +692,7 @@ function getContractors() {
     $stmt = $pdo->query("SELECT id, name, email, phone FROM contractors WHERE status = 'active' ORDER BY name");
     $contractors = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    echo json_encode([
-        'success' => true,
-        'data' => $contractors
-    ]);
+    echo json_encode($contractors);
 }
 
 function getJobTypes() {
@@ -713,10 +701,7 @@ function getJobTypes() {
     $stmt = $pdo->query("SELECT id, name, pay_as_contractor, pay_as_sub_contractor FROM job_types WHERE status = 'active' ORDER BY name");
     $jobTypes = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    echo json_encode([
-        'success' => true,
-        'data' => $jobTypes
-    ]);
+    echo json_encode($jobTypes);
 }
 
 function getPaymentTypes() {
@@ -726,10 +711,7 @@ function getPaymentTypes() {
     $stmt = $pdo->query("SELECT id, name, description FROM payment_types WHERE status = 'active' ORDER BY name");
     $paymentTypes = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    echo json_encode([
-        'success' => true,
-        'data' => $paymentTypes
-    ]);
+    echo json_encode($paymentTypes);
 }
 
 // ============================================================================

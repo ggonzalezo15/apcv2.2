@@ -50,25 +50,51 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // --- Inicializar Flatpickr ---
 function initializeFlatpickr() {
-    // Configuración en español
-    flatpickr.localize(flatpickr.l10ns.es);
+    // Verificar que flatpickr esté disponible
+    if (typeof flatpickr === 'undefined') {
+        console.error('Flatpickr no está disponible en contractor_details. Esperando...');
+        setTimeout(() => {
+            if (typeof flatpickr !== 'undefined') {
+                initializeFlatpickr();
+            }
+        }, 500);
+        return;
+    }
+
+    // Configuración base
+    const baseConfig = {
+        dateFormat: "Y-m-d",
+        allowInput: true,
+        clickOpens: true
+    };
+    
+    // Configuración para modal
+    const modalConfig = {
+        ...baseConfig,
+        defaultDate: new Date(),
+        allowInput: false
+    };
+    
+    // Configuración para filtros
+    const filterConfig = {
+        ...baseConfig,
+        static: true
+    };
+    
+    // Agregar localización española si está disponible
+    if (flatpickr.l10ns && flatpickr.l10ns.es) {
+        flatpickr.localize(flatpickr.l10ns.es);
+        baseConfig.locale = 'es';
+        modalConfig.locale = 'es';
+        filterConfig.locale = 'es';
+    }
     
     // Date picker para modal de pago
-    flatpickr("#paymentDate", {
-        dateFormat: "Y-m-d",
-        defaultDate: new Date(),
-        locale: "es",
-        allowInput: false,
-        clickOpens: true
-    });
+    flatpickr("#paymentDate", modalConfig);
     
     // Date pickers para filtros
     window.dateFromPicker = flatpickr("#dateFromFilter", {
-        dateFormat: "Y-m-d",
-        locale: "es",
-        allowInput: true,
-        clickOpens: true,
-        static: true,
+        ...filterConfig,
         onChange: function(selectedDates, dateStr) {
             tempFilters.dateFrom = dateStr;
             
@@ -86,11 +112,7 @@ function initializeFlatpickr() {
     });
     
     window.dateToPicker = flatpickr("#dateToFilter", {
-        dateFormat: "Y-m-d", 
-        locale: "es",
-        allowInput: true,
-        clickOpens: true,
-        static: true,
+        ...filterConfig,
         onChange: function(selectedDates, dateStr) {
             tempFilters.dateTo = dateStr;
         }
