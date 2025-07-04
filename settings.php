@@ -37,10 +37,12 @@ $pageTitle = 'Configuración';
                                 <i class="fas fa-user"></i>
                                 <span>Perfil</span>
                             </a>
-                            <a href="#" onclick="loadSection('users')" class="config-nav-item" data-section="users">
-                                <i class="fas fa-users"></i>
-                                <span>Usuarios</span>
-                            </a>
+                                            <?php if (isAdmin()): ?>
+                <a href="#" onclick="loadSection('users')" class="config-nav-item" data-section="users">
+                    <i class="fas fa-users"></i>
+                    <span>Usuarios</span>
+                </a>
+                <?php endif; ?>
                             <a href="#" onclick="loadSection('payment_types')" class="config-nav-item" data-section="payment_types">
                                 <i class="fas fa-credit-card"></i>
                                 <span>Tipos de pagos</span>
@@ -435,7 +437,12 @@ function loadSection(section) {
                 loadProfileSection();
                 break;
             case 'users':
+                <?php if (isAdmin()): ?>
                 loadUsersSection();
+                <?php else: ?>
+                showToast('Acceso denegado. Solo administradores pueden acceder a esta sección.', 'error');
+                loadSection('profile');
+                <?php endif; ?>
                 break;
             case 'payment_types':
                 loadPaymentTypesSection();
@@ -639,98 +646,8 @@ function loadProfileSection() {
     });
 }
 
-// SECCIÓN USUARIOS
-function loadUsersSection() {
-    const content = `
-        <div class="card">
-            <div class="card-header">
-                <h3 class="card-title">
-                    <i class="fas fa-users"></i>
-                    Gestión de Usuarios
-                </h3>
-                <p class="card-subtitle">Administrar usuarios del sistema</p>
-            </div>
-            
-            <div style="overflow-x: auto;">
-                <table class="data-table" style="min-width: 700px;">
-                    <thead>
-                        <tr>
-                            <th>Usuario</th>
-                            <th>Email</th>
-                            <th>Estado</th>
-                            <th>Último Acceso</th>
-                            <th style="width: 120px; text-align: center;">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>
-                                <div style="display: flex; align-items: center; gap: 12px;">
-                                    <div style="width: 32px; height: 32px; background: var(--primary-color); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">
-                                        <?php echo strtoupper(substr($_SESSION['username'] ?? 'U', 0, 1)); ?>
-                                    </div>
-                                    <div>
-                                        <div style="font-weight: 500;"><?php echo htmlspecialchars($_SESSION['username'] ?? 'Usuario'); ?></div>
-                                        <div style="font-size: 12px; color: var(--text-secondary);">Administrador</div>
-                                    </div>
-                                </div>
-                            </td>
-                            <td><?php echo htmlspecialchars($_SESSION['email'] ?? 'usuario@ejemplo.com'); ?></td>
-                            <td>
-                                <span style="color: var(--success-color); font-weight: 500;">
-                                    <i class="fas fa-circle" style="font-size: 8px; margin-right: 6px;"></i>
-                                    Activo
-                                </span>
-                            </td>
-                            <td><?php echo date('d/m/Y H:i'); ?></td>
-                            <td style="text-align: center;">
-                                <div style="display: flex; gap: 8px; justify-content: center;">
-                                    <button type="button" class="btn-action" title="Editar" onclick="showToast('Funcionalidad en desarrollo', 'info')">
-                                        <i class="fas fa-edit"></i>
-                                    </button>
-                                    <button type="button" class="btn-action btn-danger" title="Eliminar" onclick="showToast('No se puede eliminar el usuario actual', 'warning')">
-                                        <i class="fas fa-trash"></i>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        
-        <!-- Información del sistema -->
-        <div class="card" style="margin-top: 24px;">
-            <div class="card-header">
-                <h3 class="card-title">
-                    <i class="fas fa-info-circle"></i>
-                    Información del Sistema
-                </h3>
-            </div>
-            <div style="padding: 20px 0;">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
-                    <div style="background: var(--bg-secondary); padding: 16px; border-radius: 8px;">
-                        <h4 style="margin: 0 0 8px 0; color: var(--primary-color);">Usuarios Totales</h4>
-                        <p style="font-size: 24px; font-weight: bold; margin: 0;">1</p>
-                        <p style="font-size: 12px; color: var(--text-secondary); margin: 4px 0 0 0;">Usuario activo</p>
-                    </div>
-                    <div style="background: var(--bg-secondary); padding: 16px; border-radius: 8px;">
-                        <h4 style="margin: 0 0 8px 0; color: var(--success-color);">Sesiones Activas</h4>
-                        <p style="font-size: 24px; font-weight: bold; margin: 0;">1</p>
-                        <p style="font-size: 12px; color: var(--text-secondary); margin: 4px 0 0 0;">Sesión actual</p>
-                    </div>
-                    <div style="background: var(--bg-secondary); padding: 16px; border-radius: 8px;">
-                        <h4 style="margin: 0 0 8px 0; color: var(--warning-color);">Último Backup</h4>
-                        <p style="font-size: 18px; font-weight: bold; margin: 0;">No disponible</p>
-                        <p style="font-size: 12px; color: var(--text-secondary); margin: 4px 0 0 0;">Configurar backup automático</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    document.getElementById('settingsContent').innerHTML = content;
-}
+// SECCIÓN USUARIOS - La funcionalidad completa está en assets/js/settings.js
+// Esta función se delega al JavaScript para manejo dinámico
 
 // Las otras secciones continúan... (payment_types, expense_categories, expense_types)
 // Por brevedad, las implementaré en la siguiente parte del archivo

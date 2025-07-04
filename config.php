@@ -441,6 +441,26 @@ function checkAPIAuthentication() {
     return true;
 }
 
+// Función para verificar si el usuario es administrador
+function isAdmin() {
+    return isset($_SESSION['role']) && $_SESSION['role'] === 'admin';
+}
+
+// Función para verificar acceso de administrador
+function requireAdmin() {
+    if (!isLoggedIn()) {
+        header('Location: auth/login.php');
+        exit;
+    }
+    
+    if (!isAdmin()) {
+        http_response_code(403);
+        die('Acceso denegado. Solo administradores pueden acceder a esta página.');
+    }
+    
+    return true;
+}
+
 // Función para verificar configuración de seguridad de sesiones
 function getSessionSecurityStatus() {
     $cookieParams = session_get_cookie_params();

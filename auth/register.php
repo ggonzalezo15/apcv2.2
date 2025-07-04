@@ -1,11 +1,8 @@
 <?php
 require_once '../config.php';
 
-// Verificar si ya está logueado
-if (isLoggedIn()) {
-    header('Location: ../dashboard.php');
-    exit;
-}
+// Verificar que solo administradores puedan acceder
+requireAdmin();
 
 $error = '';
 $success = '';
@@ -16,12 +13,13 @@ if ($_POST) {
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
+    $role = $_POST['role'] ?? 'user';
     $csrf_token = $_POST['csrf_token'] ?? '';
     
     // Verificar token CSRF
     if (!verifyCSRFToken($csrf_token)) {
         $error = 'Token de seguridad inválido.';
-    } else if (empty($username) || empty($email) || empty($password) || empty($confirm_password)) {
+    } else if (empty($username) || empty($email) || empty($password) || empty($confirm_password) || empty($role)) {
         $error = 'Por favor, completa todos los campos.';
     } else if (strlen($username) < 3) {
         $error = 'El usuario debe tener al menos 3 caracteres.';
@@ -31,6 +29,8 @@ if ($_POST) {
         $error = 'La contraseña debe tener al menos 6 caracteres.';
     } else if ($password !== $confirm_password) {
         $error = 'Las contraseñas no coinciden.';
+    } else if (!in_array($role, ['admin', 'user'])) {
+        $error = 'El rol seleccionado no es válido.';
     } else {
         try {
             $pdo = getConnection();
@@ -45,12 +45,12 @@ if ($_POST) {
                 // Crear usuario
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
                 $insertStmt = $pdo->prepare("
-                    INSERT INTO users (username, email, password, created_at, active) 
-                    VALUES (?, ?, ?, NOW(), 1)
+                    INSERT INTO users (username, email, password, role, created_at, active) 
+                    VALUES (?, ?, ?, ?, NOW(), 1)
                 ");
                 
-                if ($insertStmt->execute([$username, $email, $hashedPassword])) {
-                    $success = 'Cuenta creada exitosamente. Ya puedes iniciar sesión.';
+                if ($insertStmt->execute([$username, $email, $hashedPassword, $role])) {
+                    $success = 'Usuario creado exitosamente. El usuario ya puede iniciar sesión en el sistema.';
                     // Limpiar campos
                     $_POST = [];
                 } else {
@@ -63,7 +63,7 @@ if ($_POST) {
     }
 }
 
-$pageTitle = 'Crear Cuenta';
+$pageTitle = 'Crear Usuario - Panel de Administración';
 ?>
 
 <!DOCTYPE html>
@@ -79,9 +79,9 @@ $pageTitle = 'Crear Cuenta';
     <div class="login-container">
         <form class="login-form" method="POST" action="">
             <div class="login-header">
-                <i class="fas fa-user-plus" style="font-size: 48px; color: var(--primary-color); margin-bottom: 16px;"></i>
-                <h1>Crear Cuenta</h1>
-                <p>Regístrate para acceder al sistema</p>
+                <i class="fas fa-user-shield" style="font-size: 48px; color: var(--primary-color); margin-bottom: 16px;"></i>
+                <h1>Crear Usuario</h1>
+                <p>Panel de administración - Crear nuevo usuario del sistema</p>
             </div>
             
             <?php if ($error): ?>
@@ -134,6 +134,22 @@ $pageTitle = 'Crear Cuenta';
             </div>
             
             <div class="form-group">
+                <label for="role" class="form-label">
+                    <i class="fas fa-shield-alt"></i>
+                    Rol del Usuario
+                </label>
+                <select 
+                    id="role" 
+                    name="role" 
+                    class="form-input" 
+                    required
+                >
+                    <option value="user" <?php echo (($_POST['role'] ?? '') == 'user') ? 'selected' : ''; ?>>Usuario</option>
+                    <option value="admin" <?php echo (($_POST['role'] ?? '') == 'admin') ? 'selected' : ''; ?>>Administrador</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
                 <label for="password" class="form-label">
                     <i class="fas fa-lock"></i>
                     Contraseña
@@ -171,14 +187,16 @@ $pageTitle = 'Crear Cuenta';
             
             <button type="submit" class="btn btn-primary">
                 <i class="fas fa-user-plus"></i>
-                Crear Cuenta
+                Crear Usuario
             </button>
             
             <div style="text-align: center; margin-top: 20px;">
                 <p style="color: var(--text-secondary); font-size: 14px;">
-                    ¿Ya tienes cuenta? 
-                    <a href="login.php" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">
-                        Inicia sesión aquí
+                    Panel de administración del sistema
+                </p>
+                <p style="color: var(--text-secondary); font-size: 12px;">
+                    <a href="../dashboard.php" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">
+                        ← Volver al Dashboard
                     </a>
                 </p>
             </div>

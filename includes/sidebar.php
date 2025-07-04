@@ -70,6 +70,8 @@
                         <span class="nav-text">Seguridad</span>
                     </a>
                 </li>
+                
+
               
                 <li class="nav-item">
                     <a href="settings.php?tab=reports" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'settings.php' && isset($_GET['tab']) && $_GET['tab'] == 'reports') ? 'active' : ''; ?>">

@@ -11,6 +11,14 @@ require_once dirname(__DIR__, 2) . '/config.php';
 // Verificar autenticación para proteger funciones críticas de usuarios
 checkAPIAuthentication();
 
+// Verificar que solo administradores puedan gestionar usuarios
+$adminOnlyActions = ['createUser', 'updateUser', 'deleteUser', 'toggleUserStatus', 'updatePassword'];
+if (in_array($action, $adminOnlyActions) && !isAdmin()) {
+    http_response_code(403);
+    echo json_encode(['error' => 'Acceso denegado. Solo administradores pueden realizar esta acción.']);
+    exit;
+}
+
 // Limpiar buffer
 ob_clean();
 

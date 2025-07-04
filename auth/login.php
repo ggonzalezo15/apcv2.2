@@ -43,7 +43,7 @@ if ($_POST) {
         } else {
             try {
                 $pdo = getConnection();
-                $stmt = $pdo->prepare("SELECT id, username, password, email, active FROM users WHERE username = ? OR email = ?");
+                $stmt = $pdo->prepare("SELECT id, username, password, email, active, role FROM users WHERE username = ? OR email = ?");
                 $stmt->execute([$username, $username]);
                 $user = $stmt->fetch(PDO::FETCH_ASSOC);
                 
@@ -65,6 +65,7 @@ if ($_POST) {
                         $_SESSION['user_id'] = $user['id'];
                         $_SESSION['username'] = $user['username'];
                         $_SESSION['email'] = $user['email'];
+                        $_SESSION['role'] = $user['role'];
                         $_SESSION['login_time'] = time();
                         $_SESSION['last_activity'] = time();
                         
@@ -179,10 +180,10 @@ $pageTitle = 'Iniciar Sesión';
             
             <div style="text-align: center; margin-top: 20px;">
                 <p style="color: var(--text-secondary); font-size: 14px;">
-                    ¿No tienes cuenta? 
-                    <a href="register.php" style="color: var(--primary-color); text-decoration: none; font-weight: 500;">
-                        Regístrate aquí
-                    </a>
+                    Sistema interno de la empresa
+                </p>
+                <p style="color: var(--text-secondary); font-size: 12px;">
+                    Contacta al administrador para obtener acceso
                 </p>
             </div>
         </form>
