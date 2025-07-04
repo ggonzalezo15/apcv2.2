@@ -534,23 +534,22 @@ function deleteExpense($id) {
             }
         }
         
-        // Eliminar archivos adjuntos del sistema de archivos
-        $stmt = $pdo->prepare("SELECT file_path FROM expense_attachments WHERE expense_id = ?");
+        // Eliminar archivos adjuntos (tanto locales como B2)
+        $stmt = $pdo->prepare("SELECT id FROM expense_attachments WHERE expense_id = ?");
         $stmt->execute([$id]);
         $attachments = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
         foreach ($attachments as $attachment) {
-            if (file_exists($attachment['file_path'])) {
-                unlink($attachment['file_path']);
+            try {
+                deleteAttachment($attachment['id']);
+            } catch (Exception $e) {
+                error_log("Error eliminando archivo adjunto {$attachment['id']}: " . $e->getMessage());
+                // Continúa con el siguiente archivo aunque falle uno
             }
         }
         
         // Eliminar transacción bancaria asociada
         $stmt = $pdo->prepare("DELETE FROM transactions WHERE expense_id = ?");
-        $stmt->execute([$id]);
-        
-        // Eliminar archivos adjuntos de la BD
-        $stmt = $pdo->prepare("DELETE FROM expense_attachments WHERE expense_id = ?");
         $stmt->execute([$id]);
         
         // Eliminar líneas de gasto
