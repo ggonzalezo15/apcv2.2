@@ -301,6 +301,53 @@ const useB2Integration = true; // true para B2, false para local
 ### 🎯 Listo para Producción
 El sistema está completamente implementado y probado, incluyendo la corrección crítica de eliminación de attachments.
 
+## 🔍 **Corrección Crítica: Delete Expense con Archivos B2**
+
+### **Problema Identificado**
+La función `deleteExpense()` en `ExpenseController.php` **NO** eliminaba archivos adjuntos del bucket BackBlaze B2:
+- ❌ Solo eliminaba archivos locales con `unlink()`
+- ❌ Archivos B2 quedaban huérfanos en el bucket
+- ❌ Desperdicio de espacio y costos en BackBlaze B2
+
+### **Solución Implementada**
+
+**Antes (Problemático)**:
+```php
+// Solo manejaba archivos locales
+foreach ($attachments as $attachment) {
+    if (file_exists($attachment['file_path'])) {
+        unlink($attachment['file_path']); // ❌ Solo local
+    }
+}
+```
+
+**Después (Corregido)**:
+```php
+// Usa función existente que maneja B2 y locales
+foreach ($attachments as $attachment) {
+    try {
+        deleteAttachment($attachment['id']); // ✅ Maneja B2 y locales
+    } catch (Exception $e) {
+        error_log("Error eliminando archivo: " . $e->getMessage());
+    }
+}
+```
+
+### **Beneficios de la Corrección**
+- ✅ **Eliminación completa**: Archivos B2 se eliminan del bucket
+- ✅ **Ahorro de costos**: No más archivos huérfanos
+- ✅ **Consistencia**: Misma lógica para archivos individuales y gastos completos
+- ✅ **Manejo de errores**: Fallos individuales no afectan la operación completa
+
+### **Flujo Corregido**
+1. Usuario hace clic en "Eliminar" gasto
+2. `deleteExpense()` obtiene IDs de archivos adjuntos
+3. Para cada archivo, llama `deleteAttachment(attachmentId)`
+4. `deleteAttachment()` detecta si es B2 (file_key) o local
+5. Elimina del bucket B2 o del sistema local según corresponda
+6. Elimina registro de base de datos
+7. Elimina gasto y todas sus relaciones
+
 ## Archivos de Limpieza
 Los siguientes archivos temporales fueron eliminados:
 - `test_b2_upload.php`
