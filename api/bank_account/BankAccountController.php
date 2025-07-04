@@ -8,6 +8,9 @@ ob_start();
 
 require_once dirname(__DIR__, 2) . '/config.php';
 
+// Verificar autenticación para proteger gestión de cuentas bancarias
+checkAPIAuthentication();
+
 // Limpiar buffer
 ob_clean();
 

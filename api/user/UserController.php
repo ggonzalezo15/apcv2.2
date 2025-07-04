@@ -8,6 +8,9 @@ ob_start();
 
 require_once dirname(__DIR__, 2) . '/config.php';
 
+// Verificar autenticación para proteger funciones críticas de usuarios
+checkAPIAuthentication();
+
 // Limpiar buffer
 ob_clean();
 

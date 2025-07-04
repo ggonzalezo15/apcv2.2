@@ -6,6 +6,9 @@ ini_set('display_errors', 0);
 
 require_once '../../config.php';
 
+// Verificar autenticación para proteger gestión de tipos de gastos
+checkAPIAuthentication();
+
 header('Content-Type: application/json');
 header('Cache-Control: no-cache, must-revalidate');
 

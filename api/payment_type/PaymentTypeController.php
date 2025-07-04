@@ -2,13 +2,10 @@
 // Controlador para payment_types CRUD
 require_once '../../config.php';
 
-header('Content-Type: application/json; charset=utf-8');
+// Verificar autenticación para proteger gestión de tipos de pago
+checkAPIAuthentication();
 
-if (!isLoggedIn()) {
-    http_response_code(401);
-    echo json_encode(['error' => 'No autorizado']);
-    exit;
-}
+header('Content-Type: application/json; charset=utf-8');
 
 $pdo = getConnection();
 $method = $_SERVER['REQUEST_METHOD'];

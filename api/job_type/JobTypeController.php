@@ -1,6 +1,9 @@
 <?php
 require_once '../../config.php';
 
+// Verificar autenticación para proteger gestión de tipos de trabajo
+checkAPIAuthentication();
+
 header('Content-Type: application/json');
 
 $pdo = getConnection();
