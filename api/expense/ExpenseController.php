@@ -744,15 +744,35 @@ function deleteAttachment($attachmentId) {
     global $pdo;
     
     try {
-        // Obtener información del archivo
-        $stmt = $pdo->prepare("SELECT file_path FROM expense_attachments WHERE id = ?");
+        // Obtener información completa del archivo
+        $stmt = $pdo->prepare("SELECT file_path, file_key FROM expense_attachments WHERE id = ?");
         $stmt->execute([$attachmentId]);
         $attachment = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($attachment) {
-            // Eliminar archivo físico si existe
-            if (file_exists($attachment['file_path'])) {
-                unlink($attachment['file_path']);
+            // Verificar si es un archivo B2 (tiene file_key)
+            if (!empty($attachment['file_key'])) {
+                // Eliminar de BackBlaze B2
+                require_once '../../includes/B2FileUploader.php';
+                
+                try {
+                    $uploader = new B2FileUploader();
+                    $result = $uploader->deleteFile($attachment['file_key']);
+                    
+                    if (!$result['success']) {
+                        error_log("Error eliminando archivo de B2: " . ($result['error'] ?? 'Unknown error'));
+                        // Continúa para eliminar el registro de BD aunque falle B2
+                    }
+                } catch (Exception $e) {
+                    error_log("Error conectando con B2 para eliminar archivo: " . $e->getMessage());
+                    // Continúa para eliminar el registro de BD aunque falle B2
+                }
+            } else {
+                // Eliminar archivo local si existe
+                $filePath = '../../' . $attachment['file_path']; // Ajustar ruta desde api/expense/
+                if (file_exists($filePath)) {
+                    unlink($filePath);
+                }
             }
             
             // Eliminar registro de la base de datos
@@ -761,6 +781,7 @@ function deleteAttachment($attachmentId) {
         }
     } catch (Exception $e) {
         error_log("Error eliminando archivo adjunto: " . $e->getMessage());
+        throw $e; // Re-lanzar la excepción para que el proceso padre pueda manejarla
     }
 }
 

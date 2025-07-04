@@ -293,6 +293,23 @@ function deleteMarkedAttachments() {
     return Promise.all(promises);
 }
 
+// --- Eliminar attachment existente (versión B2) ---
+window.removeExistingAttachment = function(attachmentId) {
+    // Marcar para eliminación
+    if (!window.attachmentsToDelete) {
+        window.attachmentsToDelete = [];
+    }
+    window.attachmentsToDelete.push(attachmentId);
+    
+    // Remover del DOM
+    const attachmentElement = document.querySelector(`[onclick*="${attachmentId}"]`).closest('.attachment-item-preview');
+    if (attachmentElement) {
+        attachmentElement.remove();
+    }
+    
+    showToast('Archivo marcado para eliminación', 'info');
+};
+
 // --- Mostrar progreso de upload ---
 function showUploadProgress(show) {
     const submitBtn = document.querySelector('#expenseModal .btn-primary');

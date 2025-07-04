@@ -283,7 +283,7 @@ class B2FileUploader {
             $compressedSize = filesize($processedFilePath);
             
             // Usar archivo comprimido solo si es significativamente más pequeño
-            if ($compressedSize < $originalSize * 0.8) {
+            if ($compressedSize < $originalSize * 0.9) {
                 return [
                     'success' => true,
                     'file_path' => $processedFilePath,

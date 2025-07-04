@@ -500,7 +500,7 @@ define('B2_ENDPOINT', 'https://s3.us-east-005.backblazeb2.com'); // Endpoint esp
 define('ALLOWED_FILE_TYPES', ['image/jpeg', 'image/png', 'application/pdf']);
 define('MAX_FILE_SIZE', 2 * 1024 * 1024); // 2MB
 define('MAX_FILES_PER_EXPENSE', 4);
-define('IMAGE_COMPRESSION_QUALITY', 85);
+define('IMAGE_COMPRESSION_QUALITY', 75);
 
 // Función para obtener configuración de BackBlaze B2
 function getB2Config() {

@@ -176,4 +176,135 @@ Asegúrate de que la tabla `expense_attachments` tenga las columnas:
 
 La integración ha sido diseñada para ser **transparente** al usuario. El sistema funciona exactamente igual que antes, pero ahora con todas las ventajas de BackBlaze B2.
 
-Si necesitas ajustes adicionales o tienes preguntas específicas, toda la funcionalidad está documentada y es fácilmente extensible. 
+Si necesitas ajustes adicionales o tienes preguntas específicas, toda la funcionalidad está documentada y es fácilmente extensible.
+
+### ✅ Eliminación de Attachments - CORRECCIÓN IMPLEMENTADA
+
+#### **Problema Identificado**
+La eliminación de attachments en el modal de edición no estaba completamente integrada con BackBlaze B2:
+- ❌ Faltaba función `removeExistingAttachment()` en expenses-b2.js
+- ❌ `deleteAttachment()` en ExpenseController.php solo eliminaba archivos locales
+
+#### **Solución Implementada**
+
+1. **Frontend (expenses-b2.js)**:
+   ```javascript
+   // Nueva función para eliminar attachments existentes en B2
+   window.removeExistingAttachment = function(attachmentId) {
+       if (!window.attachmentsToDelete) {
+           window.attachmentsToDelete = [];
+       }
+       window.attachmentsToDelete.push(attachmentId);
+       
+       const attachmentElement = document.querySelector(`[onclick*="${attachmentId}"]`).closest('.attachment-item-preview');
+       if (attachmentElement) {
+           attachmentElement.remove();
+       }
+       
+       showToast('Archivo marcado para eliminación', 'info');
+   };
+   ```
+
+2. **Backend (ExpenseController.php)**:
+   ```php
+   function deleteAttachment($attachmentId) {
+       // Detecta automáticamente si es archivo B2 (tiene file_key) o local
+       if (!empty($attachment['file_key'])) {
+           // Elimina de BackBlaze B2 usando B2FileUploader
+           $uploader = new B2FileUploader();
+           $result = $uploader->deleteFile($attachment['file_key']);
+       } else {
+           // Elimina archivo local
+           unlink($filePath);
+       }
+       // Elimina registro de base de datos
+   }
+   ```
+
+#### **Flujo de Eliminación Completo**
+1. Usuario hace clic en "❌" en attachment del modal de edición
+2. `removeExistingAttachment()` marca el ID para eliminación
+3. Al guardar el gasto, se envía `delete_attachments` al backend
+4. `ExpenseController.php` llama `deleteAttachment()` para cada ID
+5. `deleteAttachment()` detecta si es B2 o local y elimina correctamente
+6. Se elimina de B2 bucket AND de la base de datos
+
+### ✅ Seguridad
+- Validación de tipos de archivo
+- Límites de tamaño y cantidad
+- URLs firmadas con expiración
+- Verificación de autenticación
+
+### ✅ Interfaz de Usuario
+- Drag & drop para upload
+- Indicadores de progreso
+- Badges de compresión
+- Iconos por tipo de archivo
+- Mensajes de error/éxito
+- Diseño responsive
+
+## Configuración Requerida
+
+### BackBlaze B2
+```php
+// config.php
+define('B2_KEY_ID', 'tu_key_id');
+define('B2_APPLICATION_KEY', 'tu_application_key');
+define('B2_BUCKET_NAME', 'tu_bucket_name');
+define('B2_REGION', 'us-east-005');
+define('B2_ENDPOINT', 's3.us-east-005.backblazeb2.com');
+```
+
+### Base de Datos
+```sql
+-- Columnas agregadas a expense_attachments
+ALTER TABLE expense_attachments 
+ADD COLUMN file_key VARCHAR(500) NULL,
+ADD COLUMN compressed TINYINT(1) DEFAULT 0;
+```
+
+## Uso del Sistema
+
+### Activar/Desactivar B2
+```javascript
+// En expenses.php, cambiar esta variable:
+const useB2Integration = true; // true para B2, false para local
+```
+
+### Upload de Archivos
+1. Abrir modal crear/editar gasto
+2. Arrastrar archivos o hacer clic en "Seleccionar archivos"
+3. Los archivos se validan y procesan automáticamente
+4. Imágenes se comprimen si es necesario
+5. Al guardar el gasto, se suben a B2
+
+### Visualización de Archivos
+- **En tabla**: Badge con número de archivos
+- **Dropdown**: Lista completa con iconos y tamaños
+- **Modal vista**: Lista detallada con badges de compresión
+
+### Eliminación de Archivos
+- **En modal edición**: Hacer clic en ❌ para marcar eliminación
+- **Al guardar**: Se eliminan tanto de B2 como de la base de datos
+
+## Estados del Sistema
+
+### ✅ Completamente Funcional
+- Upload multiple con validación
+- Compresión de imágenes
+- Organización por años
+- Visualización completa
+- **Eliminación integrada B2/local**
+- URLs firmadas
+- Integración seamless con expenses.php
+
+### 🎯 Listo para Producción
+El sistema está completamente implementado y probado, incluyendo la corrección crítica de eliminación de attachments.
+
+## Archivos de Limpieza
+Los siguientes archivos temporales fueron eliminados:
+- `test_b2_upload.php`
+- `simple_test.php`
+- `migrate_b2_columns.php`
+- `check_image_dependencies.php`
+- Y otros archivos de prueba... 
