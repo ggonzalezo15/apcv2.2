@@ -85,7 +85,12 @@ function updateSortIcons() {
 
 function loadVendors(page = 1) {
     currentPage = page;
-    setTableLoading(true);
+    
+    // Usar el nuevo sistema de loading universal
+    showTableLoading('vendorsTable', 'Cargando proveedores...', 'overlay');
+    
+    // Deshabilitar controles durante la carga
+    setPaginationLoading('vendorsPagination', true);
     
     let url = `${API_URL}?action=getAllVendors&limit=${pageSize}&offset=${(page-1)*pageSize}&sort=${sortField}&dir=${sortDir}`;
     
@@ -108,23 +113,27 @@ function loadVendors(page = 1) {
             // Actualizar iconos de ordenamiento
             updateSortIcons();
         })
-        .catch(() => {
-            document.getElementById('vendorsTableBody').innerHTML = '<tr><td colspan="6">Error al cargar proveedores</td></tr>';
+        .catch(error => {
+            console.error('Error loading vendors:', error);
+            showErrorTableState('vendorsTable', 'Error al cargar proveedores. Por favor, intente nuevamente.', 'loadVendors()');
             const footerContainer = document.getElementById('vendorsTableFooter');
             if (footerContainer) {
                 footerContainer.style.display = 'none';
             }
         })
-        .finally(() => setTableLoading(false));
+        .finally(() => {
+            // Ocultar loading y rehabilitar controles
+            hideTableLoading('vendorsTable');
+            setPaginationLoading('vendorsPagination', false);
+        });
 }
 
+// Función de compatibilidad con código existente
 function setTableLoading(loading) {
-    const tbody = document.getElementById('vendorsTableBody');
     if (loading) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:40px 0;">
-            <div class="loading-spinner"></div>
-            <span style="display:block; margin-top:8px; color:var(--text-secondary);">Cargando proveedores...</span>
-        </td></tr>`;
+        showTableLoading('vendorsTable', 'Cargando proveedores...', 'inline');
+    } else {
+        hideTableLoading('vendorsTable');
     }
 }
 
@@ -142,7 +151,10 @@ function renderVendorsTable(vendors) {
     const tbody = document.getElementById('vendorsTableBody');
     tbody.innerHTML = '';
     if (!vendors.length) {
-        tbody.innerHTML = '<tr><td colspan="6">No hay proveedores registrados</td></tr>';
+        showEmptyTableState('vendorsTable', 
+            'No hay proveedores registrados', 
+            'fas fa-store', 
+            'Comience agregando su primer proveedor haciendo clic en "Nuevo Proveedor".');
         return;
     }
     

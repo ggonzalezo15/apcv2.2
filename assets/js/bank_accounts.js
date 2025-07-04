@@ -86,7 +86,12 @@ renderPageSizeSelector();
 
 function loadBankAccounts(page = 1) {
     currentPage = page;
-    setTableLoading(true);
+    
+    // Usar el nuevo sistema de loading universal
+    showTableLoading('bankAccountsTable', 'Cargando cuentas bancarias...', 'overlay');
+    
+    // Deshabilitar controles durante la carga
+    setPaginationLoading('bankAccountsPagination', true);
     
     let url = `${API_URL}?action=getAllBankAccounts&limit=${pageSize}&offset=${(page-1)*pageSize}&sort=${sortField}&dir=${sortDir}`;
     
@@ -123,23 +128,27 @@ function loadBankAccounts(page = 1) {
             // Actualizar iconos de ordenamiento
             updateSortIcons();
         })
-        .catch(() => {
-            document.getElementById('bankAccountsTableBody').innerHTML = '<tr><td colspan="7">Error al cargar cuentas</td></tr>';
+        .catch(error => {
+            console.error('Error loading bank accounts:', error);
+            showErrorTableState('bankAccountsTable', 'Error al cargar cuentas bancarias. Por favor, intente nuevamente.', 'loadBankAccounts()');
             const footerContainer = document.getElementById('bankAccountsTableFooter');
             if (footerContainer) {
                 footerContainer.style.display = 'none';
             }
         })
-        .finally(() => setTableLoading(false));
+        .finally(() => {
+            // Ocultar loading y rehabilitar controles
+            hideTableLoading('bankAccountsTable');
+            setPaginationLoading('bankAccountsPagination', false);
+        });
 }
 
+// Función de compatibilidad con código existente
 function setTableLoading(loading) {
-    const tbody = document.getElementById('bankAccountsTableBody');
     if (loading) {
-                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:40px 0;">
-            <div class="loading-spinner"></div>
-            <span style="display:block; margin-top:8px; color:var(--text-secondary);">Cargando cuentas...</span>
-        </td></tr>`;
+        showTableLoading('bankAccountsTable', 'Cargando cuentas bancarias...', 'inline');
+    } else {
+        hideTableLoading('bankAccountsTable');
     }
 }
 

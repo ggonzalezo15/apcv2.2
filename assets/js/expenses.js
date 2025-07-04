@@ -518,7 +518,13 @@ function renderPagination() {
 // --- Cargar gastos ---
 function loadExpenses(page = 1) {
     currentPage = page;
-    setTableLoading(true);
+    
+    // Usar el nuevo sistema de loading universal
+    showTableLoading('expensesTable', 'Cargando gastos...', 'overlay');
+    
+    // Deshabilitar controles durante la carga
+    setPaginationLoading('expensesPagination', true);
+    setFilterLoading('searchFilters', true);
     
     let url = `${API_URL}?action=getAllExpenses&limit=${pageSize}&offset=${(page-1)*pageSize}&sort=${sortField}&dir=${sortDir}`;
     
@@ -527,8 +533,6 @@ function loadExpenses(page = 1) {
     if (currentFilters.vendor) url += `&vendor=${encodeURIComponent(currentFilters.vendor)}`;
     if (currentFilters.dateFrom) url += `&dateFrom=${encodeURIComponent(currentFilters.dateFrom)}`;
     if (currentFilters.dateTo) url += `&dateTo=${encodeURIComponent(currentFilters.dateTo)}`;
-    
-
     
     fetch(url)
         .then(res => res.json())
@@ -545,17 +549,25 @@ function loadExpenses(page = 1) {
             // Actualizar iconos de ordenamiento
             updateSortIcons();
         })
-        .catch(() => {
-            document.getElementById('expensesTableBody').innerHTML = '<tr><td colspan="8">Error al cargar gastos</td></tr>';
+        .catch(error => {
+            console.error('Error loading expenses:', error);
+            showErrorTableState('expensesTable', 'Error al cargar gastos. Por favor, intente nuevamente.', 'loadExpenses()');
             document.getElementById('totalExpenses').textContent = '0';
         })
-        .finally(() => setTableLoading(false));
+        .finally(() => {
+            // Ocultar loading y rehabilitar controles
+            hideTableLoading('expensesTable');
+            setPaginationLoading('expensesPagination', false);
+            setFilterLoading('searchFilters', false);
+        });
 }
 
+// Función de compatibilidad con código existente
 function setTableLoading(loading) {
-    const tbody = document.getElementById('expensesTableBody');
     if (loading) {
-        tbody.innerHTML = '<tr><td colspan="8"><div class="loading-spinner">Cargando...</div></td></tr>';
+        showTableLoading('expensesTable', 'Cargando gastos...', 'inline');
+    } else {
+        hideTableLoading('expensesTable');
     }
 }
 
@@ -565,17 +577,21 @@ function renderExpensesTable(expenses) {
     
     if (!expenses || expenses.length === 0) {
         // Determinar mensaje apropiado basado en filtros activos
-        let message = 'No hay gastos registrados';
-        
         const hasActiveFilters = currentFilters.team || currentFilters.vendor || 
                                currentFilters.dateFrom || currentFilters.dateTo || 
                                currentFilters.search;
         
         if (hasActiveFilters) {
-            message = 'No se encontraron gastos que coincidan con los filtros aplicados';
+            showEmptyTableState('expensesTable', 
+                'No se encontraron gastos', 
+                'fas fa-search', 
+                'No hay gastos que coincidan con los filtros aplicados. Intente modificar los criterios de búsqueda.');
+        } else {
+            showEmptyTableState('expensesTable', 
+                'No hay gastos registrados', 
+                'fas fa-receipt', 
+                'Comience creando su primer gasto haciendo clic en "Nuevo Gasto".');
         }
-        
-        tbody.innerHTML = `<tr><td colspan="9" class="text-center text-muted" style="padding: 40px 20px;">${message}</td></tr>`;
         return;
     }
     

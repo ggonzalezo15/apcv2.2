@@ -482,4 +482,5 @@ input:checked + .slider:before {
 
 <?php include 'includes/footer.php'; ?>
 
+<script src="assets/js/table-loading.js"></script>
 <script src="assets/js/vendors.js"></script>

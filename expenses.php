@@ -436,6 +436,7 @@ if (typeof flatpickr === 'undefined') {
 
 <?php include 'includes/footer.php'; ?>
 
+<script src="assets/js/table-loading.js"></script>
 <script src="assets/js/expenses.js"></script>
 <script src="assets/js/expenses-b2.js"></script>
 

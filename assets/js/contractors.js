@@ -92,7 +92,12 @@ function updateSortIcons() {
 
 function loadContractors(page = 1) {
     currentPage = page;
-    setTableLoading(true);
+    
+    // Usar el nuevo sistema de loading universal
+    showTableLoading('contractorsTable', 'Cargando contratistas...', 'overlay');
+    
+    // Deshabilitar controles durante la carga
+    setPaginationLoading('contractorsPagination', true);
     
     // Construir URL con filtros
     let url = `${API_URL}?action=getAllContractors&limit=${pageSize}&offset=${(page-1)*pageSize}&sort=${sortField}&dir=${sortDir}`;
@@ -119,19 +124,23 @@ function loadContractors(page = 1) {
             // Actualizar iconos de ordenamiento
             updateSortIcons();
         })
-        .catch(() => {
-            document.getElementById('contractorsTableBody').innerHTML = '<tr><td colspan="6">Error al cargar contratistas</td></tr>';
+        .catch(error => {
+            console.error('Error loading contractors:', error);
+            showErrorTableState('contractorsTable', 'Error al cargar contratistas. Por favor, intente nuevamente.', 'loadContractors()');
         })
-        .finally(() => setTableLoading(false));
+        .finally(() => {
+            // Ocultar loading y rehabilitar controles
+            hideTableLoading('contractorsTable');
+            setPaginationLoading('contractorsPagination', false);
+        });
 }
 
+// Función de compatibilidad con código existente
 function setTableLoading(loading) {
-    const tbody = document.getElementById('contractorsTableBody');
     if (loading) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:40px 0;">
-            <div class="loading-spinner"></div>
-            <span style="display:block; margin-top:8px; color:var(--text-secondary);">Cargando contratistas...</span>
-        </td></tr>`;
+        showTableLoading('contractorsTable', 'Cargando contratistas...', 'inline');
+    } else {
+        hideTableLoading('contractorsTable');
     }
 }
 

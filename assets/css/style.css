@@ -946,17 +946,178 @@ aside.sidebar hr,
     gap: 20px;
 }
 
+/* ==============================================
+   SISTEMA DE LOADING UNIVERSAL PARA TABLAS
+   ============================================== */
+
+/* Overlay para tablas con loading */
+.table-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(2px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100;
+    border-radius: 8px;
+    transition: opacity 0.3s ease;
+}
+
+/* Contenedor de tabla con loading */
+.table-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+}
+
+/* Spinner moderno y elegante */
+.modern-spinner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 40px 20px;
+}
+
+.spinner-circle {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--border-color);
+    border-top: 3px solid var(--primary-color);
+    border-radius: 50%;
+    animation: modernSpin 1s linear infinite;
+}
+
+.spinner-dots {
+    display: flex;
+    gap: 6px;
+}
+
+.spinner-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    animation: dotPulse 1.4s ease-in-out infinite both;
+}
+
+.spinner-dot:nth-child(1) { animation-delay: -0.32s; }
+.spinner-dot:nth-child(2) { animation-delay: -0.16s; }
+.spinner-dot:nth-child(3) { animation-delay: 0s; }
+
+.spinner-text {
+    font-size: 14px;
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-align: center;
+    margin-top: 8px;
+}
+
+/* Animaciones */
+@keyframes modernSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+@keyframes dotPulse {
+    0%, 80%, 100% {
+        transform: scale(0.6);
+        opacity: 0.3;
+    }
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+/* Versión simple del spinner para uso en celdas */
 .loading-spinner {
     display: flex;
     align-items: center;
-    gap: 15px;
-    font-size: 18px;
+    justify-content: center;
+    gap: 12px;
+    font-size: 14px;
+    color: var(--text-secondary);
+    padding: 30px 20px;
+}
+
+.loading-spinner .spinner-circle {
+    width: 24px;
+    height: 24px;
+    border-width: 2px;
+}
+
+.loading-spinner .spinner-text {
+    font-size: 14px;
+    margin-top: 0;
+}
+
+/* Estados para tablas */
+.table-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--text-secondary);
+    text-align: center;
+}
+
+.table-state-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.3;
+}
+
+.table-state-message {
+    font-size: 16px;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.table-state-description {
+    font-size: 14px;
+    opacity: 0.8;
+}
+
+/* Mejoras específicas para diferentes tipos de loading */
+.loading-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
     color: var(--text-secondary);
 }
 
-.loading-spinner i {
-    font-size: 24px;
-    color: var(--primary-color);
+.loading-inline .spinner-circle {
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .modern-spinner {
+        padding: 30px 15px;
+        gap: 12px;
+    }
+    
+    .spinner-circle {
+        width: 32px;
+        height: 32px;
+    }
+    
+    .table-state {
+        padding: 40px 15px;
+    }
+    
+    .table-state-icon {
+        font-size: 36px;
+    }
 }
 
 /* Security Dashboard Layout */
