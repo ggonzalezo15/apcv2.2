@@ -682,17 +682,46 @@ try {
 
         <!-- Nueva fila de 3 cards -->
         <div class="dashboard-cards" style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; margin-bottom: 30px;">
-            <!-- Gráfico de Ingresos vs Gastos -->
+            <!-- Balances de Cuentas (movido desde abajo) -->
             <div class="card dashboard-card" style="grid-column: 1;">
                 <div class="card-header">
                     <h3 class="card-title">
-                        <i class="fas fa-chart-bar"></i>
-                        Ingresos vs Gastos
+                        <i class="fas fa-university"></i>
+                        Balances de Cuentas
                     </h3>
                 </div>
                 
-                <div style="padding: 20px; height: calc(100% - 56px); display: flex; flex-direction: column;">
-                    <canvas id="incomeExpenseChart" style="width: 100%; max-height: 300px;"></canvas>
+                <div style="padding: 10px 0 0 0; height: 100%; display: flex; flex-direction: column;">
+                    <div style="flex: 1; overflow-y: auto; max-height: 300px;">
+                        <?php foreach ($bankAccounts as $account): ?>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border-color);">
+                            <div style="flex: 1; min-width: 0;">
+                                <div style="font-weight: 500; margin-bottom: 3px; font-size: 14px;"><?php echo htmlspecialchars($account['name']); ?></div>
+                                <div style="display: flex; align-items: center; gap: 8px; font-size: 10px; color: var(--text-secondary);">
+                                    <span><?php echo htmlspecialchars($account['bank_name']); ?></span>
+                                    <span style="color: var(--text-muted);">•</span>
+                                    <span style="color: var(--text-muted);"><?php echo ucfirst($account['account_type']); ?></span>
+                                </div>
+                            </div>
+                            <div style="text-align: right; margin-left: 8px;">
+                                <div style="font-size: 16px; font-weight: bold; color: <?php echo $account['balance'] >= 0 ? 'var(--success-color)' : 'var(--danger-color)'; ?>;">
+                                    $<?php echo number_format($account['balance'], 2); ?>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                        
+                        <?php if (empty($bankAccounts)): ?>
+                        <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
+                            <i class="fas fa-university" style="font-size: 32px; margin-bottom: 12px;"></i>
+                            <p>No hay cuentas bancarias</p>
+                            <a href="bank_accounts.php" class="btn btn-primary" style="margin-top: 12px; font-size: 12px; padding: 6px 12px;">
+                                <i class="fas fa-plus"></i>
+                                Agregar
+                            </a>
+                        </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
 
@@ -836,47 +865,18 @@ try {
             </div>
         </div>
 
-        <!-- Grid de Cuentas Bancarias -->
+        <!-- Gráfico de Ingresos vs Gastos (movido desde arriba) -->
         <div class="dashboard-content" style="display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 30px;">
-            <!-- Balances de Cuentas -->
             <div class="card">
                 <div class="card-header">
                     <h3 class="card-title">
-                        <i class="fas fa-university"></i>
-                        Balances de Cuentas
+                        <i class="fas fa-chart-bar"></i>
+                        Ingresos vs Gastos
                     </h3>
                 </div>
                 
-                <div style="padding: 10px 0;">
-                    <?php foreach ($bankAccounts as $account): ?>
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border-color);">
-                        <div>
-                            <div style="font-weight: 500; margin-bottom: 4px;"><?php echo htmlspecialchars($account['name']); ?></div>
-                            <div style="font-size: 12px; color: var(--text-secondary);">
-                                <?php echo htmlspecialchars($account['bank_name']); ?> - <?php echo htmlspecialchars($account['account_number']); ?>
-                            </div>
-                            <div style="font-size: 11px; color: var(--text-muted);">
-                                <?php echo ucfirst($account['account_type']); ?>
-                            </div>
-                        </div>
-                        <div style="text-align: right;">
-                            <div style="font-size: 18px; font-weight: bold; color: <?php echo $account['balance'] >= 0 ? 'var(--success-color)' : 'var(--danger-color)'; ?>;">
-                                $<?php echo number_format($account['balance'], 2); ?>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endforeach; ?>
-                    
-                    <?php if (empty($bankAccounts)): ?>
-                    <div style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                        <i class="fas fa-university" style="font-size: 32px; margin-bottom: 12px;"></i>
-                        <p>No hay cuentas bancarias registradas</p>
-                        <a href="bank_accounts.php" class="btn btn-primary" style="margin-top: 12px;">
-                            <i class="fas fa-plus"></i>
-                            Agregar Cuenta
-                        </a>
-                    </div>
-                    <?php endif; ?>
+                <div style="padding: 20px; height: 400px; display: flex; flex-direction: column;">
+                    <canvas id="incomeExpenseChart" style="width: 100%; height: 100%;"></canvas>
                 </div>
             </div>
         </div>
