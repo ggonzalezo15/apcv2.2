@@ -115,6 +115,7 @@ function getIncomeContractors($pdo, $incomeId) {
         }
         return '';
     } catch (Exception $e) {
+        error_log("Error obteniendo contratistas para ingreso $incomeId: " . $e->getMessage());
         return '';
     }
 }
@@ -124,9 +125,18 @@ function getRecentActivity($pdo, $limit = 5) {
         // Intentar obtener actividades del sistema de auditoría primero
         if (class_exists('AuditSystem')) {
             $audit = new AuditSystem();
-            $auditActivities = $audit->getRecentActivities($limit);
+            $auditActivities = $audit->getRecentActivities($limit * 2); // Obtener más para evaluar variedad
             
-            if (!empty($auditActivities)) {
+            // Verificar si hay suficiente variedad de actividades en auditoría
+            $hasExpenses = false;
+            $hasIncomes = false;
+            foreach ($auditActivities as $activity) {
+                if ($activity['entity_type'] == 'expense') $hasExpenses = true;
+                if ($activity['entity_type'] == 'income') $hasIncomes = true;
+            }
+            
+            // Solo usar auditoría si tenemos buena variedad Y suficientes actividades
+            if (!empty($auditActivities) && count($auditActivities) >= $limit && $hasExpenses && $hasIncomes) {
                 // Formatear las actividades del sistema de auditoría con información adicional
                 $formattedActivities = [];
                 foreach ($auditActivities as $activity) {
@@ -203,9 +213,9 @@ function getRecentActivity($pdo, $limit = 5) {
                     $formattedActivities[] = $formatted;
                 }
                 
-                // Si encontramos actividades de auditoría mejoradas, las devolvemos
+                // Si encontramos actividades de auditoría variadas, las devolvemos
                 if (!empty($formattedActivities)) {
-                    return $formattedActivities;
+                    return array_slice($formattedActivities, 0, $limit);
                 }
             }
         }
@@ -218,19 +228,20 @@ function getRecentActivity($pdo, $limit = 5) {
     // ya que queremos las actividades más recientes del sistema
     $activities = [];
     
-    // Obtener últimos ingresos (SIN filtro de fechas)
+    // Obtener últimos ingresos (primero income_payments, luego incomes si no hay pagos)
     try {
+        // Intentar obtener income_payments primero
         $stmt = $pdo->prepare("
             SELECT 'income' as type, 
                    COALESCE(ip.created_at, i.created_at) as date, 
-                   CONCAT('💰 Pago recibido $', ROUND(ip.amount, 2), ' - Factura: ', COALESCE(i.invoice_number, 'Sin número'), 
+                   CONCAT('Pago recibido $', ROUND(ip.amount, 2), ' - Factura: ', COALESCE(i.invoice_number, 'Sin número'), 
                           CASE WHEN t.name IS NOT NULL THEN CONCAT(' (', t.name, ')') ELSE '' END) as description,
                    ip.amount, 
                    COALESCE(ba.name, 'Sin cuenta') as account_name,
                    COALESCE(t.name, 'Sin equipo') as team_name,
                    '' as contractors,
                    'Sistema' as user,
-                   '💰' as action_icon,
+                   '' as action_icon,
                    'Ingreso' as entity_name,
                    i.id as income_id,
                    i.invoice_number,
@@ -241,10 +252,37 @@ function getRecentActivity($pdo, $limit = 5) {
             LEFT JOIN teams t ON i.team_id = t.id
             WHERE ip.created_at IS NOT NULL
             ORDER BY ip.created_at DESC
-            LIMIT ?
+            LIMIT " . (int)($limit * 2) . "
         ");
-        $stmt->execute([$limit * 2]); // Obtener más registros para asegurar variedad
+        $stmt->execute();
         $incomes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Si no hay income_payments, obtener ingresos directamente de la tabla incomes
+        if (empty($incomes)) {
+            $stmt = $pdo->prepare("
+                SELECT 'income' as type, 
+                       i.created_at as date, 
+                       CONCAT('Ingreso $', ROUND(i.total_amount, 2), ' - Factura: ', COALESCE(i.invoice_number, 'Sin número'), 
+                              CASE WHEN t.name IS NOT NULL THEN CONCAT(' (', t.name, ')') ELSE '' END) as description,
+                       i.total_amount as amount, 
+                       COALESCE(t.name, 'Sin equipo') as account_name,
+                       COALESCE(t.name, 'Sin equipo') as team_name,
+                       '' as contractors,
+                       'Sistema' as user,
+                       '' as action_icon,
+                       'Ingreso' as entity_name,
+                       i.id as income_id,
+                       i.invoice_number,
+                       'incomes' as source_table
+                FROM incomes i
+                LEFT JOIN teams t ON i.team_id = t.id
+                WHERE i.created_at IS NOT NULL
+                ORDER BY i.created_at DESC
+                LIMIT " . (int)($limit * 2) . "
+            ");
+            $stmt->execute();
+            $incomes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
         
         // Obtener contratistas para cada ingreso
         foreach ($incomes as &$income) {
@@ -256,56 +294,21 @@ function getRecentActivity($pdo, $limit = 5) {
         error_log("Error obteniendo ingresos para actividad reciente: " . $e->getMessage());
     }
     
-    // Obtener últimos ingresos creados (tabla incomes)
-    try {
-        $stmt = $pdo->prepare("
-            SELECT 'income_created' as type, 
-                   i.created_at as date,
-                   CONCAT('🆕 Ingreso creado $', ROUND(i.total_amount, 2), ' - Factura: ', COALESCE(i.invoice_number, 'Sin número'),
-                          CASE WHEN t.name IS NOT NULL THEN CONCAT(' (', t.name, ')') ELSE '' END) as description,
-                   i.total_amount as amount, 
-                   COALESCE(t.name, 'Sin equipo') as account_name,
-                   COALESCE(t.name, 'Sin equipo') as team_name,
-                   '' as contractors,
-                   'Sistema' as user,
-                   '🆕' as action_icon,
-                   'Ingreso' as entity_name,
-                   i.id as income_id,
-                   i.invoice_number,
-                   'incomes' as source_table
-            FROM incomes i
-            LEFT JOIN teams t ON i.team_id = t.id
-            WHERE i.created_at IS NOT NULL
-            ORDER BY i.created_at DESC
-            LIMIT ?
-        ");
-        $stmt->execute([$limit]);
-        $incomesCreated = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
-        // Obtener contratistas para cada ingreso creado
-        foreach ($incomesCreated as &$incomeCreated) {
-            $incomeCreated['contractors'] = getIncomeContractors($pdo, $incomeCreated['income_id']);
-        }
-        
-        $activities = array_merge($activities, $incomesCreated);
-    } catch (Exception $e) {
-        error_log("Error obteniendo ingresos creados para actividad reciente: " . $e->getMessage());
-    }
+    // Solo mostrar income_payments (pagos recibidos) para evitar duplicados con ingresos creados
     
     // Obtener últimos gastos (SIN filtro de fechas)
     try {
         $stmt = $pdo->prepare("
             SELECT 'expense' as type, 
                    e.created_at as date,
-                   CONCAT('💸 Gasto $', ROUND(e.total_amount, 2), ' - ', COALESCE(e.expense_number, 'Gasto sin número'),
-                          CASE WHEN t.name IS NOT NULL THEN CONCAT(' (', t.name, ')') ELSE '' END,
-                          CASE WHEN v.name IS NOT NULL THEN CONCAT(' - ', v.name) ELSE '' END) as description,
+                   CONCAT(COALESCE(e.expense_number, 'Sin número'), ' $', ROUND(e.total_amount, 2), 
+                          CASE WHEN v.name IS NOT NULL THEN CONCAT(' ', v.name) ELSE '' END) as description,
                    e.total_amount as amount, 
                    COALESCE(ba.name, 'Gasto directo') as account_name,
                    COALESCE(t.name, 'Sin equipo') as team_name,
                    COALESCE(v.name, 'Sin proveedor') as vendor_name,
                    'Sistema' as user,
-                   '💸' as action_icon,
+                   '' as action_icon,
                    'Gasto' as entity_name,
                    e.id as expense_id,
                    e.expense_number,
@@ -316,44 +319,17 @@ function getRecentActivity($pdo, $limit = 5) {
             LEFT JOIN vendors v ON e.vendor_id = v.id
             WHERE e.created_at IS NOT NULL
             ORDER BY e.created_at DESC
-            LIMIT ?
+            LIMIT " . (int)($limit * 3) . "
         ");
-        $stmt->execute([$limit * 2]); // Obtener más registros para asegurar variedad
+        $stmt->execute(); // Obtener más registros para asegurar variedad
         $expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $activities = array_merge($activities, $expenses);
     } catch (Exception $e) {
         error_log("Error obteniendo gastos para actividad reciente: " . $e->getMessage());
     }
     
-    // Obtener últimas transacciones (SIN filtro de fechas)
-    try {
-        $stmt = $pdo->prepare("
-            SELECT 'transaction' as type,
-                   t.created_at as date,
-                   CONCAT('🏦 Transacción: ', 
-                          CASE 
-                              WHEN t.type = 'payment_income' THEN 'Ingreso'
-                              WHEN t.type = 'payment_fee' THEN 'Comisión'
-                              ELSE t.type
-                          END, 
-                          ' - ', COALESCE(ba.name, 'Cuenta')) as description,
-                   ABS(t.amount) as amount,
-                   COALESCE(ba.name, 'Sin cuenta') as account_name,
-                   'Sistema' as user,
-                   '🏦' as action_icon,
-                   'Transacción' as entity_name
-            FROM transactions t
-            LEFT JOIN bank_accounts ba ON t.bank_account_id = ba.id
-            WHERE t.created_at IS NOT NULL
-            ORDER BY t.created_at DESC
-            LIMIT ?
-        ");
-        $stmt->execute([$limit]);
-        $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        $activities = array_merge($activities, $transactions);
-    } catch (Exception $e) {
-        error_log("Error obteniendo transacciones para actividad reciente: " . $e->getMessage());
-    }
+    // NO incluir transacciones bancarias para evitar duplicados
+    // Solo mostramos las actividades principales de ingresos y gastos
     
     // Ordenar por fecha y limitar a las más recientes
     usort($activities, function($a, $b) {
@@ -364,75 +340,81 @@ function getRecentActivity($pdo, $limit = 5) {
 }
 
 function getPendingIncomes($pdo, $limit = 5) {
-    $pendingIncomes = [];
-    
     try {
+        // Usar la estructura correcta de la tabla incomes
+        $limit = (int)$limit;
         $stmt = $pdo->prepare("
             SELECT 
                 i.id, 
                 i.invoice_number, 
-                i.date, 
-                i.total_income, 
+                i.income_date as date, 
+                i.total_amount as total_income, 
                 COALESCE(SUM(ip.amount), 0) as total_paid,
-                (i.total_income - COALESCE(SUM(ip.amount), 0)) as pending_amount,
+                (i.total_amount - COALESCE(SUM(ip.amount), 0)) as pending_amount,
                 t.name as team_name,
-                GROUP_CONCAT(DISTINCT c.name SEPARATOR ', ') as contractors
+                i.status
             FROM 
                 incomes i
             LEFT JOIN 
                 income_payments ip ON i.id = ip.income_id
             LEFT JOIN 
                 teams t ON i.team_id = t.id
-            LEFT JOIN 
-                income_contractors ic ON i.id = ic.income_id
-            LEFT JOIN 
-                contractors c ON ic.contractor_id = c.id
             WHERE 
-                (i.total_income - COALESCE(SUM(ip.amount), 0)) > 0
+                i.status = 'pending'
             GROUP BY 
-                i.id
+                i.id, i.invoice_number, i.income_date, i.total_amount, t.name, i.status
+            HAVING 
+                pending_amount > 0
             ORDER BY 
-                i.date DESC
-            LIMIT ?
+                i.income_date DESC
+            LIMIT " . $limit . "
         ");
-        $stmt->execute([$limit]);
+        $stmt->execute();
         $pendingIncomes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Obtener contratistas para cada ingreso pendiente
+        foreach ($pendingIncomes as &$income) {
+            $income['contractors'] = getIncomeContractors($pdo, $income['id']);
+        }
+        
+        return $pendingIncomes;
+        
     } catch (Exception $e) {
         error_log("Error obteniendo ingresos pendientes: " . $e->getMessage());
         
-        // Intento alternativo si la consulta anterior falla
+        // Intento alternativo más simple si la consulta anterior falla
         try {
+            $limit = (int)$limit;
             $stmt = $pdo->prepare("
                 SELECT 
                     i.id, 
                     i.invoice_number, 
-                    i.date, 
-                    i.total_income,
-                    COALESCE(SUM(ip.amount), 0) as total_paid,
-                    (i.total_income - COALESCE(SUM(ip.amount), 0)) as pending_amount,
-                    t.name as team_name
+                    i.income_date as date, 
+                    i.total_amount as total_income,
+                    0 as total_paid,
+                    i.total_amount as pending_amount,
+                    t.name as team_name,
+                    '' as contractors,
+                    i.status
                 FROM 
                     incomes i
                 LEFT JOIN 
-                    income_payments ip ON i.id = ip.income_id
-                LEFT JOIN 
                     teams t ON i.team_id = t.id
-                GROUP BY 
-                    i.id
-                HAVING 
-                    pending_amount > 0
+                WHERE 
+                    i.total_amount > 0 
+                    AND (i.status = 'pending' OR i.status IS NULL)
                 ORDER BY 
-                    i.date DESC
-                LIMIT ?
+                    i.income_date DESC
+                LIMIT " . $limit . "
             ");
-            $stmt->execute([$limit]);
-            $pendingIncomes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $stmt->execute();
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
         } catch (Exception $e2) {
             error_log("Error en consulta alternativa de ingresos pendientes: " . $e2->getMessage());
+            return [];
         }
     }
-    
-    return $pendingIncomes;
 }
 
 function getDailyData($pdo, $startDate, $endDate) {
@@ -587,6 +569,36 @@ try {
 
 <?php include 'includes/header.php'; ?>
 
+<!-- Spinner Overlay para carga inicial -->
+<div id="dashboardLoadingOverlay" style="
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(2px);
+">
+    <div style="text-align: center;">
+        <div style="
+            width: 50px;
+            height: 50px;
+            border: 4px solid #e5e7eb;
+            border-top: 4px solid var(--primary-color, #2563eb);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        "></div>
+        <p style="color: var(--text-secondary); font-size: 14px; margin: 0;">
+            Cargando dashboard...
+        </p>
+    </div>
+</div>
+
 <div class="main-layout">
     <?php include 'includes/sidebar.php'; ?>
     
@@ -695,63 +707,64 @@ try {
                 
                 <div style="padding: 10px 0 0 0; height: 100%; display: flex; flex-direction: column;">
                     <div style="flex: 1;">
-                    <?php if (!empty($pendingIncomes)): ?>
-                        <?php 
-                        // Mostrar los 5 ingresos pendientes más recientes
-                        $limitedPendingIncomes = array_slice($pendingIncomes, 0, 5);
-                        foreach ($limitedPendingIncomes as $income): 
-                            $isLastItem = ($limitedPendingIncomes[count($limitedPendingIncomes)-1] === $income);
-                        ?>
-                            <a href="incomes.php?action=edit&id=<?php echo urlencode($income['id']); ?>" class="activity-link" style="display: block; padding: 12px 16px; <?php echo $isLastItem ? '' : 'border-bottom: 1px solid var(--border-color);'; ?> text-decoration: none; color: inherit; transition: background-color 0.2s;">
-                                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                                    <div style="font-weight: 500;">
-                                        <?php echo htmlspecialchars($income['invoice_number'] ?: 'Factura sin número'); ?>
-                                    </div>
-                                    <div style="font-weight: 700; color: var(--warning-color);">
-                                        $<?php echo number_format($income['pending_amount'], 2); ?>
-                                    </div>
-                                </div>
+                    <?php 
+                    // Filtrar explícitamente solo los ingresos pendientes
+                    $pendingOnly = array_filter($pendingIncomes, function($income) {
+                        return isset($income['pending_amount']) && $income['pending_amount'] > 0;
+                    });
+                    $limitedPendingIncomes = array_slice($pendingOnly, 0, 5);
+                    foreach ($limitedPendingIncomes as $income): 
+                        $isLastItem = ($limitedPendingIncomes[count($limitedPendingIncomes)-1] === $income);
+                    ?>
+                        <div style="<?php echo ($limitedPendingIncomes[count($limitedPendingIncomes)-1] === $income) ? 'border-bottom: none;' : 'border-bottom: 1px solid var(--border-color);'; ?> transition: background-color 0.2s;">
+                            <a href="incomes.php?id=<?php echo urlencode($income['id']); ?>&view=1" 
+                               class="activity-link"
+                               style="display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; text-decoration: none; color: inherit; cursor: pointer;"
+                               onmouseover="this.style.backgroundColor='var(--hover-color, #f8f9fa)'"
+                               onmouseout="this.style.backgroundColor='transparent'">
                                 
-                                <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 4px; font-size: 12px; color: var(--text-secondary);">
-                                    <span style="display: flex; align-items: center; gap: 4px;">
-                                        <i class="fas fa-calendar-alt" style="font-size: 10px;"></i>
-                                        <?php echo date('d/m/Y', strtotime($income['date'])); ?>
-                                    </span>
+                                <!-- Contenido -->
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="font-weight: 500; font-size: 14px; margin-bottom: 4px; line-height: 1.4;">
+                                        Factura <?php echo htmlspecialchars($income['invoice_number'] ?: 'Sin número'); ?> - $<?php echo number_format($income['pending_amount'], 2); ?> pendiente
+                                    </div>
                                     
-                                    <?php if (!empty($income['team_name'])): ?>
-                                    <span style="display: flex; align-items: center; gap: 4px;">
-                                        <i class="fas fa-users" style="font-size: 10px;"></i>
-                                        <?php echo htmlspecialchars($income['team_name']); ?>
-                                    </span>
-                                    <?php endif; ?>
-                                    
-                                    <?php if (!empty($income['contractors'])): ?>
-                                    <span style="display: flex; align-items: center; gap: 4px;">
-                                        <i class="fas fa-user-tie" style="font-size: 10px;"></i>
-                                        <?php echo htmlspecialchars($income['contractors']); ?>
-                                    </span>
-                                    <?php endif; ?>
-                                </div>
-                                
-                                <div style="position: relative; height: 4px; background-color: var(--background-secondary); border-radius: 2px; margin-top: 8px;">
-                                    <?php 
-                                    $percent = 0;
-                                    if ($income['total_income'] > 0) {
-                                        $percent = 100 * ($income['total_paid'] / $income['total_income']);
-                                    }
-                                    ?>
-                                    <div style="position: absolute; top: 0; left: 0; height: 100%; width: <?php echo $percent; ?>%; background-color: var(--success-color); border-radius: 2px;"></div>
-                                </div>
-                                <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted); margin-top: 4px;">
-                                    <span>Pagado: $<?php echo number_format($income['total_paid'], 2); ?></span>
-                                    <span>Total: $<?php echo number_format($income['total_income'], 2); ?></span>
+                                    <div style="display: flex; flex-wrap: wrap; font-size: 11px; color: var(--text-muted);">
+                                        <span style="display: flex; align-items: center; gap: 2px; margin-right: 12px;">
+                                            <i class="fas fa-calendar-alt" style="font-size: 10px;"></i>
+                                            <?php echo date('d/m/Y', strtotime($income['date'])); ?>
+                                        </span>
+                                        <?php if (!empty($income['team_name'])): ?>
+                                        <span style="display: flex; align-items: center; gap: 2px;">
+                                            <i class="fas fa-users" style="font-size: 10px;"></i>
+                                            <?php echo htmlspecialchars($income['team_name']); ?>
+                                        </span>
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
                             </a>
-                        <?php endforeach; ?>
-                    <?php else: ?>
+                        </div>
+                    <?php endforeach; ?>
+                    
+                    <?php if (empty($limitedPendingIncomes)): ?>
                         <div style="text-align: center; padding: 40px 20px; color: var(--text-secondary);">
                             <i class="fas fa-check-circle" style="font-size: 32px; margin-bottom: 12px; color: var(--success-color);"></i>
                             <p>No hay ingresos pendientes</p>
+                            <small style="color: var(--text-muted); display: block; margin-top: 8px;">
+                                <?php if (empty($pendingIncomes)): ?>
+                                    Total de ingresos obtenidos: 0
+                                <?php else: ?>
+                                    Filtrados: <?php echo count($pendingOnly); ?> de <?php echo count($pendingIncomes); ?>
+                                <?php endif; ?>
+                            </small>
+                        </div>
+                    <?php endif; ?>
+                    
+                    <?php if (count($pendingOnly) > 5): ?>
+                        <div style="text-align: center; margin-top: 10px;">
+                            <a href="incomes.php?status=pending" class="btn btn-outline-secondary" style="width: 100%; max-width: 200px; display: inline-block;">
+                                Ver más
+                            </a>
                         </div>
                     <?php endif; ?>
                     </div>
@@ -777,10 +790,10 @@ try {
                             $link = '#';
                             $linkClass = '';
                             if (isset($activity['income_id']) && $activity['income_id']) {
-                                $link = "incomes.php?action=edit&id=" . urlencode($activity['income_id']);
+                                $link = "incomes.php?id=" . urlencode($activity['income_id']) . "&view=1";
                                 $linkClass = 'activity-link';
                             } elseif (isset($activity['expense_id']) && $activity['expense_id']) {
-                                $link = "expenses.php?action=edit&id=" . urlencode($activity['expense_id']);
+                                $link = "expenses.php?id=" . urlencode($activity['expense_id']) . "&view=1";
                                 $linkClass = 'activity-link';
                             }
                         ?>
@@ -795,19 +808,9 @@ try {
                             onmouseout="this.style.backgroundColor='transparent'"
                             <?php endif; ?>
                             >
-                                <!-- Icono de acción -->
-                                <div style="width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; 
-                                            background: <?php echo (strpos($activity['type'], 'income') !== false) ? 'var(--success-color)' : 'var(--danger-color)'; ?>; font-size: 16px;">
-                                    <?php if (isset($activity['action_icon'])): ?>
-                                        <?php echo $activity['action_icon']; ?>
-                                    <?php else: ?>
-                                        <i class="fas fa-<?php echo (strpos($activity['type'], 'income') !== false) ? 'arrow-up' : 'arrow-down'; ?>" style="color: white; font-size: 12px;"></i>
-                                    <?php endif; ?>
-                                </div>
-                                
                                 <!-- Contenido de la actividad -->
                                 <div style="flex: 1; min-width: 0;">
-                                    <div style="font-weight: 500; font-size: 14px; margin-bottom: 6px; line-height: 1.4;">
+                                    <div style="font-weight: 500; font-size: 14px; margin-bottom: 4px; line-height: 1.4;">
                                         <?php echo htmlspecialchars($activity['description']); ?>
                                     </div>
                                     
@@ -1339,6 +1342,24 @@ function adjustChartHeight() {
     }
 }
 
+// Función para ocultar el overlay de carga
+function hideDashboardLoadingOverlay() {
+    const overlay = document.getElementById('dashboardLoadingOverlay');
+    const mainLayout = document.querySelector('.main-layout');
+    
+    if (overlay && mainLayout) {
+        // Mostrar el contenido principal
+        mainLayout.classList.add('loaded');
+        
+        // Ocultar el overlay con animación
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.4s ease';
+        setTimeout(() => {
+            overlay.style.display = 'none';
+        }, 400);
+    }
+}
+
 // Llamar al ajuste después de que la página se cargue completamente
 document.addEventListener('DOMContentLoaded', function() {
     // Código existente de eventos para fechas
@@ -1395,6 +1416,19 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log("Este Mes:", document.getElementById('btnCurrentMonth').classList.contains('btn-secondary'));
     console.log("Mes Anterior:", document.getElementById('btnPreviousMonth').classList.contains('btn-secondary'));
 });
+
+// Ocultar overlay cuando todo esté completamente cargado (incluyendo gráficos)
+window.addEventListener('load', function() {
+    // Esperar un poco más para asegurar que Chart.js termine de renderizar
+    setTimeout(() => {
+        hideDashboardLoadingOverlay();
+    }, 800);
+});
+
+// Fallback: ocultar overlay después de un tiempo máximo para evitar que se quede colgado
+setTimeout(() => {
+    hideDashboardLoadingOverlay();
+}, 5000); // 5 segundos máximo
 </script>
 
 <style>
@@ -1619,4 +1653,26 @@ document.addEventListener('DOMContentLoaded', function() {
    Solo se permiten en carga inicial de página */
 
 /* Las teclas de acceso rápido siguen funcionando pero sin indicadores visuales */
+
+/* Animación del spinner de carga */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Optimizaciones para el overlay de carga */
+#dashboardLoadingOverlay {
+    user-select: none;
+    pointer-events: all;
+}
+
+/* Asegurar que el contenido principal esté oculto inicialmente */
+.main-layout {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.main-layout.loaded {
+    opacity: 1;
+}
 </style>

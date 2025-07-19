@@ -440,6 +440,104 @@ if (typeof flatpickr === 'undefined') {
 <script src="assets/js/expenses.js"></script>
 <script src="assets/js/expenses-b2.js"></script>
 
+<script>
+// Manejar parámetros URL para abrir modal de vista automáticamente
+document.addEventListener('DOMContentLoaded', function() {
+    // Obtener parámetros de la URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const expenseId = urlParams.get('id');
+    const shouldView = urlParams.get('view') === '1';
+    
+    // Si hay un ID y se debe abrir el modal de vista
+    if (expenseId && shouldView) {
+        // Mostrar spinner overlay inmediatamente
+        showLoadingOverlay('Cargando detalles del gasto...');
+        
+        // Esperar un poco para que los datos se carguen primero
+        setTimeout(() => {
+            if (typeof viewExpense === 'function') {
+                viewExpense(expenseId);
+                console.log('Abriendo modal de vista para gasto:', expenseId);
+                // El spinner se ocultará cuando el modal se abra completamente
+                setTimeout(() => {
+                    hideLoadingOverlay();
+                }, 500);
+            } else {
+                console.error('Función viewExpense no encontrada');
+                hideLoadingOverlay();
+            }
+        }, 1000);
+    }
+});
+
+// Funciones para el loading overlay
+function showLoadingOverlay(message = 'Cargando...') {
+    // Remover overlay existente si existe
+    const existingOverlay = document.getElementById('loadingOverlay');
+    if (existingOverlay) {
+        existingOverlay.remove();
+    }
+    
+    // Crear nuevo overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'loadingOverlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        backdrop-filter: blur(2px);
+    `;
+    
+    const spinner = document.createElement('div');
+    spinner.style.cssText = `
+        background: white;
+        padding: 30px;
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        max-width: 300px;
+        text-align: center;
+    `;
+    
+    const spinnerIcon = document.createElement('div');
+    spinnerIcon.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 24px; color: var(--primary-color, #2563eb);"></i>';
+    
+    const messageEl = document.createElement('div');
+    messageEl.textContent = message;
+    messageEl.style.cssText = `
+        color: var(--text-primary, #333);
+        font-weight: 500;
+        font-size: 16px;
+    `;
+    
+    spinner.appendChild(spinnerIcon);
+    spinner.appendChild(messageEl);
+    overlay.appendChild(spinner);
+    document.body.appendChild(overlay);
+}
+
+function hideLoadingOverlay() {
+    const overlay = document.getElementById('loadingOverlay');
+    if (overlay) {
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.3s ease';
+        setTimeout(() => {
+            overlay.remove();
+        }, 300);
+    }
+}
+</script>
+
 <style>
 .form-section {
     margin-bottom: 24px;
