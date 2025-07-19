@@ -295,15 +295,12 @@ function deleteContractor(id) {
     showDeleteModal(id);
 }
 function deleteContractorConfirmed(id) {
-    fetch(`${API_URL}?action=deleteContractor&id=${id}`, { method: 'DELETE' })
-        .then(res => res.json())
-        .then(result => {
-            if (result && result.error) {
-                showNotification('No se puede eliminar el contratista.\n\nDetalle: ' + result.error, 'Error al eliminar contratista');
-                showToast('No se pudo eliminar el contratista.', 'error');
-                return;
-            }
-            showToast('Contratista eliminado con éxito.', 'success');
+    handleApiCall(
+        () => apiDelete(`${API_URL}?action=deleteContractor&id=${id}`),
+        'Contratista eliminado con éxito.',
+        'No se pudo eliminar el contratista.',
+        () => {
+            // Callback de éxito - recargar la tabla
             setTimeout(() => {
                 fetch(`${API_URL}?action=getAllContractors&limit=${pageSize}&offset=${(currentPage-1)*pageSize}`)
                     .then(res => res.json())
@@ -316,10 +313,14 @@ function deleteContractorConfirmed(id) {
                         }
                     });
             }, 200);
-        })
-        .catch(() => {
-            showToast('Ocurrió un error al eliminar el contratista.', 'error');
-        });
+        },
+        (error) => {
+            // Callback de error - mostrar detalle si es necesario
+            if (error.message.includes('related data') || error.message.includes('constraint')) {
+                showNotification('No se puede eliminar el contratista.\n\nDetalle: ' + error.message, 'Error al eliminar contratista');
+            }
+        }
+    );
 }
 
 document.getElementById('contractorForm').addEventListener('submit', function(e) {
@@ -341,24 +342,20 @@ document.getElementById('contractorForm').addEventListener('submit', function(e)
     } else {
         url += '?action=createContractor';
     }
-    fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    })
-    .then(res => res.json())
-    .then(result => {
-        if (result && result.error) {
-            showToast(result.error, 'error');
-        } else {
+    handleApiCall(
+        () => apiRequest(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }),
+        isEdit ? 'Contratista editado con éxito.' : 'Contratista creado con éxito.',
+        'Error al guardar el contratista.',
+        () => {
+            // Callback de éxito
             closeModal('contractorModal');
-            showToast(isEdit ? 'Contratista editado con éxito.' : 'Contratista creado con éxito.', 'success');
             loadContractors();
         }
-    })
-    .catch(() => {
-        showToast('Ocurrió un error al conectar con el servidor.', 'error');
-    });
+    );
 });
 
 // --- Filtro de búsqueda local por nombre de contratista ---

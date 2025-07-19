@@ -224,6 +224,8 @@ $pageTitle = 'Gestión de Equipos';
 
 <?php include 'includes/footer.php'; ?>
 
+<script src="assets/js/api-utils.js"></script>
+<script src="assets/js/table-loading.js"></script>
 <script src="assets/js/teams.js"></script>
 
 <!-- Estilos para tabla ordenable -->

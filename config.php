@@ -1,9 +1,11 @@
 <?php
 // Configuración de la base de datos
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '2010');
-define('DB_NAME', 'cloude_apcuadre');
+define('DB_HOST', '168.231.68.229');     // IP del servidor
+define('DB_PORT', '3306');               // Puerto MySQL
+define('DB_NAME', 'cloude_apcuadre');           // Nombre de la base de datos
+define('DB_USER', 'workbench_user');     // Usuario MySQL
+define('DB_PASS', 'Mysql2025#');         // Contraseña MySQL
+define('DB_CHARSET', 'utf8mb4');         // Charset
 
 // Configuración de la aplicación
 define('BASE_URL', 'http://localhost/cloude/');
@@ -45,7 +47,7 @@ if (file_exists(__DIR__ . '/vendor/autoload.php')) {
 // Función para conectar a la base de datos
 function getConnection() {
     try {
-        $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4", DB_USER, DB_PASS);
+        $pdo = new PDO("mysql:host=" . DB_HOST . ";port=" . DB_PORT . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET, DB_USER, DB_PASS);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         return $pdo;

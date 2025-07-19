@@ -157,4 +157,5 @@ $pageTitle = 'Tipos de Trabajo';
 </div>
 
 <?php include 'includes/footer.php'; ?>
+<script src="assets/js/api-utils.js"></script>
 <script src="assets/js/job_types.js"></script>

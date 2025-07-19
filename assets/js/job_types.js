@@ -187,15 +187,12 @@ function deleteJobType(id) {
     showDeleteModal(id);
 }
 function deleteJobTypeConfirmed(id) {
-    fetch(`${API_URL}?action=deleteJobType&id=${id}`, { method: 'DELETE' })
-        .then(res => res.json())
-        .then(result => {
-            if (result && result.error) {
-                showNotification('No se puede eliminar el tipo de trabajo.\n\nDetalle: ' + result.error, 'Error al eliminar tipo');
-                showToast('No se pudo eliminar el tipo.', 'error');
-                return;
-            }
-            showToast('Tipo de trabajo eliminado con éxito.', 'success');
+    handleApiCall(
+        () => apiDelete(`${API_URL}?action=deleteJobType&id=${id}`),
+        'Tipo de trabajo eliminado con éxito.',
+        'No se pudo eliminar el tipo.',
+        () => {
+            // Callback de éxito - recargar la tabla
             setTimeout(() => {
                 fetch(`${API_URL}?action=getAllJobTypes&limit=${pageSize}&offset=${(currentPage-1)*pageSize}`)
                     .then(res => res.json())
@@ -208,10 +205,14 @@ function deleteJobTypeConfirmed(id) {
                         }
                     });
             }, 200);
-        })
-        .catch(() => {
-            showToast('Ocurrió un error al eliminar el tipo.', 'error');
-        });
+        },
+        (error) => {
+            // Callback de error - mostrar detalle si es necesario
+            if (error.message.includes('related data') || error.message.includes('constraint')) {
+                showNotification('No se puede eliminar el tipo de trabajo.\n\nDetalle: ' + error.message, 'Error al eliminar tipo');
+            }
+        }
+    );
 }
 
 document.getElementById('jobTypeForm').addEventListener('submit', function(e) {
@@ -231,24 +232,25 @@ document.getElementById('jobTypeForm').addEventListener('submit', function(e) {
     } else {
         url += '?action=createJobType';
     }
-    fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    })
-    .then(res => res.json())
-    .then(result => {
-        closeModal('jobTypeModal');
-        if (result && result.error) {
-            showToast('Ocurrió un error al guardar el tipo.', 'error');
-        } else {
-            showToast(isEdit ? 'Tipo editado con éxito.' : 'Tipo creado con éxito.', 'success');
+    handleApiCall(
+        () => apiRequest(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }),
+        isEdit ? 'Tipo editado con éxito.' : 'Tipo creado con éxito.',
+        'Error al guardar el tipo.',
+        () => {
+            // Callback de éxito
+            closeModal('jobTypeModal');
+            loadJobTypes();
+        },
+        () => {
+            // Callback de error
+            closeModal('jobTypeModal');
+            loadJobTypes();
         }
-        loadJobTypes();
-    })
-    .catch(() => {
-        showToast('Ocurrió un error al guardar el tipo.', 'error');
-    });
+    );
 });
 
 // --- Filtro de búsqueda local por nombre ---

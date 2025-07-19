@@ -415,31 +415,21 @@ function confirmStatusChange() {
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Procesando...';
     btn.disabled = true;
     
-    fetch(`${API_URL}?action=toggleVendorStatus&id=${id}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-    })
-    .then(res => res.json())
-    .then(result => {
-        if (result && result.error) {
+    handleApiCall(
+        () => apiPost(`${API_URL}?action=toggleVendorStatus&id=${id}`, { status: newStatus }),
+        `Proveedor ${newStatus == 1 ? 'activado' : 'desactivado'} con éxito.`,
+        'Error al cambiar el estado del proveedor.',
+        () => {
+            // Callback de éxito
             closeModal('confirmStatusChangeModal');
-            const errorMessage = result.message || result.error || 'Error al cambiar el estado del proveedor.';
-            showToast(errorMessage, 'error');
-        } else if (result && result.message) {
-            // Éxito
-            closeModal('confirmStatusChangeModal');
-            showToast(`Proveedor ${newStatus == 1 ? 'activado' : 'desactivado'} con éxito.`, 'success');
             loadVendors(currentPage);
-        } else {
-            // Respuesta inesperada
+        },
+        () => {
+            // Callback de error
             closeModal('confirmStatusChangeModal');
-            showToast('Respuesta inesperada del servidor.', 'error');
         }
-    })
-    .catch(() => {
+    ).catch(() => {
         closeModal('confirmStatusChangeModal');
-        showToast('Error al cambiar el estado del proveedor.', 'error');
     })
     .finally(() => {
         // Restaurar botón
@@ -471,15 +461,12 @@ function deleteVendor(id) {
     showDeleteModal(id);
 }
 function deleteVendorConfirmed(id) {
-    fetch(`${API_URL}?action=deleteVendor&id=${id}`, { method: 'DELETE' })
-        .then(res => res.json())
-        .then(result => {
-            if (result && result.error) {
-                showNotification('No se puede eliminar el proveedor.\n\nDetalle: ' + result.error, 'Error al eliminar proveedor');
-                showToast('No se pudo eliminar el proveedor.', 'error');
-                return;
-            }
-            showToast('Proveedor eliminado con éxito.', 'success');
+    handleApiCall(
+        () => apiDelete(`${API_URL}?action=deleteVendor&id=${id}`),
+        'Proveedor eliminado con éxito.',
+        'No se pudo eliminar el proveedor.',
+        () => {
+            // Callback de éxito - recargar la tabla
             setTimeout(() => {
                 fetch(`${API_URL}?action=getAllVendors&limit=${pageSize}&offset=${(currentPage-1)*pageSize}`)
                     .then(res => res.json())
@@ -492,10 +479,14 @@ function deleteVendorConfirmed(id) {
                         }
                     });
             }, 200);
-        })
-        .catch(() => {
-            showToast('Ocurrió un error al eliminar el proveedor.', 'error');
-        });
+        },
+        (error) => {
+            // Callback de error - mostrar detalle si es necesario
+            if (error.message.includes('related data') || error.message.includes('constraint')) {
+                showNotification('No se puede eliminar el proveedor.\n\nDetalle: ' + error.message, 'Error al eliminar proveedor');
+            }
+        }
+    );
 }
 
 document.getElementById('vendorForm').addEventListener('submit', function(e) {
@@ -517,24 +508,20 @@ document.getElementById('vendorForm').addEventListener('submit', function(e) {
     } else {
         url += '?action=createVendor';
     }
-    fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    })
-    .then(res => res.json())
-    .then(result => {
-        if (result && result.error) {
-            showToast(result.error, 'error');
-        } else {
+    handleApiCall(
+        () => apiRequest(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }),
+        isEdit ? 'Proveedor editado con éxito.' : 'Proveedor creado con éxito.',
+        'Error al guardar el proveedor.',
+        () => {
+            // Callback de éxito
             closeModal('vendorModal');
-            showToast(isEdit ? 'Proveedor editado con éxito.' : 'Proveedor creado con éxito.', 'success');
             loadVendors();
         }
-    })
-    .catch(() => {
-        showToast('Ocurrió un error al conectar con el servidor.', 'error');
-    });
+    );
 });
 
 // --- Funciones para filtros de estado ---

@@ -527,21 +527,20 @@ function loadPaymentTypesSection() {
             const url = 'api/payment_type/PaymentTypeController.php';
             const method = typeId ? 'PUT' : 'POST';
             
-            const response = await fetch(url, {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-            
-            const result = await response.json();
-            
-            if (result.error) {
-                showToast(result.error, 'error');
-            } else {
-                showToast(typeId ? 'Tipo actualizado exitosamente' : 'Tipo creado exitosamente', 'success');
-                closeModal('formModal');
-                await loadPaymentTypes();
-            }
+            await handleApiCall(
+                () => apiRequest(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                }),
+                typeId ? 'Tipo actualizado exitosamente' : 'Tipo creado exitosamente',
+                'Error al guardar el tipo de pago',
+                () => {
+                    // Callback de éxito
+                    closeModal('formModal');
+                    loadPaymentTypes();
+                }
+            );
             
         } catch (error) {
             console.error('Error saving payment type:', error);
@@ -672,27 +671,24 @@ function loadPaymentTypesSection() {
         
         document.getElementById('confirmDeleteMessage').textContent = message;
         document.getElementById('confirmDeleteBtn').onclick = async function() {
-            try {
-                const response = await fetch('api/payment_type/PaymentTypeController.php', {
+            await handleApiCall(
+                () => fetch('api/payment_type/PaymentTypeController.php', {
                     method: 'DELETE',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: `id=${encodeURIComponent(typeId)}&csrf_token=${encodeURIComponent(window.CSRF_TOKEN || 'dummy_token')}`
-                });
-                
-                const result = await response.json();
-                
-                if (result.error) {
-                    showToast(result.error, 'error');
-                } else {
-                    showToast('Tipo eliminado exitosamente', 'success');
+                }).then(response => handleResponse(response)),
+                'Tipo eliminado exitosamente',
+                'Error al eliminar el tipo de pago',
+                () => {
+                    // Callback de éxito
                     closeModal('confirmDeleteModal');
-                    await loadPaymentTypes();
+                    loadPaymentTypes();
+                },
+                (error) => {
+                    // Callback de error
+                    console.error('Error deleting payment type:', error);
                 }
-                
-            } catch (error) {
-                console.error('Error deleting payment type:', error);
-                showToast('Error al eliminar el tipo: ' + error.message, 'error');
-            }
+            );
         };
         
         openModal('confirmDeleteModal');
@@ -819,26 +815,23 @@ function loadPaymentTypesSection() {
             
             confirmBtn.onclick = async function() {
                 try {
-                    const response = await fetch('api/payment_type/PaymentTypeController.php?action=togglePaymentTypeStatus', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
+                    await handleApiCall(
+                        () => apiPost('api/payment_type/PaymentTypeController.php?action=togglePaymentTypeStatus', {
                             id: id,
                             csrf_token: window.CSRF_TOKEN
-                        })
-                    });
-                    
-                    const result = await response.json();
-                    
-                    if (result.success) {
-                        showToast(result.message || 'Estado actualizado correctamente', 'success');
-                        closeModal('confirmPaymentTypeStatusModal');
-                        loadPaymentTypes(); // Recargar datos
-                    } else {
-                        showToast(result.error || 'Error al cambiar estado', 'error');
-                    }
+                        }),
+                        'Estado actualizado correctamente',
+                        'Error al cambiar estado del tipo de pago',
+                        (result) => {
+                            // Callback de éxito
+                            closeModal('confirmPaymentTypeStatusModal');
+                            loadPaymentTypes(); // Recargar datos
+                        },
+                        (error) => {
+                            // Callback de error
+                            console.error('Error toggling payment type status:', error);
+                        }
+                    );
                 } catch (error) {
                     console.error('Error toggling payment type status:', error);
                     showToast('Error al cambiar estado del tipo de pago', 'error');
@@ -1264,20 +1257,23 @@ function loadExpenseCategoriesSection() {
                 method = 'POST';
             }
             
-            const response = await fetch(url, {
-                method: method,
-                body: formData
-            });
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                showToast(categoryId ? 'Categoría actualizada exitosamente' : 'Categoría creada exitosamente', 'success');
-                closeModal('formModal');
-                await loadCategories();
-            } else {
-                showToast(result.message || 'Error al guardar la categoría', 'error');
-            }
+            await handleApiCall(
+                () => fetch(url, {
+                    method: method,
+                    body: formData
+                }).then(response => handleResponse(response)),
+                categoryId ? 'Categoría actualizada exitosamente' : 'Categoría creada exitosamente',
+                'Error al guardar la categoría de gasto',
+                () => {
+                    // Callback de éxito
+                    closeModal('formModal');
+                    loadCategories();
+                },
+                (error) => {
+                    // Callback de error
+                    console.error('Error saving category:', error);
+                }
+            );
             
         } catch (error) {
             console.error('Error saving category:', error);
@@ -1364,25 +1360,20 @@ function loadExpenseCategoriesSection() {
         
         document.getElementById('confirmDeleteMessage').textContent = message;
         document.getElementById('confirmDeleteBtn').onclick = async function() {
-            try {
-                const response = await fetch(`api/expense_category/ExpenseCategoryController.php?action=delete&id=${categoryId}`, {
-                    method: 'DELETE'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showToast('Categoría eliminada exitosamente', 'success');
+            await handleApiCall(
+                () => apiDelete(`api/expense_category/ExpenseCategoryController.php?action=delete&id=${categoryId}`),
+                'Categoría eliminada exitosamente',
+                'Error al eliminar la categoría de gasto',
+                () => {
+                    // Callback de éxito
                     closeModal('confirmDeleteModal');
-                    await loadCategories();
-                } else {
-                    showToast(result.message || 'Error al eliminar la categoría', 'error');
+                    loadCategories();
+                },
+                (error) => {
+                    // Callback de error
+                    console.error('Error deleting category:', error);
                 }
-                
-            } catch (error) {
-                console.error('Error deleting category:', error);
-                showToast('Error al eliminar la categoría: ' + error.message, 'error');
-            }
+            );
         };
         
         openModal('confirmDeleteModal');
@@ -2002,20 +1993,23 @@ function loadExpenseTypesSection() {
                 method = 'POST';
             }
             
-            const response = await fetch(url, {
-                method: method,
-                body: formData
-            });
-            
-            const result = await response.json();
-            
-            if (result.error) {
-                showToast(result.error, 'error');
-            } else {
-                showToast(typeId ? 'Tipo actualizado exitosamente' : 'Tipo creado exitosamente', 'success');
-                closeModal('formModal');
-                await loadExpenseTypes();
-            }
+            await handleApiCall(
+                () => fetch(url, {
+                    method: method,
+                    body: formData
+                }).then(response => handleResponse(response)),
+                typeId ? 'Tipo actualizado exitosamente' : 'Tipo creado exitosamente',
+                'Error al guardar el tipo de gasto',
+                () => {
+                    // Callback de éxito
+                    closeModal('formModal');
+                    loadExpenseTypes();
+                },
+                (error) => {
+                    // Callback de error
+                    console.error('Error saving type:', error);
+                }
+            );
             
         } catch (error) {
             console.error('Error saving type:', error);
@@ -2109,25 +2103,20 @@ function loadExpenseTypesSection() {
         
         document.getElementById('confirmDeleteMessage').textContent = message;
         document.getElementById('confirmDeleteBtn').onclick = async function() {
-            try {
-                const response = await fetch(`api/expense_type/ExpenseTypeController.php?action=delete&id=${typeId}`, {
-                    method: 'DELETE'
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    showToast('Tipo eliminado exitosamente', 'success');
+            await handleApiCall(
+                () => apiDelete(`api/expense_type/ExpenseTypeController.php?action=delete&id=${typeId}`),
+                'Tipo eliminado exitosamente',
+                'Error al eliminar el tipo de gasto',
+                () => {
+                    // Callback de éxito
                     closeModal('confirmDeleteModal');
-                    await loadExpenseTypes();
-                } else {
-                    showToast(result.message || 'Error al eliminar el tipo', 'error');
+                    loadExpenseTypes();
+                },
+                (error) => {
+                    // Callback de error
+                    console.error('Error deleting type:', error);
                 }
-                
-            } catch (error) {
-                console.error('Error deleting type:', error);
-                showToast(error.message || 'Error al eliminar el tipo', 'error');
-            }
+            );
         };
         
         openModal('confirmDeleteModal');
@@ -2632,25 +2621,21 @@ function loadJobTypesSection() {
                 };
                 
                 // Enviar solicitud para crear el tipo
-                fetch('api/job_type/JobTypeController.php?action=createJobType', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(formData)
-                })
-                .then(response => response.json())
-                .then(result => {
-                    closeModal('formModal');
-                    if (result && result.error) {
-                        showToast(result.error, 'error');
-                    } else {
-                        showToast('Tipo creado con éxito', 'success');
+                handleApiCall(
+                    () => apiPost('api/job_type/JobTypeController.php?action=createJobType', formData),
+                    'Tipo creado con éxito',
+                    'Error al crear el tipo de trabajo',
+                    () => {
+                        // Callback de éxito
+                        closeModal('formModal');
                         loadJobTypesData(jobTypesCurrentPage);
+                    },
+                    (error) => {
+                        // Callback de error
+                        console.error('Error saving job type:', error);
+                        closeModal('formModal');
                     }
-                })
-                .catch(error => {
-                    console.error('Error saving job type:', error);
-                    showToast(error.message || 'Error al guardar el tipo', 'error');
-                });
+                );
             });
         }
     };
@@ -2748,28 +2733,23 @@ function loadJobTypesSection() {
                         }
                         
                         // Enviar solicitud para actualizar el tipo
-                        fetch(`api/job_type/JobTypeController.php?action=updateJobType&id=${editingJobTypeId}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(formData)
-                        })
-                        .then(response => response.json())
-                        .then(result => {
-                            closeModal('formModal');
-                            if (result && result.error) {
-                                showToast(result.error, 'error');
-                            } else {
-                                showToast('Tipo actualizado con éxito', 'success');
+                        handleApiCall(
+                            () => apiPut(`api/job_type/JobTypeController.php?action=updateJobType&id=${editingJobTypeId}`, formData),
+                            'Tipo actualizado con éxito',
+                            'Error al actualizar el tipo de trabajo',
+                            () => {
+                                // Callback de éxito
+                                closeModal('formModal');
                                 loadJobTypesData(jobTypesCurrentPage);
+                                editingJobTypeId = null;
+                            },
+                            (error) => {
+                                // Callback de error
+                                console.error('Error updating job type:', error);
+                                closeModal('formModal');
+                                editingJobTypeId = null;
                             }
-                            editingJobTypeId = null;
-                        })
-                        .catch(error => {
-                            console.error('Error updating job type:', error);
-                            showToast('Error al actualizar el tipo', 'error');
-                            closeModal('formModal');
-                            editingJobTypeId = null;
-                        });
+                        );
                     });
                 }
             })
@@ -2787,16 +2767,13 @@ function loadJobTypesSection() {
         
         // Configurar el botón de confirmación
         document.getElementById('confirmDeleteBtn').onclick = function() {
-            fetch(`api/job_type/JobTypeController.php?action=deleteJobType&id=${id}`, { 
-                method: 'DELETE' 
-            })
-            .then(res => res.json())
-            .then(result => {
-                closeModal('confirmDeleteModal');
-                if (result && result.error) {
-                    showToast('No se puede eliminar el tipo: ' + result.error, 'error');
-                } else {
-                    showToast('Tipo eliminado con éxito', 'success');
+            handleApiCall(
+                () => apiDelete(`api/job_type/JobTypeController.php?action=deleteJobType&id=${id}`),
+                'Tipo eliminado con éxito',
+                'Error al eliminar el tipo de trabajo',
+                () => {
+                    // Callback de éxito
+                    closeModal('confirmDeleteModal');
                     // Verificar si necesitamos ir a página anterior
                     const tbody = document.getElementById('jobTypesTableBody');
                     const currentRows = tbody.querySelectorAll('tr').length;
@@ -2805,13 +2782,17 @@ function loadJobTypesSection() {
                     } else {
                         loadJobTypesData(jobTypesCurrentPage);
                     }
+                },
+                (error) => {
+                    // Callback de error
+                    console.error('Error deleting job type:', error);
+                    closeModal('confirmDeleteModal');
+                    // Mostrar mensaje específico si hay error de constraint
+                    if (error.message && error.message.includes('constraint')) {
+                        showToast('No se puede eliminar el tipo: ' + error.message, 'error');
+                    }
                 }
-            })
-            .catch(err => {
-                console.error('Error deleting job type:', err);
-                showToast('Error al eliminar el tipo', 'error');
-                closeModal('confirmDeleteModal');
-            });
+            );
         };
     };
     
@@ -3415,27 +3396,25 @@ function saveUser() {
     
     const method = currentEditingUserId ? 'PUT' : 'POST';
     
-    fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    })
-    .then(res => res.json())
-    .then(result => {
-        if (result.error) {
-            showToast(result.error, 'error');
-            return;
+    handleApiCall(
+        () => apiRequest(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }),
+        currentEditingUserId ? 'Usuario actualizado con éxito' : 'Usuario creado con éxito',
+        'Error al guardar usuario',
+        (result) => {
+            // Callback de éxito
+            closeModal('formModal');
+            loadUsersTable();
+            loadUserStats();
+        },
+        (error) => {
+            // Callback de error
+            console.error('Error saving user:', error);
         }
-        
-        showToast(result.message, 'success');
-        closeModal('formModal');
-        loadUsersTable();
-        loadUserStats();
-    })
-    .catch(err => {
-        console.error('Error saving user:', err);
-        showToast('Error al guardar usuario', 'error');
-    });
+    );
 }
 
 function editUser(userId) {
@@ -3446,50 +3425,42 @@ function deleteUser(userId) {
     document.getElementById('confirmDeleteMessage').textContent = '¿Está seguro de que desea eliminar este usuario? Esta acción no se puede deshacer.';
     
     document.getElementById('confirmDeleteBtn').onclick = function() {
-        fetch(`${USERS_API_URL}?action=deleteUser&id=${userId}`, {
-            method: 'DELETE'
-        })
-        .then(res => res.json())
-        .then(result => {
-            closeModal('confirmDeleteModal');
-            
-            if (result.error) {
-                showToast(result.error, 'error');
-                return;
+        handleApiCall(
+            () => apiDelete(`${USERS_API_URL}?action=deleteUser&id=${userId}`),
+            'Usuario eliminado con éxito',
+            'Error al eliminar usuario',
+            (result) => {
+                // Callback de éxito
+                closeModal('confirmDeleteModal');
+                loadUsersTable();
+                loadUserStats();
+            },
+            (error) => {
+                // Callback de error
+                console.error('Error deleting user:', error);
+                closeModal('confirmDeleteModal');
             }
-            
-            showToast(result.message, 'success');
-            loadUsersTable();
-            loadUserStats();
-        })
-        .catch(err => {
-            console.error('Error deleting user:', err);
-            showToast('Error al eliminar usuario', 'error');
-        });
+        );
     };
     
     openModal('confirmDeleteModal');
 }
 
 function toggleUserStatus(userId) {
-    fetch(`${USERS_API_URL}?action=toggleUserStatus&id=${userId}`, {
-        method: 'PUT'
-    })
-    .then(res => res.json())
-    .then(result => {
-        if (result.error) {
-            showToast(result.error, 'error');
-            return;
+    handleApiCall(
+        () => apiPut(`${USERS_API_URL}?action=toggleUserStatus&id=${userId}`, {}),
+        'Estado del usuario actualizado con éxito',
+        'Error al cambiar estado del usuario',
+        (result) => {
+            // Callback de éxito
+            loadUsersTable();
+            loadUserStats();
+        },
+        (error) => {
+            // Callback de error
+            console.error('Error toggling user status:', error);
         }
-        
-        showToast(result.message, 'success');
-        loadUsersTable();
-        loadUserStats();
-    })
-    .catch(err => {
-        console.error('Error toggling user status:', err);
-        showToast('Error al cambiar estado del usuario', 'error');
-    });
+    );
 }
 
 function changeUserPassword(userId) {
@@ -3535,25 +3506,19 @@ function changeUserPassword(userId) {
             return;
         }
         
-        fetch(`${USERS_API_URL}?action=updatePassword&id=${userId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ new_password: newPassword })
-        })
-        .then(res => res.json())
-        .then(result => {
-            if (result.error) {
-                showToast(result.error, 'error');
-                return;
+        handleApiCall(
+            () => apiPut(`${USERS_API_URL}?action=updatePassword&id=${userId}`, { new_password: newPassword }),
+            'Contraseña actualizada con éxito',
+            'Error al cambiar contraseña',
+            (result) => {
+                // Callback de éxito
+                closeModal('formModal');
+            },
+            (error) => {
+                // Callback de error
+                console.error('Error updating password:', error);
             }
-            
-            showToast(result.message, 'success');
-            closeModal('formModal');
-        })
-        .catch(err => {
-            console.error('Error updating password:', err);
-            showToast('Error al cambiar contraseña', 'error');
-        });
+        );
     });
     
     openModal('formModal');

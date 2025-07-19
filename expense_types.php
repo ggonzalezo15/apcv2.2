@@ -172,4 +172,5 @@ $pageTitle = 'Tipos de Gastos';
 </div>
 
 <?php include 'includes/footer.php'; ?>
+<script src="assets/js/api-utils.js"></script>
 <script src="assets/js/expense_types.js"></script> 

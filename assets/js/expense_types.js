@@ -284,24 +284,23 @@ async function saveType() {
             method = 'POST';
         }
         
-        const response = await fetch(url, {
-            method: method,
-            body: formData
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showToast(typeId ? 'Tipo actualizado exitosamente' : 'Tipo creado exitosamente', 'success');
-            closeModal('typeModal');
-            await loadTypes();
-        } else {
-            showNotification('Error', result.message || 'Error al guardar el tipo', 'error');
-        }
+        await handleApiCall(
+            () => fetch(url, {
+                method: method,
+                body: formData
+            }).then(response => handleResponse(response)),
+            typeId ? 'Tipo actualizado exitosamente' : 'Tipo creado exitosamente',
+            'Error al guardar el tipo',
+            () => {
+                // Callback de éxito
+                closeModal('typeModal');
+                loadTypes();
+            },
+            (error) => {
+                // Callback de error - mostrar notificación detallada
+                showNotification('Error', 'Error al guardar el tipo: ' + error.message, 'error');
+            }
+        );
         
     } catch (error) {
         console.error('Error saving type:', error);
@@ -352,29 +351,20 @@ async function deleteType(typeId, typeName) {
     
     document.getElementById('confirmDeleteMessage').textContent = message;
     document.getElementById('confirmDeleteBtn').onclick = async function() {
-        try {
-            const response = await fetch(`api/expense_type/ExpenseTypeController.php?action=delete&id=${typeId}`, {
-                method: 'DELETE'
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                showToast('Tipo eliminado exitosamente', 'success');
+        await handleApiCall(
+            () => apiDelete(`api/expense_type/ExpenseTypeController.php?action=delete&id=${typeId}`),
+            'Tipo eliminado exitosamente',
+            'Error al eliminar el tipo',
+            () => {
+                // Callback de éxito
                 closeModal('confirmDeleteModal');
-                await loadTypes();
-            } else {
-                showNotification('Error', result.message || 'Error al eliminar el tipo', 'error');
+                loadTypes();
+            },
+            (error) => {
+                // Callback de error - mostrar notificación detallada si es necesario
+                showNotification('Error', 'Error al eliminar el tipo: ' + error.message, 'error');
             }
-            
-        } catch (error) {
-            console.error('Error deleting type:', error);
-            showNotification('Error', 'Error al eliminar el tipo: ' + error.message, 'error');
-        }
+        );
     };
     
     openModal('confirmDeleteModal');

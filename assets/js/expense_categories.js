@@ -240,24 +240,23 @@ async function saveCategory() {
             method = 'POST';
         }
         
-        const response = await fetch(url, {
-            method: method,
-            body: formData
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            showToast(categoryId ? 'Categoría actualizada exitosamente' : 'Categoría creada exitosamente', 'success');
-            closeModal('categoryModal');
-            await loadCategories();
-        } else {
-            showNotification('Error', result.message || 'Error al guardar la categoría', 'error');
-        }
+        await handleApiCall(
+            () => fetch(url, {
+                method: method,
+                body: formData
+            }).then(response => handleResponse(response)),
+            categoryId ? 'Categoría actualizada exitosamente' : 'Categoría creada exitosamente',
+            'Error al guardar la categoría',
+            () => {
+                // Callback de éxito
+                closeModal('categoryModal');
+                loadCategories();
+            },
+            (error) => {
+                // Callback de error - mostrar notificación detallada
+                showNotification('Error', 'Error al guardar la categoría: ' + error.message, 'error');
+            }
+        );
         
     } catch (error) {
         console.error('Error saving category:', error);
@@ -314,29 +313,20 @@ async function deleteCategory(categoryId, categoryName) {
     
     document.getElementById('confirmDeleteMessage').textContent = message;
     document.getElementById('confirmDeleteBtn').onclick = async function() {
-        try {
-            const response = await fetch(`api/expense_category/ExpenseCategoryController.php?action=delete&id=${categoryId}`, {
-                method: 'DELETE'
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            
-            const result = await response.json();
-            
-            if (result.success) {
-                showToast('Categoría eliminada exitosamente', 'success');
+        await handleApiCall(
+            () => apiDelete(`api/expense_category/ExpenseCategoryController.php?action=delete&id=${categoryId}`),
+            'Categoría eliminada exitosamente',
+            'Error al eliminar la categoría',
+            () => {
+                // Callback de éxito
                 closeModal('confirmDeleteModal');
-                await loadCategories();
-            } else {
-                showNotification('Error', result.message || 'Error al eliminar la categoría', 'error');
+                loadCategories();
+            },
+            (error) => {
+                // Callback de error - mostrar notificación detallada si es necesario
+                showNotification('Error', 'Error al eliminar la categoría: ' + error.message, 'error');
             }
-            
-        } catch (error) {
-            console.error('Error deleting category:', error);
-            showNotification('Error', 'Error al eliminar la categoría: ' + error.message, 'error');
-        }
+        );
     };
     
     openModal('confirmDeleteModal');

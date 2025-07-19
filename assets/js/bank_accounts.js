@@ -909,24 +909,20 @@ document.getElementById('bankAccountForm').addEventListener('submit', function(e
     } else {
         url += '?action=createBankAccount';
     }
-    fetch(url, {
-        method: method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-    })
-    .then(res => res.json())
-    .then(result => {
-        if (result && result.error) {
-            showToast(result.error, 'error');
-        } else {
+    handleApiCall(
+        () => apiRequest(url, {
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        }),
+        isEdit ? 'Cuenta editada con éxito.' : 'Cuenta creada con éxito.',
+        'Error al guardar la cuenta.',
+        () => {
+            // Callback de éxito
             closeModal('bankAccountModal');
-            showToast(isEdit ? 'Cuenta editada con éxito.' : 'Cuenta creada con éxito.', 'success');
             loadBankAccounts();
         }
-    })
-    .catch(() => {
-        showToast('Ocurrió un error al guardar la cuenta.', 'error');
-    });
+    );
 });
 
 // Formulario de transferencias
@@ -950,24 +946,20 @@ document.getElementById('transferForm').addEventListener('submit', function(e) {
         description: description
     };
     
-    fetch(`${API_URL}?action=transfer`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(transferData)
-    })
-    .then(res => res.json())
-    .then(result => {
-        closeModal('transferModal');
-        if (result.success) {
-            showToast('Transferencia realizada con éxito', 'success');
+    handleApiCall(
+        () => apiPost(`${API_URL}?action=transfer`, transferData),
+        'Transferencia realizada con éxito',
+        'Error al realizar la transferencia',
+        () => {
+            // Callback de éxito
+            closeModal('transferModal');
             loadBankAccounts();
-        } else {
-            showToast(result.message || 'Error al realizar la transferencia', 'error');
+        },
+        () => {
+            // Callback de error
+            closeModal('transferModal');
         }
-    })
-    .catch(() => {
-        showToast('Error al procesar la transferencia', 'error');
-    });
+    );
 });
 
 // Formulario de pago de crédito
@@ -1009,28 +1001,22 @@ document.getElementById('creditPaymentForm').addEventListener('submit', function
         description: description
     };
     
-    fetch(`${API_URL}?action=creditPayment`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(paymentData)
-    })
-    .then(res => res.json())
-    .then(result => {
-        if (result.success) {
-            showToast('Pago realizado con éxito', 'success');
+    handleApiCall(
+        () => apiPost(`${API_URL}?action=creditPayment`, paymentData),
+        'Pago realizado con éxito',
+        'Error al realizar el pago',
+        () => {
+            // Callback de éxito
             closeModal('creditPaymentModal');
             loadBankAccounts();
-        } else {
-            showToast(result.message || 'Error al realizar el pago', 'error');
-            // Restaurar botón
+        },
+        () => {
+            // Callback de error - restaurar botón
             submitButton.disabled = false;
             submitButton.innerHTML = originalText;
         }
-    })
-    .catch(error => {
-        console.error('Payment error:', error);
-        showToast('Error al procesar el pago', 'error');
-        // Restaurar botón
+    ).catch(() => {
+        // Fallback en caso de error adicional
         submitButton.disabled = false;
         submitButton.innerHTML = originalText;
     });
@@ -1059,15 +1045,12 @@ function deleteBankAccount(id) {
     showDeleteModal(id);
 }
 function deleteBankAccountConfirmed(id) {
-    fetch(`${API_URL}?action=deleteBankAccount&id=${id}`, { method: 'DELETE' })
-        .then(res => res.json())
-        .then(result => {
-            if (result && result.error) {
-                showNotification('No se puede eliminar la cuenta bancaria.\n\nDetalle: ' + result.error, 'Error al eliminar cuenta');
-                showToast('No se pudo eliminar la cuenta.', 'error');
-                return;
-            }
-            showToast('Cuenta bancaria eliminada con éxito.', 'success');
+    handleApiCall(
+        () => apiDelete(`${API_URL}?action=deleteBankAccount&id=${id}`),
+        'Cuenta bancaria eliminada con éxito.',
+        'No se pudo eliminar la cuenta.',
+        () => {
+            // Callback de éxito - recargar la tabla
             setTimeout(() => {
                 fetch(`${API_URL}?action=getAllBankAccounts&limit=${pageSize}&offset=${(currentPage-1)*pageSize}`)
                     .then(res => res.json())
@@ -1080,10 +1063,14 @@ function deleteBankAccountConfirmed(id) {
                         }
                     });
             }, 200);
-        })
-        .catch(() => {
-            showToast('Ocurrió un error al eliminar la cuenta.', 'error');
-        });
+        },
+        (error) => {
+            // Callback de error - mostrar detalle si es necesario
+            if (error.message.includes('related data') || error.message.includes('constraint')) {
+                showNotification('No se puede eliminar la cuenta bancaria.\n\nDetalle: ' + error.message, 'Error al eliminar cuenta');
+            }
+        }
+    );
 }
 
 // --- Filtro de búsqueda local por nombre o banco ---
