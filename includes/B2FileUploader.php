@@ -119,43 +119,40 @@ class B2FileUploader {
             if (!$validation['valid']) {
                 return ['success' => false, 'error' => $validation['error']];
             }
-            
             // Obtener año de la fecha del gasto
             $year = date('Y', strtotime($expenseDate));
-            
             // Crear carpeta si no existe
             $this->createYearFolder($year);
-            
             // Procesar archivo según tipo
             $processedFile = $this->processFile($file, $expenseId);
             if (!$processedFile['success']) {
                 return $processedFile;
             }
-            
             // Generar nombre único para el archivo
-            $fileName = $this->generateUniqueFileName($file['name'], $expenseId);
-            
+            $originalExt = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $isWebp = !empty($processedFile['webp']);
+            $finalExt = $isWebp ? 'webp' : $originalExt;
+            $fileName = $this->generateUniqueFileName($file['name'], $expenseId, $finalExt);
             // Crear key/path en el bucket
             $key = "expenses/{$year}/{$fileName}";
-            
+            // Detectar tipo MIME
+            $contentType = $isWebp ? 'image/webp' : $file['type'];
             // Subir archivo a B2
             $result = $this->s3Client->putObject([
                 'Bucket' => $this->bucket,
                 'Key' => $key,
                 'Body' => fopen($processedFile['file_path'], 'rb'),
-                'ContentType' => $file['type'],
+                'ContentType' => $contentType,
                 'Metadata' => [
                     'expense_id' => $expenseId,
                     'original_name' => $file['name'],
                     'upload_date' => date('Y-m-d H:i:s')
                 ]
             ]);
-            
             // Limpiar archivo temporal procesado
-            if (file_exists($processedFile['file_path'])) {
+            if (file_exists($processedFile['file_path']) && $processedFile['file_path'] !== $file['tmp_name']) {
                 unlink($processedFile['file_path']);
             }
-            
             return [
                 'success' => true,
                 'file_key' => $key,
@@ -163,10 +160,11 @@ class B2FileUploader {
                 'file_name' => $fileName,
                 'original_name' => $file['name'],
                 'file_size' => $processedFile['file_size'],
-                'mime_type' => $file['type'],
-                'compressed' => $processedFile['compressed'] ?? false
+                'mime_type' => $contentType,
+                'compressed' => $processedFile['compressed'] ?? false,
+                'webp' => $processedFile['webp'] ?? false,
+                'compression_ratio' => $processedFile['compression_ratio'] ?? 0
             ];
-            
         } catch (S3Exception $e) {
             error_log("Error uploading to B2: " . $e->getMessage());
             return ['success' => false, 'error' => 'Error al subir archivo al storage'];
@@ -216,12 +214,13 @@ class B2FileUploader {
     }
     
     /**
-     * Procesar archivo (comprimir imágenes si es necesario)
+     * Procesar archivo (comprimir imágenes si es necesario, convertir a WebP si es posible)
      */
     private function processFile($file, $expenseId) {
         try {
             $isImage = strpos($file['type'], 'image/') === 0;
-            
+            $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            $canWebp = in_array($ext, ['jpg', 'jpeg', 'png']) && function_exists('imagewebp');
             if (!$isImage) {
                 // Para PDFs, no procesamos, solo retornamos la información
                 return [
@@ -231,7 +230,6 @@ class B2FileUploader {
                     'compressed' => false
                 ];
             }
-            
             // Verificar si la compresión está deshabilitada manualmente
             if (file_exists('compression_disabled.flag')) {
                 error_log("Image compression manually disabled");
@@ -243,7 +241,6 @@ class B2FileUploader {
                     'note' => 'Image compression manually disabled - using original file'
                 ];
             }
-            
             // Verificar dependencias antes de procesar imagen
             if (!$this->canProcessImages()) {
                 error_log("Image processing disabled - dependencies not available");
@@ -255,20 +252,11 @@ class B2FileUploader {
                     'note' => 'Image processing disabled - using original file'
                 ];
             }
-            
-            // Comprimir imagen
             $tempDir = sys_get_temp_dir();
-            $processedFileName = $expenseId . '_' . uniqid() . '_compressed.' . pathinfo($file['name'], PATHINFO_EXTENSION);
-            $processedFilePath = $tempDir . '/' . $processedFileName;
-            
-            // Cargar imagen con Intervention
-            $image = $this->imageManager->make($file['tmp_name']);
-            
-            // Aplicar compresión y redimensionamiento si es necesario
             $originalSize = $file['size'];
             $maxWidth = 1920;
             $maxHeight = 1080;
-            
+            $image = $this->imageManager->make($file['tmp_name']);
             // Redimensionar si es muy grande
             if ($image->width() > $maxWidth || $image->height() > $maxHeight) {
                 $image->resize($maxWidth, $maxHeight, function ($constraint) {
@@ -276,19 +264,38 @@ class B2FileUploader {
                     $constraint->upsize();
                 });
             }
-            
-            // Guardar con compresión
+            // Intentar guardar como WebP si es posible
+            if ($canWebp) {
+                $processedFileName = $expenseId . '_' . uniqid() . '_compressed.webp';
+                $processedFilePath = $tempDir . '/' . $processedFileName;
+                $image->encode('webp', 75)->save($processedFilePath);
+                $compressedSize = filesize($processedFilePath);
+                if ($compressedSize < $originalSize * 0.95) {
+                    return [
+                        'success' => true,
+                        'file_path' => $processedFilePath,
+                        'file_size' => $compressedSize,
+                        'compressed' => true,
+                        'webp' => true,
+                        'original_size' => $originalSize,
+                        'compression_ratio' => round(($originalSize - $compressedSize) / $originalSize * 100, 2)
+                    ];
+                } else {
+                    unlink($processedFilePath);
+                }
+            }
+            // Si no WebP o no ahorra suficiente, guardar como JPG/PNG con compresión
+            $processedFileName = $expenseId . '_' . uniqid() . '_compressed.' . $ext;
+            $processedFilePath = $tempDir . '/' . $processedFileName;
             $image->save($processedFilePath, IMAGE_COMPRESSION_QUALITY);
-            
             $compressedSize = filesize($processedFilePath);
-            
-            // Usar archivo comprimido solo si es significativamente más pequeño
             if ($compressedSize < $originalSize * 0.9) {
                 return [
                     'success' => true,
                     'file_path' => $processedFilePath,
                     'file_size' => $compressedSize,
                     'compressed' => true,
+                    'webp' => false,
                     'original_size' => $originalSize,
                     'compression_ratio' => round(($originalSize - $compressedSize) / $originalSize * 100, 2)
                 ];
@@ -299,20 +306,20 @@ class B2FileUploader {
                     'success' => true,
                     'file_path' => $file['tmp_name'],
                     'file_size' => $originalSize,
-                    'compressed' => false
+                    'compressed' => false,
+                    'webp' => false
                 ];
             }
-            
         } catch (Exception $e) {
             error_log("Error processing image: " . $e->getMessage());
             error_log("Image file: " . $file['name'] . " Type: " . $file['type']);
-            
             // Fallback: usar archivo original si la compresión falla
             return [
                 'success' => true,
                 'file_path' => $file['tmp_name'],
                 'file_size' => $file['size'],
                 'compressed' => false,
+                'webp' => false,
                 'note' => 'Image compression failed - using original file',
                 'compression_error' => $e->getMessage()
             ];
@@ -370,8 +377,8 @@ class B2FileUploader {
     /**
      * Generar nombre único para archivo
      */
-    private function generateUniqueFileName($originalName, $expenseId) {
-        $extension = pathinfo($originalName, PATHINFO_EXTENSION);
+    private function generateUniqueFileName($originalName, $expenseId, $forceExt = null) {
+        $extension = $forceExt ?: pathinfo($originalName, PATHINFO_EXTENSION);
         $timestamp = date('YmdHis');
         $uniqueId = uniqid();
         
