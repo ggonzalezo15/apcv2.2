@@ -336,7 +336,7 @@ if (typeof flatpickr === 'undefined') {
                 <button type="button" class="btn btn-secondary" onclick="closeModal('incomeModal')">
                     Cancelar
                 </button>
-                <button type="submit" class="btn btn-primary">
+                <button type="submit" class="btn btn-primary" id="saveIncomeBtn">
                     <i class="fas fa-save"></i>
                     Guardar
                 </button>
@@ -1920,6 +1920,7 @@ select.form-input.success {
 </style>
 
 <?php include 'includes/footer.php'; ?>
+<script src="assets/js/table-loading.js"></script>
 <script src="assets/js/incomes-simple.js"></script>
 
 <script>

@@ -445,6 +445,9 @@ function createIncome() {
             error_log("Error registrando auditoría: " . $e->getMessage());
         }
         
+        // Recalcular y actualizar el status en la base de datos
+        recalculateIncomeStatus($incomeId, true);
+        
         echo json_encode([
             'success' => true,
             'message' => 'Ingreso creado exitosamente',
@@ -606,6 +609,9 @@ function updateIncome() {
         } catch (Exception $e) {
             error_log("Error registrando auditoría: " . $e->getMessage());
         }
+        
+        // Recalcular y actualizar el status en la base de datos
+        recalculateIncomeStatus($incomeId, true);
         
         echo json_encode([
             'success' => true,
@@ -947,11 +953,12 @@ function deleteAllIncomeTransactions($incomeId) {
  * Recalcular el status de un ingreso específico
  * @param string $incomeId ID del ingreso
  */
-function recalculateIncomeStatus($incomeId) {
+function recalculateIncomeStatus($incomeId, $silent = false) {
     global $pdo;
     
     if (empty($incomeId)) {
-        throw new Exception('ID de ingreso requerido');
+        if (!$silent) throw new Exception('ID de ingreso requerido');
+        else return;
     }
     
     try {
@@ -959,26 +966,29 @@ function recalculateIncomeStatus($incomeId) {
         $checkStmt = $pdo->prepare("SELECT id FROM incomes WHERE id = ?");
         $checkStmt->execute([$incomeId]);
         if (!$checkStmt->fetch()) {
-            throw new Exception('Ingreso no encontrado');
+            if (!$silent) throw new Exception('Ingreso no encontrado');
+            else return;
         }
         
         // Llamar al procedimiento almacenado para actualizar el status
         $stmt = $pdo->prepare("CALL UpdateIncomeStatus(?)");
         $stmt->execute([$incomeId]);
         
-        // Obtener el nuevo status
-        $statusStmt = $pdo->prepare("SELECT status FROM incomes WHERE id = ?");
-        $statusStmt->execute([$incomeId]);
-        $result = $statusStmt->fetch(PDO::FETCH_ASSOC);
-        
-        echo json_encode([
-            'success' => true,
-            'message' => 'Status actualizado correctamente',
-            'new_status' => $result['status']
-        ]);
+        if (!$silent) {
+            // Obtener el nuevo status
+            $statusStmt = $pdo->prepare("SELECT status FROM incomes WHERE id = ?");
+            $statusStmt->execute([$incomeId]);
+            $result = $statusStmt->fetch(PDO::FETCH_ASSOC);
+            
+            echo json_encode([
+                'success' => true,
+                'message' => 'Status actualizado correctamente',
+                'new_status' => $result['status']
+            ]);
+        }
         
     } catch (Exception $e) {
-        throw new Exception('Error al recalcular status: ' . $e->getMessage());
+        if (!$silent) throw new Exception('Error al recalcular status: ' . $e->getMessage());
     }
 }
 
