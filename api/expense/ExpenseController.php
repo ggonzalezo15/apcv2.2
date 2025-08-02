@@ -46,6 +46,9 @@ switch ($action) {
     case 'getExpenseAttachmentsB2':
         getExpenseAttachmentsB2($_GET['id'] ?? '');
         break;
+    case 'deleteAttachment':
+        deleteAttachmentEndpoint($_GET['id'] ?? '');
+        break;
     default:
         echo json_encode(['error' => 'Acción no válida']);
 }
@@ -781,6 +784,48 @@ function deleteAttachment($attachmentId) {
     } catch (Exception $e) {
         error_log("Error eliminando archivo adjunto: " . $e->getMessage());
         throw $e; // Re-lanzar la excepción para que el proceso padre pueda manejarla
+    }
+}
+
+/**
+ * Endpoint público para eliminar un attachment individual
+ */
+function deleteAttachmentEndpoint($attachmentId) {
+    global $pdo;
+    
+    try {
+        // Validar que se proporcionó un ID
+        if (empty($attachmentId)) {
+            echo json_encode(['success' => false, 'error' => 'ID de attachment requerido']);
+            return;
+        }
+        
+        // Verificar que el attachment existe antes de intentar eliminarlo
+        $stmt = $pdo->prepare("SELECT id, filename FROM expense_attachments WHERE id = ?");
+        $stmt->execute([$attachmentId]);
+        $attachment = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$attachment) {
+            echo json_encode(['success' => false, 'error' => 'Attachment no encontrado']);
+            return;
+        }
+        
+        // Llamar a la función interna de eliminación
+        deleteAttachment($attachmentId);
+        
+        echo json_encode([
+            'success' => true, 
+            'message' => 'Attachment eliminado exitosamente',
+            'attachment_id' => $attachmentId,
+            'filename' => $attachment['filename']
+        ]);
+        
+    } catch (Exception $e) {
+        error_log("Error en deleteAttachmentEndpoint: " . $e->getMessage());
+        echo json_encode([
+            'success' => false, 
+            'error' => 'Error eliminando attachment: ' . $e->getMessage()
+        ]);
     }
 }
 
