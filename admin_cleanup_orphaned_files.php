@@ -15,7 +15,7 @@ require_once 'config.php';
 require_once 'includes/B2FileUploader.php';
 
 // 🔒 VERIFICACIÓN DE SEGURIDAD
-session_start();
+// Nota: session_start() ya se ejecuta en config.php, no necesitamos duplicarlo
 
 // Verificar que el usuario está logueado y es administrador
 if (!isset($_SESSION['user_id'])) {
