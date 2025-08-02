@@ -764,6 +764,20 @@ function deleteAttachment($attachmentId) {
                     if (!$result['success']) {
                         error_log("Error eliminando archivo de B2: " . ($result['error'] ?? 'Unknown error'));
                         // Continúa para eliminar el registro de BD aunque falle B2
+                    } else {
+                        // 🆕 VERIFICACIÓN POST-ELIMINACIÓN
+                        $verificationResult = verifyB2FileDeletion($uploader, $attachment['file_key']);
+                        
+                        if (!$verificationResult['verified']) {
+                            error_log("ADVERTENCIA: Archivo reportado como eliminado pero aún existe en B2: " . $attachment['file_key']);
+                            // Opcional: intentar eliminar nuevamente
+                            $retryResult = $uploader->deleteFile($attachment['file_key']);
+                            if (!$retryResult['success']) {
+                                error_log("FALLO CRÍTICO: No se pudo eliminar archivo de B2 después del retry: " . $attachment['file_key']);
+                            }
+                        } else {
+                            error_log("CONFIRMADO: Archivo eliminado exitosamente de B2: " . $attachment['file_key']);
+                        }
                     }
                 } catch (Exception $e) {
                     error_log("Error conectando con B2 para eliminar archivo: " . $e->getMessage());
@@ -919,5 +933,116 @@ function getExpenseAttachmentsB2($expenseId) {
         http_response_code(500);
         echo json_encode(['error' => 'Error al obtener archivos: ' . $e->getMessage()]);
     }
+}
+
+/**
+ * Verificar que un archivo fue efectivamente eliminado de BackBlaze B2
+ * 
+ * @param B2FileUploader $uploader - Instancia del uploader B2
+ * @param string $fileKey - Clave del archivo en B2
+ * @return array - ['verified' => bool, 'message' => string, 'file_exists' => bool]
+ */
+function verifyB2FileDeletion($uploader, $fileKey) {
+    try {
+        // Intentar obtener información del archivo
+        // Si el archivo fue eliminado, esto debería fallar
+        $fileInfo = $uploader->getFileInfo($fileKey);
+        
+        if ($fileInfo && $fileInfo['success']) {
+            // ⚠️ El archivo AÚN EXISTE - eliminación falló
+            return [
+                'verified' => false,
+                'message' => 'Archivo aún existe en B2 después de la eliminación',
+                'file_exists' => true,
+                'file_info' => $fileInfo
+            ];
+        } else {
+            // ✅ El archivo NO EXISTE - eliminación exitosa
+            return [
+                'verified' => true,
+                'message' => 'Archivo confirmado como eliminado de B2',
+                'file_exists' => false
+            ];
+        }
+        
+    } catch (Exception $e) {
+        // Si hay una excepción, probablemente el archivo no existe
+        // Esto es lo esperado después de una eliminación exitosa
+        
+        // Verificar si el error indica que el archivo no existe
+        $errorMessage = strtolower($e->getMessage());
+        $notFoundIndicators = ['not found', '404', 'does not exist', 'no such file'];
+        
+        $isNotFoundError = false;
+        foreach ($notFoundIndicators as $indicator) {
+            if (strpos($errorMessage, $indicator) !== false) {
+                $isNotFoundError = true;
+                break;
+            }
+        }
+        
+        if ($isNotFoundError) {
+            // ✅ Error "not found" = archivo eliminado exitosamente
+            return [
+                'verified' => true,
+                'message' => 'Archivo confirmado como eliminado (error not found esperado)',
+                'file_exists' => false,
+                'error_detail' => $e->getMessage()
+            ];
+        } else {
+            // ⚠️ Error inesperado - no podemos verificar
+            return [
+                'verified' => false,
+                'message' => 'No se pudo verificar la eliminación debido a error inesperado',
+                'file_exists' => 'unknown',
+                'error_detail' => $e->getMessage()
+            ];
+        }
+    }
+}
+
+/**
+ * Verificación avanzada con retry automático
+ * 
+ * @param B2FileUploader $uploader
+ * @param string $fileKey
+ * @param int $maxRetries
+ * @return array
+ */
+function verifyB2FileDeletionWithRetry($uploader, $fileKey, $maxRetries = 2) {
+    $attempts = 0;
+    
+    while ($attempts < $maxRetries) {
+        $attempts++;
+        
+        // Esperar un poco antes de verificar (cache/propagación)
+        if ($attempts > 1) {
+            sleep(1); // Esperar 1 segundo entre intentos
+        }
+        
+        $verification = verifyB2FileDeletion($uploader, $fileKey);
+        
+        if ($verification['verified']) {
+            $verification['attempts'] = $attempts;
+            return $verification;
+        }
+        
+        // Si el archivo aún existe, intentar eliminarlo nuevamente
+        if ($verification['file_exists'] === true && $attempts < $maxRetries) {
+            error_log("Intento $attempts: Archivo aún existe, reintentando eliminación: $fileKey");
+            $deleteResult = $uploader->deleteFile($fileKey);
+            
+            if (!$deleteResult['success']) {
+                error_log("Fallo en reintento de eliminación: " . ($deleteResult['error'] ?? 'Unknown error'));
+                break; // No seguir intentando si la eliminación falla
+            }
+        }
+    }
+    
+    // Si llegamos aquí, no se pudo verificar la eliminación
+    $verification['attempts'] = $attempts;
+    $verification['max_retries_reached'] = true;
+    
+    return $verification;
 }
 ?> 
