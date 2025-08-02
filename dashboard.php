@@ -17,16 +17,12 @@ try {
     die("Error de conexión a la base de datos: " . $e->getMessage());
 }
 
-// SIEMPRE usar la semana en curso por defecto (ignorar parámetros URL en carga inicial)
-// Solo usar parámetros URL si vienen de una actualización AJAX
-$isAjaxUpdate = isset($_GET['ajax_update']) && $_GET['ajax_update'] === '1';
+// Manejo inteligente de fechas: usar parámetros si están presentes, sino usar semana actual
+$startDate = $_GET['start_date'] ?? null;
+$endDate = $_GET['end_date'] ?? null;
 
-if ($isAjaxUpdate) {
-    // Solo durante actualizaciones AJAX, usar los parámetros de la URL
-    $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('monday this week'));
-    $endDate = $_GET['end_date'] ?? date('Y-m-d', strtotime('sunday this week'));
-} else {
-    // En navegación normal o refresh, SIEMPRE cargar semana actual
+// Solo usar semana actual si no hay parámetros específicos
+if (!$startDate || !$endDate) {
     $startDate = date('Y-m-d', strtotime('monday this week'));
     $endDate = date('Y-m-d', strtotime('sunday this week'));
 }
@@ -37,25 +33,89 @@ if (!$startDate || !$endDate) {
     $endDate = date('Y-m-d', strtotime('sunday this week'));
 }
 
-// Funciones para obtener datos del dashboard
-function getFinancialSummary($pdo, $startDate, $endDate) {
+// Depuración: registrar las fechas que se están usando
+error_log("DASHBOARD - Fechas utilizadas: $startDate a $endDate");
+error_log("DASHBOARD - Parámetros GET: " . json_encode($_GET));
+
+// Función unificada para obtener datos financieros y de métodos de pago
+function getUnifiedFinancialData($pdo, $startDate, $endDate) {
+    $result = [
+        'financial_summary' => ['income' => 0, 'expenses' => 0, 'fees' => 0, 'balance' => 0],
+        'team_payment_methods' => []
+    ];
     
-    // Obtener total de ingresos en el rango de fechas
-    $totalIncome = 0;
     try {
+        // Consulta unificada para ingresos, fees y métodos de pago por equipo
         $stmt = $pdo->prepare("
-            SELECT COALESCE(SUM(ip.amount), 0) as total_income
-            FROM income_payments ip 
-            WHERE DATE(ip.created_at) BETWEEN ? AND ?
+            SELECT 
+                -- Datos para resumen financiero
+                SUM(ip.amount) as total_income,
+                SUM(ip.fee) as total_fees,
+                
+                -- Datos para métodos de pago por equipo
+                t.id as team_id,
+                t.name as team_name,
+                pt.id as payment_type_id,
+                pt.name as payment_method,
+                COUNT(ip.id) as payment_count,
+                SUM(ip.amount) as team_method_amount,
+                SUM(ip.fee) as team_method_fee
+            FROM income_payments ip
+            INNER JOIN incomes i ON ip.income_id = i.id
+            INNER JOIN teams t ON i.team_id = t.id
+            INNER JOIN payment_types pt ON ip.payment_type_id = pt.id
+            WHERE i.income_date BETWEEN ? AND ?
+                AND pt.status = 'active'
+            GROUP BY t.id, t.name, pt.id, pt.name
+            ORDER BY t.name ASC, pt.name ASC
         ");
         $stmt->execute([$startDate, $endDate]);
-        $totalIncome = $stmt->fetchColumn() ?: 0;
+        $incomeResults = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Calcular totales para resumen financiero
+        $totalIncome = 0;
+        $totalFees = 0;
+        $teamData = [];
+        
+        foreach ($incomeResults as $row) {
+            // Acumular totales para resumen financiero
+            $totalIncome += $row['team_method_amount'];
+            $totalFees += $row['team_method_fee'];
+            
+            // Organizar datos por equipo para métodos de pago
+            $teamName = $row['team_name'];
+            if (!isset($teamData[$teamName])) {
+                $teamData[$teamName] = [
+                    'team_name' => $teamName,
+                    'payment_methods' => [],
+                    'total_amount' => 0,
+                    'total_payments' => 0,
+                    'total_fee' => 0
+                ];
+            }
+            
+            $paymentMethod = $row['payment_method'] ?: 'Sin especificar';
+            $teamData[$teamName]['payment_methods'][$paymentMethod] = [
+                'count' => $row['payment_count'],
+                'amount' => $row['team_method_amount'],
+                'fee' => $row['team_method_fee']
+            ];
+            $teamData[$teamName]['total_amount'] += $row['team_method_amount'];
+            $teamData[$teamName]['total_payments'] += $row['payment_count'];
+            $teamData[$teamName]['total_fee'] += $row['team_method_fee'];
+        }
+        
+        $result['financial_summary']['income'] = $totalIncome;
+        $result['financial_summary']['fees'] = $totalFees;
+        $result['team_payment_methods'] = array_values($teamData);
+        
+        error_log("Consulta unificada - Ingresos: $totalIncome, Fees: $totalFees, Equipos: " . count($teamData));
+        
     } catch (Exception $e) {
-        error_log("Error en consulta de ingresos: " . $e->getMessage());
+        error_log("Error en consulta unificada de ingresos: " . $e->getMessage());
     }
     
-    // Obtener total de gastos en el rango de fechas
-    $totalExpenses = 0;
+    // Consulta separada para gastos (no se puede unificar porque es tabla diferente)
     try {
         $stmt = $pdo->prepare("
             SELECT COALESCE(SUM(e.total_amount), 0) as total_expenses
@@ -63,19 +123,52 @@ function getFinancialSummary($pdo, $startDate, $endDate) {
             WHERE e.expense_date BETWEEN ? AND ?
         ");
         $stmt->execute([$startDate, $endDate]);
-        $totalExpenses = $stmt->fetchColumn() ?: 0;
+        $result['financial_summary']['expenses'] = $stmt->fetchColumn() ?: 0;
+        
     } catch (Exception $e) {
         error_log("Error en consulta de gastos: " . $e->getMessage());
     }
     
     // Calcular balance
-    $balance = $totalIncome - $totalExpenses;
+    $result['financial_summary']['balance'] = 
+        $result['financial_summary']['income'] - 
+        $result['financial_summary']['expenses'] - 
+        $result['financial_summary']['fees'];
     
-    return [
-        'income' => $totalIncome,
-        'expenses' => $totalExpenses,
-        'balance' => $balance
-    ];
+    return $result;
+}
+
+// Funciones wrapper para mantener compatibilidad
+function getFinancialSummary($pdo, $startDate, $endDate) {
+    static $cachedData = null;
+    static $cachedDates = null;
+    
+    // Usar caché si las fechas son las mismas
+    if ($cachedData === null || $cachedDates !== [$startDate, $endDate]) {
+        $cachedData = getUnifiedFinancialData($pdo, $startDate, $endDate);
+        $cachedDates = [$startDate, $endDate];
+    }
+    
+    return $cachedData['financial_summary'];
+}
+
+function getTeamPaymentMethods($pdo, $startDate, $endDate) {
+    static $cachedData = null;
+    static $cachedDates = null;
+    
+    // Usar caché si las fechas son las mismas
+    if ($cachedData === null || $cachedDates !== [$startDate, $endDate]) {
+        $cachedData = getUnifiedFinancialData($pdo, $startDate, $endDate);
+        $cachedDates = [$startDate, $endDate];
+    }
+    
+    error_log("getTeamPaymentMethods - Consulta con fechas: $startDate a $endDate");
+    error_log("getTeamPaymentMethods - Registros encontrados: " . count($cachedData['team_payment_methods']));
+    if (!empty($cachedData['team_payment_methods'])) {
+        error_log("getTeamPaymentMethods - Primer registro: " . json_encode($cachedData['team_payment_methods'][0]));
+    }
+    
+    return $cachedData['team_payment_methods'];
 }
 
 function getBankAccountBalances($pdo) {
@@ -417,68 +510,13 @@ function getPendingIncomes($pdo, $limit = 5) {
     }
 }
 
-function getDailyData($pdo, $startDate, $endDate) {
-    
-    // Crear array de fechas en el rango
-    $dates = [];
-    $current = new DateTime($startDate);
-    $end = new DateTime($endDate);
-    
-    while ($current <= $end) {
-        $dates[$current->format('Y-m-d')] = [
-            'date' => $current->format('Y-m-d'),
-            'income' => 0,
-            'expenses' => 0
-        ];
-        $current->add(new DateInterval('P1D'));
-    }
-    
-    // Obtener ingresos por día
-    try {
-        $stmt = $pdo->prepare("
-            SELECT DATE(ip.created_at) as payment_date, SUM(amount) as total
-            FROM income_payments ip
-            WHERE DATE(ip.created_at) BETWEEN ? AND ?
-            GROUP BY DATE(ip.created_at)
-        ");
-        $stmt->execute([$startDate, $endDate]);
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            if (isset($dates[$row['payment_date']])) {
-                $dates[$row['payment_date']]['income'] = $row['total'];
-            }
-        }
-    } catch (Exception $e) {
-        error_log("Error obteniendo ingresos diarios: " . $e->getMessage());
-    }
-    
-    // Obtener gastos por día
-    try {
-        $stmt = $pdo->prepare("
-            SELECT expense_date, SUM(total_amount) as total
-            FROM expenses 
-            WHERE expense_date BETWEEN ? AND ?
-            GROUP BY expense_date
-        ");
-        $stmt->execute([$startDate, $endDate]);
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            if (isset($dates[$row['expense_date']])) {
-                $dates[$row['expense_date']]['expenses'] = $row['total'];
-            }
-        }
-    } catch (Exception $e) {
-        // Tabla expenses puede no existir
-    }
-    
-    return array_values($dates);
-}
-
 // Obtener datos para el dashboard
 try {
     $financialSummary = getFinancialSummary($pdo, $startDate, $endDate);
     $bankAccounts = getBankAccountBalances($pdo);
     $recentActivity = getRecentActivity($pdo);
     $pendingIncomes = getPendingIncomes($pdo, 5);
-    $dailyData = getDailyData($pdo, $startDate, $endDate);
+    $teamPaymentMethods = getTeamPaymentMethods($pdo, $startDate, $endDate);
     
     // Determinar qué botón de período está activo
     $today = new DateTime();
@@ -558,7 +596,7 @@ try {
     $bankAccounts = [];
     $recentActivity = [];
     $pendingIncomes = [];
-    $dailyData = [];
+    $teamPaymentMethods = [];
     $isCurrentWeek = false;
     $isPreviousWeek = false;
     $isCurrentMonth = false;
@@ -632,50 +670,107 @@ try {
                         <i class="fas fa-refresh"></i>
                         Actualizar
                     </button>
+                    
+                    <!-- Selector de período rápido -->
+                    <div class="dropdown" style="position: relative;">
+                        <button class="btn-outline dropdown-toggle" type="button" id="periodSelector" onclick="togglePeriodDropdown()" style="min-width: 140px; display: flex; align-items: center; justify-content: space-between; background: white; border: 1px solid var(--border-color); color: var(--text-primary); padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 14px; transition: all 0.2s ease;" onmouseover="this.style.borderColor='var(--primary-color)'; this.style.color='var(--primary-color)'" onmouseout="this.style.borderColor='var(--border-color)'; this.style.color='var(--text-primary)'">
+                            <span id="periodSelectorText">
+                                <?php 
+                                if ($isCurrentWeek) echo 'Esta Semana';
+                                elseif ($isPreviousWeek) echo 'Semana Anterior';
+                                elseif ($isCurrentMonth) echo 'Este Mes';
+                                elseif ($isPreviousMonth) echo 'Mes Anterior';
+                                else echo 'Período Personalizado';
+                                ?>
+                            </span>
+                            <i class="fas fa-chevron-down" style="margin-left: 8px; font-size: 12px; transition: transform 0.2s ease;"></i>
+                        </button>
+                        <div class="dropdown-menu" id="periodDropdown" style="
+                            position: absolute;
+                            top: 100%;
+                            right: 0;
+                            background: white;
+                            border: 1px solid var(--border-color);
+                            border-radius: 6px;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+                            min-width: 180px;
+                            z-index: 1000;
+                            display: none;
+                            margin-top: 4px;
+                        ">
+                            <a class="dropdown-item" href="#" onclick="selectPeriod('current_week', 'Esta Semana')" style="display: block; padding: 10px 16px; text-decoration: none; color: var(--text-primary); border-bottom: 1px solid var(--border-light); transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(37, 99, 235, 0.1)'; this.style.color='var(--primary-color)'" onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text-primary)'">
+                                <i class="fas fa-calendar-week" style="margin-right: 8px; color: var(--primary-color);"></i>
+                                Esta Semana
+                            </a>
+                            <a class="dropdown-item" href="#" onclick="selectPeriod('previous_week', 'Semana Anterior')" style="display: block; padding: 10px 16px; text-decoration: none; color: var(--text-primary); border-bottom: 1px solid var(--border-light); transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(37, 99, 235, 0.1)'; this.style.color='var(--primary-color)'" onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text-primary)'">
+                                <i class="fas fa-calendar-week" style="margin-right: 8px; color: var(--text-secondary);"></i>
+                                Semana Anterior
+                            </a>
+                            <a class="dropdown-item" href="#" onclick="selectPeriod('current_month', 'Este Mes')" style="display: block; padding: 10px 16px; text-decoration: none; color: var(--text-primary); border-bottom: 1px solid var(--border-light); transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(37, 99, 235, 0.1)'; this.style.color='var(--primary-color)'" onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text-primary)'">
+                                <i class="fas fa-calendar-alt" style="margin-right: 8px; color: var(--primary-color);"></i>
+                                Este Mes
+                            </a>
+                            <a class="dropdown-item" href="#" onclick="selectPeriod('previous_month', 'Mes Anterior')" style="display: block; padding: 10px 16px; text-decoration: none; color: var(--text-primary); transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(37, 99, 235, 0.1)'; this.style.color='var(--primary-color)'" onmouseout="this.style.backgroundColor='transparent'; this.style.color='var(--text-primary)'">
+                                <i class="fas fa-calendar-alt" style="margin-right: 8px; color: var(--text-secondary);"></i>
+                                Mes Anterior
+                            </a>
+                        </div>
+                    </div>
                 </div>
-                
-                <!-- Botones de período -->
-                <div class="btn-group" style="display: flex; gap: 8px; flex-wrap: wrap;">
-                    <button id="btnCurrentWeek" onclick="setWeekPeriod('current')" class="btn <?php echo $isCurrentWeek ? 'btn-secondary' : 'btn-outline-secondary'; ?>">Esta Semana</button>
-                    <button id="btnPreviousWeek" onclick="setWeekPeriod('previous')" class="btn <?php echo $isPreviousWeek ? 'btn-secondary' : 'btn-outline-secondary'; ?>">Semana Anterior</button>
-                    <button id="btnCurrentMonth" onclick="setMonthPeriod('current')" class="btn <?php echo $isCurrentMonth ? 'btn-secondary' : 'btn-outline-secondary'; ?>">Este Mes</button>
-                    <button id="btnPreviousMonth" onclick="setMonthPeriod('previous')" class="btn <?php echo $isPreviousMonth ? 'btn-secondary' : 'btn-outline-secondary'; ?>">Mes Anterior</button>
+            </div>
+        </div>
+        
+        <!-- Resumen Financiero -->
+        <div class="financial-summary" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;">
+            <!-- Card Ingresos -->
+            <div class="card" style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: transform 0.2s ease, box-shadow 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.05)'">
+                <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: rgba(34, 197, 94, 0.1); border-radius: 12px; margin: 0 auto 12px;">
+                    <i class="fas fa-arrow-up" style="color: var(--success-color); font-size: 20px;"></i>
+                </div>
+                <div style="font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Ingresos
+                </div>
+                <div style="font-size: 24px; font-weight: bold; color: var(--success-color); line-height: 1;">
+                    $<?php echo number_format($financialSummary['income'], 2); ?>
                 </div>
             </div>
             
-            <!-- Resumen Financiero -->
-            <div class="financial-summary" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; border-top: 1px solid var(--border-color); background-color: var(--border-color);">
-                <!-- Ingresos -->
-                <div style="background-color: var(--background-primary); padding: 15px; text-align: center;">
-                    <div style="font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px;">
-                        <i class="fas fa-arrow-up" style="color: var(--success-color); margin-right: 5px;"></i>
-                        Ingresos
-                    </div>
-                    <div style="font-size: 20px; font-weight: bold; color: var(--success-color);">
-                        $<?php echo number_format($financialSummary['income'], 2); ?>
-                    </div>
+            <!-- Card Gastos -->
+            <div class="card" style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: transform 0.2s ease, box-shadow 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.05)'">
+                <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: rgba(239, 68, 68, 0.1); border-radius: 12px; margin: 0 auto 12px;">
+                    <i class="fas fa-arrow-down" style="color: var(--danger-color); font-size: 20px;"></i>
                 </div>
-                
-                <!-- Gastos -->
-                <div style="background-color: var(--background-primary); padding: 15px; text-align: center;">
-                    <div style="font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px;">
-                        <i class="fas fa-arrow-down" style="color: var(--danger-color); margin-right: 5px;"></i>
-                        Gastos
-                    </div>
-                    <div style="font-size: 20px; font-weight: bold; color: var(--danger-color);">
-                        $<?php echo number_format($financialSummary['expenses'], 2); ?>
-                    </div>
+                <div style="font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Gastos
                 </div>
-                
-                <!-- Balance -->
-                <div style="background-color: var(--background-primary); padding: 15px; text-align: center;">
-                    <div style="font-size: 14px; font-weight: 500; color: var(--text-secondary); margin-bottom: 6px;">
-                        <i class="fas fa-balance-scale" style="color: <?php echo $financialSummary['balance'] >= 0 ? 'var(--success-color)' : 'var(--danger-color)'; ?>; margin-right: 5px;"></i>
-                        Balance
-                    </div>
-                    <div style="font-size: 20px; font-weight: bold; color: <?php echo $financialSummary['balance'] >= 0 ? 'var(--success-color)' : 'var(--danger-color)'; ?>;">
-                        $<?php echo number_format($financialSummary['balance'], 2); ?>
-                    </div>
+                <div style="font-size: 24px; font-weight: bold; color: var(--danger-color); line-height: 1;">
+                    $<?php echo number_format($financialSummary['expenses'], 2); ?>
+                </div>
+            </div>
+            
+            <!-- Card Fees -->
+            <div class="card" style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: transform 0.2s ease, box-shadow 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.05)'">
+                <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: rgba(245, 158, 11, 0.1); border-radius: 12px; margin: 0 auto 12px;">
+                    <i class="fas fa-percentage" style="color: var(--warning-color); font-size: 20px;"></i>
+                </div>
+                <div style="font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Fees
+                </div>
+                <div style="font-size: 24px; font-weight: bold; color: var(--warning-color); line-height: 1;">
+                    $<?php echo number_format($financialSummary['fees'], 2); ?>
+                </div>
+            </div>
+            
+            <!-- Card Balance -->
+            <div class="card" style="background: white; border: 1px solid var(--border-color); border-radius: 8px; padding: 20px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); transition: transform 0.2s ease, box-shadow 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.1)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 4px rgba(0,0,0,0.05)'">
+                <div style="display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; background: rgba(<?php echo $financialSummary['balance'] >= 0 ? '34, 197, 94' : '239, 68, 68'; ?>, 0.1); border-radius: 12px; margin: 0 auto 12px;">
+                    <i class="fas fa-balance-scale" style="color: <?php echo $financialSummary['balance'] >= 0 ? 'var(--success-color)' : 'var(--danger-color)'; ?>; font-size: 20px;"></i>
+                </div>
+                <div style="font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">
+                    Balance
+                </div>
+                <div style="font-size: 24px; font-weight: bold; color: <?php echo $financialSummary['balance'] >= 0 ? 'var(--success-color)' : 'var(--danger-color)'; ?>; line-height: 1;">
+                    $<?php echo number_format($financialSummary['balance'], 2); ?>
                 </div>
             </div>
         </div>
@@ -692,7 +787,7 @@ try {
                 </div>
                 
                 <div style="padding: 10px 0 0 0; height: 100%; display: flex; flex-direction: column;">
-                    <div style="flex: 1; overflow-y: auto; max-height: 300px;">
+                    <div style="flex: 1; overflow-y: auto; max-height: 400px;">
                         <?php foreach ($bankAccounts as $account): ?>
                         <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--border-color);">
                             <div style="flex: 1; min-width: 0;">
@@ -865,28 +960,221 @@ try {
             </div>
         </div>
 
-        <!-- Gráfico de Ingresos vs Gastos (movido desde arriba) -->
+        <!-- Métodos de Pago por Equipo -->
         <div class="dashboard-content" style="display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: 30px;">
             <div class="card">
                 <div class="card-header">
                     <h3 class="card-title">
-                        <i class="fas fa-chart-bar"></i>
-                        Ingresos vs Gastos
+                        <i class="fas fa-credit-card"></i>
+                        Métodos de Pago por Equipo
                     </h3>
+                    <p style="font-size: 12px; color: var(--text-secondary); margin: 0; margin-top: 4px;">
+                        Periodo: <?php echo date('d/m/Y', strtotime($startDate)); ?> - <?php echo date('d/m/Y', strtotime($endDate)); ?>
+                    </p>
                 </div>
                 
-                <div style="padding: 20px; height: 400px; display: flex; flex-direction: column;">
-                    <canvas id="incomeExpenseChart" style="width: 100%; height: 100%;"></canvas>
+                <div style="padding: 20px;">
+                    <?php if (!empty($teamPaymentMethods)): ?>
+                        <div class="team-payment-table" style="overflow-x: auto;">
+                            <!-- Crear tabla horizontal de equipos vs métodos de pago -->
+                            <?php
+                            // Obtener todos los métodos de pago únicos
+                            $allPaymentMethods = [];
+                            foreach ($teamPaymentMethods as $team) {
+                                foreach ($team['payment_methods'] as $method => $data) {
+                                    if (!in_array($method, $allPaymentMethods)) {
+                                        $allPaymentMethods[] = $method;
+                                    }
+                                }
+                            }
+                            sort($allPaymentMethods);
+                            ?>
+                            
+                            <table style="width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                                <thead>
+                                    <tr style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                                        <th style="padding: 16px 12px; text-align: left; font-weight: 600; color: var(--text-primary); border-right: 1px solid var(--border-color);">
+                                            <i class="fas fa-users" style="color: var(--primary-color); margin-right: 6px;"></i>
+                                            Equipo
+                                        </th>
+                                        <?php foreach ($allPaymentMethods as $method): ?>
+                                            <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: var(--text-primary); border-right: 1px solid var(--border-color); min-width: 100px;">
+                                                <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                                                    <i class="fas fa-<?php echo $method === 'Efectivo' ? 'money-bill-wave' : ($method === 'Transferencia Bancaria' ? 'university' : ($method === 'ATH M' ? 'mobile-alt' : ($method === 'ATH B' ? 'credit-card' : 'credit-card'))); ?>" 
+                                                       style="color: var(--primary-color); font-size: 12px;"></i>
+                                                    <span style="font-size: 11px; font-weight: 600;"><?php echo htmlspecialchars($method); ?></span>
+                                                </div>
+                                            </th>
+                                        <?php endforeach; ?>
+                                        <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: var(--warning-color); border-right: 1px solid var(--border-color); min-width: 90px; background: rgba(245, 158, 11, 0.1);">
+                                            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                                                <i class="fas fa-percentage" style="color: var(--warning-color); font-size: 12px;"></i>
+                                                <span style="font-size: 11px; font-weight: 600;">Fee</span>
+                                            </div>
+                                        </th>
+                                        <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: var(--success-color); border-right: 1px solid var(--border-color); min-width: 100px; background: rgba(34, 197, 94, 0.1);">
+                                            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                                                <i class="fas fa-plus-circle" style="color: var(--success-color); font-size: 12px;"></i>
+                                                <span style="font-size: 11px; font-weight: 600;">Total Bruto</span>
+                                            </div>
+                                        </th>
+                                        <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: var(--info-color); border-right: 1px solid var(--border-color); min-width: 100px; background: rgba(59, 130, 246, 0.1);">
+                                            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                                                <i class="fas fa-minus-circle" style="color: var(--info-color); font-size: 12px;"></i>
+                                                <span style="font-size: 11px; font-weight: 600;">Total Neto</span>
+                                            </div>
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($teamPaymentMethods as $team): ?>
+                                        <tr style="border-bottom: 1px solid var(--border-color); transition: all 0.2s ease;" 
+                                            onmouseover="this.style.backgroundColor='#f8f9fa'" 
+                                            onmouseout="this.style.backgroundColor='transparent'">
+                                            
+                                            <!-- Nombre del equipo -->
+                                            <td style="padding: 14px 12px; font-weight: 500; border-right: 1px solid var(--border-color); background: rgba(37, 99, 235, 0.02);">
+                                                <div style="display: flex; align-items: center; gap: 8px;">
+                                                    <div style="width: 6px; height: 6px; background: var(--primary-color); border-radius: 50%;"></div>
+                                                    <span style="color: var(--text-primary); font-size: 13px;"><?php echo htmlspecialchars($team['team_name']); ?></span>
+                                                </div>
+                                            </td>
+                                            
+                                            <!-- Métodos de pago -->
+                                            <?php foreach ($allPaymentMethods as $method): ?>
+                                                <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color);">
+                                                    <?php if (isset($team['payment_methods'][$method])): ?>
+                                                        <span style="font-size: 13px; font-weight: 600; color: var(--success-color);">
+                                                            $<?php echo number_format($team['payment_methods'][$method]['amount'], 0); ?>
+                                                        </span>
+                                                    <?php else: ?>
+                                                        <span style="color: var(--text-muted); font-size: 12px;">—</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                            <?php endforeach; ?>
+                                            
+                                            <!-- Columna de Fee (real de la BD) -->
+                                            <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color); background: rgba(245, 158, 11, 0.05);">
+                                                <?php 
+                                                $teamFee = $team['total_fee'] ?? 0;
+                                                ?>
+                                                <?php if ($teamFee > 0): ?>
+                                                    <span style="font-size: 13px; font-weight: 600; color: var(--warning-color);">
+                                                        $<?php echo number_format($teamFee, 2); ?>
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span style="color: var(--text-muted); font-size: 12px;">—</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            
+                                            <!-- Total Bruto del equipo -->
+                                            <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color); background: rgba(34, 197, 94, 0.05);">
+                                                <?php 
+                                                // El total bruto es la suma de todos los métodos de pago por equipo
+                                                $teamTotalBruto = $team['total_amount'];
+                                                ?>
+                                                <span style="font-size: 13px; font-weight: 600; color: var(--success-color);">
+                                                    $<?php echo number_format($teamTotalBruto, 2); ?>
+                                                </span>
+                                            </td>
+                                            
+                                            <!-- Total Neto del equipo (Total Bruto - Fee) -->
+                                            <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color); background: rgba(59, 130, 246, 0.05);">
+                                                <?php 
+                                                $teamTotalNeto = $teamTotalBruto - $teamFee;
+                                                ?>
+                                                <span style="font-size: 13px; font-weight: 600; color: var(--info-color);">
+                                                    $<?php echo number_format($teamTotalNeto, 2); ?>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                    
+                                    <!-- Fila de totales -->
+                                    <tr style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-top: 2px solid var(--border-color); font-weight: bold;">
+                                        <td style="padding: 16px 12px; font-weight: bold; color: var(--text-primary); border-right: 1px solid var(--border-color);">
+                                            <i class="fas fa-sigma" style="margin-right: 6px; color: var(--primary-color);"></i>
+                                            TOTALES
+                                        </td>
+                                        <?php foreach ($allPaymentMethods as $method): ?>
+                                            <?php
+                                            $methodTotal = 0;
+                                            $methodCount = 0;
+                                            foreach ($teamPaymentMethods as $team) {
+                                                if (isset($team['payment_methods'][$method])) {
+                                                    $methodTotal += $team['payment_methods'][$method]['amount'];
+                                                    $methodCount += $team['payment_methods'][$method]['count'];
+                                                }
+                                            }
+                                            ?>
+                                            <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color);">
+                                                <?php if ($methodTotal > 0): ?>
+                                                    <span style="font-size: 13px; font-weight: bold; color: var(--success-color);">
+                                                        $<?php echo number_format($methodTotal, 0); ?>
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span style="color: var(--text-muted); font-size: 12px;">—</span>
+                                                <?php endif; ?>
+                                            </td>
+                                        <?php endforeach; ?>
+                                        
+                                        <!-- Total de Fees -->
+                                        <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color); background: rgba(245, 158, 11, 0.1);">
+                                            <?php 
+                                            $totalFee = array_sum(array_column($teamPaymentMethods, 'total_fee'));
+                                            ?>
+                                            <?php if ($totalFee > 0): ?>
+                                                <span style="font-size: 13px; font-weight: bold; color: var(--warning-color);">
+                                                    $<?php echo number_format($totalFee, 2); ?>
+                                                </span>
+                                            <?php else: ?>
+                                                <span style="color: var(--text-muted); font-size: 12px;">—</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        
+                                        <!-- Total Bruto General -->
+                                        <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color); background: rgba(34, 197, 94, 0.1);">
+                                            <?php 
+                                            // El total bruto general es la suma de todos los total_amount de todos los equipos
+                                            $totalGeneralBruto = array_sum(array_column($teamPaymentMethods, 'total_amount'));
+                                            ?>
+                                            <span style="font-size: 13px; font-weight: bold; color: var(--success-color);">
+                                                $<?php echo number_format($totalGeneralBruto, 2); ?>
+                                            </span>
+                                        </td>
+                                        
+                                        <!-- Total Neto General -->
+                                        <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color); background: rgba(59, 130, 246, 0.1);">
+                                            <?php 
+                                            $totalGeneralNeto = $totalGeneralBruto - $totalFee;
+                                            ?>
+                                            <span style="font-size: 13px; font-weight: bold; color: var(--info-color);">
+                                                $<?php echo number_format($totalGeneralNeto, 2); ?>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                    <?php else: ?>
+                        <div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+                            <i class="fas fa-chart-bar" style="font-size: 48px; margin-bottom: 16px; color: var(--text-muted);"></i>
+                            <h4 style="margin: 0 0 8px 0; color: var(--text-primary);">No hay datos disponibles</h4>
+                            <p style="margin: 0; font-size: 14px;">No se encontraron pagos de equipos en el rango de fechas seleccionado.</p>
+                            <p style="margin: 8px 0 0 0; font-size: 12px; color: var(--text-muted);">
+                                Periodo: <?php echo date('d/m/Y', strtotime($startDate)); ?> - <?php echo date('d/m/Y', strtotime($endDate)); ?>
+                            </p>
+                        </div>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
+
     </main>
     
     <?php include 'includes/footer.php'; ?>
 </div>
-
-<!-- Cargar Chart.js desde CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
 
 <!-- Cargar Flatpickr -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -896,87 +1184,52 @@ try {
 <script>
 // Verificar que flatpickr esté disponible antes de usarlo
 if (typeof flatpickr !== 'undefined') {
-    // Inicializar Flatpickr para los selectores de fecha
-    flatpickr('.flatpickr-date', {
+    // Configuración para el date picker de fecha de inicio
+    const startDateConfig = {
+        dateFormat: 'Y-m-d',
+        allowInput: true,
+        onChange: function(selectedDates, dateStr, instance) {
+            // Solo actualizar el mínimo del date picker de fecha final
+            // NO actualizar el dashboard automáticamente
+            if (dateStr && window.endDatePicker) {
+                window.endDatePicker.set('minDate', dateStr);
+                
+                // Si la fecha final es anterior a la nueva fecha de inicio, limpiarla
+                const endDate = document.getElementById('endDate').value;
+                if (endDate && endDate < dateStr) {
+                    window.endDatePicker.clear();
+                }
+            }
+        }
+    };
+    
+    // Configuración para el date picker de fecha final
+    const endDateConfig = {
         dateFormat: 'Y-m-d',
         allowInput: true
-    });
+        // NO incluir onChange para evitar actualización automática
+    };
+    
+    // Agregar localización española si está disponible
+    if (flatpickr.l10ns && flatpickr.l10ns.es) {
+        startDateConfig.locale = 'es';
+        endDateConfig.locale = 'es';
+    }
+    
+    // Inicializar los date pickers por separado
+    window.startDatePicker = flatpickr('#startDate', startDateConfig);
+    window.endDatePicker = flatpickr('#endDate', endDateConfig);
+    
+    // Configurar fecha mínima inicial si ya hay una fecha de inicio seleccionada
+    const initialStartDate = document.getElementById('startDate').value;
+    if (initialStartDate && window.endDatePicker) {
+        window.endDatePicker.set('minDate', initialStartDate);
+    }
 } else {
     console.error('Flatpickr no está disponible en dashboard');
 }
 
 // Variables globales
-let incomeExpenseChart;
-
-// Gráfico de Ingresos vs Gastos
-const ctx = document.getElementById('incomeExpenseChart').getContext('2d');
-incomeExpenseChart = new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: <?php echo json_encode(array_map(function($d) {
-            // Formatear fecha para mejor visualización
-            return date('d/m', strtotime($d['date']));
-        }, $dailyData)); ?>,
-        datasets: [{
-            label: 'Ingresos',
-            data: <?php echo json_encode(array_map(function($d) {
-                return floatval($d['income']);
-            }, $dailyData)); ?>,
-            backgroundColor: 'rgba(16, 185, 129, 0.8)',
-            borderColor: 'rgb(16, 185, 129)',
-            borderWidth: 1
-        }, {
-            label: 'Gastos',
-            data: <?php echo json_encode(array_map(function($d) {
-                return floatval($d['expenses']);
-            }, $dailyData)); ?>,
-            backgroundColor: 'rgba(239, 68, 68, 0.8)',
-            borderColor: 'rgb(239, 68, 68)',
-            borderWidth: 1
-        }]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: {
-                beginAtZero: true,
-                ticks: {
-                    callback: function(value) {
-                        return '$' + value.toLocaleString();
-                    }
-                }
-            },
-            x: {
-                categoryPercentage: 0.8,
-                barPercentage: 0.9
-            }
-        },
-        plugins: {
-            tooltip: {
-                callbacks: {
-                    label: function(context) {
-                        return context.dataset.label + ': $' + context.parsed.y.toLocaleString();
-                    }
-                }
-            },
-            legend: {
-                position: 'top',
-                labels: {
-                    boxWidth: 12,
-                    padding: 10,
-                    font: {
-                        size: 11
-                    }
-                }
-            }
-        },
-        interaction: {
-            intersect: false,
-            mode: 'index'
-        }
-    }
-});
 
 // Funciones para navegación de fechas
 function updatePeriod() {
@@ -993,8 +1246,26 @@ function updatePeriod() {
         return;
     }
     
+    console.log(`Actualizando manualmente con botón: ${startDate} - ${endDate}`);
+    
     // Usar AJAX en lugar de recargar la página
     updateDashboardData(startDate, endDate);
+}
+
+// Función para formatear fecha desde string sin problemas de timezone
+function formatDateFromString(dateString) {
+    if (!dateString) return '';
+    
+    // Parsear la fecha sin crear un objeto Date que pueda tener problemas de timezone
+    const parts = dateString.split('-');
+    if (parts.length !== 3) return dateString;
+    
+    const year = parseInt(parts[0]);
+    const month = parseInt(parts[1]);
+    const day = parseInt(parts[2]);
+    
+    // Formatear como DD/MM/YYYY
+    return `${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${year}`;
 }
 
 // Función para calcular fechas de manera exacta
@@ -1006,21 +1277,29 @@ function getDateRangeForPeriod(type) {
         case 'current_week':
             // Calcular fechas para la semana actual (lunes a domingo)
             const day = now.getDay(); // 0 es domingo, 1 es lunes, etc.
-            const diff = now.getDate() - day + (day === 0 ? -6 : 1); // Ajuste para que lunes sea el primer día
+            const daysFromMonday = (day === 0) ? 6 : day - 1; // Convertir domingo (0) a 6, y el resto restar 1
             
-            result.startDate = new Date(now.getFullYear(), now.getMonth(), diff);
+            result.startDate = new Date(now);
+            result.startDate.setDate(now.getDate() - daysFromMonday);
+            result.startDate.setHours(0, 0, 0, 0);
+            
             result.endDate = new Date(result.startDate);
             result.endDate.setDate(result.startDate.getDate() + 6);
+            result.endDate.setHours(23, 59, 59, 999);
             break;
             
         case 'previous_week':
             // Calcular fechas para la semana anterior
             const dayPrev = now.getDay();
-            const diffPrev = now.getDate() - dayPrev + (dayPrev === 0 ? -6 : 1) - 7; // Lunes de la semana anterior
+            const daysFromMondayPrev = (dayPrev === 0) ? 6 : dayPrev - 1;
             
-            result.startDate = new Date(now.getFullYear(), now.getMonth(), diffPrev);
+            result.startDate = new Date(now);
+            result.startDate.setDate(now.getDate() - daysFromMondayPrev - 7); // 7 días antes del lunes de esta semana
+            result.startDate.setHours(0, 0, 0, 0);
+            
             result.endDate = new Date(result.startDate);
             result.endDate.setDate(result.startDate.getDate() + 6);
+            result.endDate.setHours(23, 59, 59, 999);
             break;
             
         case 'current_month':
@@ -1043,30 +1322,86 @@ function getDateRangeForPeriod(type) {
     };
 }
 
-function setWeekPeriod(type) {
-    const dates = getDateRangeForPeriod(type === 'current' ? 'current_week' : 'previous_week');
+// Función para alternar dropdown de período
+function togglePeriodDropdown() {
+    const dropdown = document.getElementById('periodDropdown');
+    const chevron = document.querySelector('#periodSelector i.fa-chevron-down');
     
-    console.log(`Estableciendo período de semana ${type}: del ${dates.startDate} al ${dates.endDate}`);
+    if (dropdown.style.display === 'none' || dropdown.style.display === '') {
+        dropdown.style.display = 'block';
+        chevron.style.transform = 'rotate(180deg)';
+        
+        // Cerrar dropdown al hacer clic fuera
+        setTimeout(() => {
+            document.addEventListener('click', closeDropdownOutside);
+        }, 10);
+    } else {
+        dropdown.style.display = 'none';
+        chevron.style.transform = 'rotate(0deg)';
+        document.removeEventListener('click', closeDropdownOutside);
+    }
+}
+
+// Función para cerrar dropdown al hacer clic fuera
+function closeDropdownOutside(event) {
+    const dropdown = document.getElementById('periodDropdown');
+    const button = document.getElementById('periodSelector');
+    
+    if (!dropdown.contains(event.target) && !button.contains(event.target)) {
+        dropdown.style.display = 'none';
+        document.querySelector('#periodSelector i.fa-chevron-down').style.transform = 'rotate(0deg)';
+        document.removeEventListener('click', closeDropdownOutside);
+    }
+}
+
+// Función para seleccionar período del dropdown
+function selectPeriod(type, displayText) {
+    const dropdown = document.getElementById('periodDropdown');
+    const chevron = document.querySelector('#periodSelector i.fa-chevron-down');
+    const selectorText = document.getElementById('periodSelectorText');
+    
+    // Cerrar dropdown
+    dropdown.style.display = 'none';
+    chevron.style.transform = 'rotate(0deg)';
+    document.removeEventListener('click', closeDropdownOutside);
+    
+    // Actualizar texto del selector
+    selectorText.textContent = displayText;
+    
+    // Aplicar el período correspondiente
+    const dates = getDateRangeForPeriod(type);
+    
+    console.log(`Seleccionando ${displayText}: del ${dates.startDate} al ${dates.endDate}`);
     
     // Actualizar los campos de fecha
     document.getElementById('startDate').value = dates.startDate;
     document.getElementById('endDate').value = dates.endDate;
     
-    // Usar AJAX en lugar de recargar la página
+    // Actualizar las instancias de flatpickr si existen
+    if (window.startDatePicker) {
+        window.startDatePicker.setDate(dates.startDate, false);
+    }
+    if (window.endDatePicker) {
+        window.endDatePicker.set('minDate', dates.startDate);
+        window.endDatePicker.setDate(dates.endDate, false);
+    }
+    
+    // Usar AJAX inmediatamente
     updateDashboardData(dates.startDate, dates.endDate);
 }
 
+function setWeekPeriod(type) {
+    // Función mantenida para compatibilidad, pero ahora usa selectPeriod
+    const periodType = type === 'current' ? 'current_week' : 'previous_week';
+    const displayText = type === 'current' ? 'Esta Semana' : 'Semana Anterior';
+    selectPeriod(periodType, displayText);
+}
+
 function setMonthPeriod(type) {
-    const dates = getDateRangeForPeriod(type === 'current' ? 'current_month' : 'previous_month');
-    
-    console.log(`Estableciendo período de mes ${type}: del ${dates.startDate} al ${dates.endDate}`);
-    
-    // Actualizar los campos de fecha
-    document.getElementById('startDate').value = dates.startDate;
-    document.getElementById('endDate').value = dates.endDate;
-    
-    // Usar AJAX en lugar de recargar la página
-    updateDashboardData(dates.startDate, dates.endDate);
+    // Función mantenida para compatibilidad, pero ahora usa selectPeriod
+    const periodType = type === 'current' ? 'current_month' : 'previous_month';
+    const displayText = type === 'current' ? 'Este Mes' : 'Mes Anterior';
+    selectPeriod(periodType, displayText);
 }
 
 // Función AJAX para actualizar datos del dashboard
@@ -1075,15 +1410,20 @@ function updateDashboardData(startDate, endDate) {
     const loadingStartTime = Date.now();
     showLoadingIndicator();
     
+    // Actualizar texto del selector de período
+    updatePeriodSelectorText(startDate, endDate);
+    
     // Realizar petición AJAX
     fetch(`dashboard_ajax.php?start_date=${startDate}&end_date=${endDate}`)
         .then(response => response.json())
         .then(data => {
+            console.log('Datos recibidos del AJAX:', data);
             if (data.success) {
                 // Actualizar solo las secciones que deben cambiar con el rango de fechas
                 updateFinancialSummary(data.data.financial_summary);
-                updateChart(data.data.daily_data);
                 updatePendingIncomes(data.data.pending_incomes);
+                console.log('Actualizando métodos de pago con:', data.data.team_payment_methods);
+                updateTeamPaymentMethods(data.data.team_payment_methods, data.data.date_range);
                 // NO actualizar recentActivity - se mantiene estática
                 updateActivePeriodButtons(data.data.active_period);
                 
@@ -1113,6 +1453,31 @@ function updateDashboardData(startDate, endDate) {
                 hideLoadingIndicator();
             }
         });
+}
+
+// Función para actualizar el texto del selector de período
+function updatePeriodSelectorText(startDate, endDate) {
+    const selectorText = document.getElementById('periodSelectorText');
+    if (!selectorText) return;
+    
+    // Obtener las fechas de cada período para comparar
+    const currentWeek = getDateRangeForPeriod('current_week');
+    const previousWeek = getDateRangeForPeriod('previous_week');
+    const currentMonth = getDateRangeForPeriod('current_month');
+    const previousMonth = getDateRangeForPeriod('previous_month');
+    
+    // Determinar qué período coincide
+    if (startDate === currentWeek.startDate && endDate === currentWeek.endDate) {
+        selectorText.textContent = 'Esta Semana';
+    } else if (startDate === previousWeek.startDate && endDate === previousWeek.endDate) {
+        selectorText.textContent = 'Semana Anterior';
+    } else if (startDate === currentMonth.startDate && endDate === currentMonth.endDate) {
+        selectorText.textContent = 'Este Mes';
+    } else if (startDate === previousMonth.startDate && endDate === previousMonth.endDate) {
+        selectorText.textContent = 'Mes Anterior';
+    } else {
+        selectorText.textContent = 'Período Personalizado';
+    }
 }
 
 // Mostrar indicador de carga discreto
@@ -1145,30 +1510,28 @@ function hideLoadingIndicator() {
 
 // Actualizar resumen financiero
 function updateFinancialSummary(data) {
-    const incomeEl = document.querySelector('.financial-summary div:nth-child(1) div:nth-child(2)');
-    const expensesEl = document.querySelector('.financial-summary div:nth-child(2) div:nth-child(2)');
-    const balanceEl = document.querySelector('.financial-summary div:nth-child(3) div:nth-child(2)');
+    // Selector más específico para las nuevas cards del resumen financiero
+    const incomeEl = document.querySelector('.financial-summary .card:nth-child(1) div:last-child');
+    const expensesEl = document.querySelector('.financial-summary .card:nth-child(2) div:last-child');
+    const feesEl = document.querySelector('.financial-summary .card:nth-child(3) div:last-child');
+    const balanceEl = document.querySelector('.financial-summary .card:nth-child(4) div:last-child');
+    const balanceIcon = document.querySelector('.financial-summary .card:nth-child(4) i');
+    const balanceIconBg = document.querySelector('.financial-summary .card:nth-child(4) div:first-child');
     
     if (incomeEl) incomeEl.textContent = '$' + Number(data.income).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     if (expensesEl) expensesEl.textContent = '$' + Number(data.expenses).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    if (feesEl) feesEl.textContent = '$' + Number(data.fees).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2});
     if (balanceEl) {
         balanceEl.textContent = '$' + Number(data.balance).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2});
         balanceEl.style.color = data.balance >= 0 ? 'var(--success-color)' : 'var(--danger-color)';
-    }
-}
-
-// Actualizar gráfico
-function updateChart(dailyData) {
-    if (incomeExpenseChart) {
-        const labels = dailyData.map(d => {
-            const date = new Date(d.date);
-            return String(date.getDate()).padStart(2, '0') + '/' + String(date.getMonth() + 1).padStart(2, '0');
-        });
         
-        incomeExpenseChart.data.labels = labels;
-        incomeExpenseChart.data.datasets[0].data = dailyData.map(d => parseFloat(d.income));
-        incomeExpenseChart.data.datasets[1].data = dailyData.map(d => parseFloat(d.expenses));
-        incomeExpenseChart.update();
+        // Actualizar también el ícono y el fondo según el balance
+        if (balanceIcon) {
+            balanceIcon.style.color = data.balance >= 0 ? 'var(--success-color)' : 'var(--danger-color)';
+        }
+        if (balanceIconBg) {
+            balanceIconBg.style.background = data.balance >= 0 ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+        }
     }
 }
 
@@ -1230,6 +1593,282 @@ function updatePendingIncomes(pendingIncomes) {
     container.innerHTML = html;
 }
 
+// Actualizar tabla de métodos de pago por equipo
+function updateTeamPaymentMethods(teamPaymentMethods, dateRange) {
+    // Buscar el contenedor específico de la tabla usando un selector más específico
+    const cardSelector = '.card .card-header h3:contains("Métodos de Pago por Equipo")';
+    let container = document.querySelector('.team-payment-table');
+    
+    // Si no existe, buscar por el título de la card y obtener el contenedor de contenido
+    if (!container) {
+        // Buscar el card que contiene "Métodos de Pago por Equipo"
+        const cardHeaders = document.querySelectorAll('.card-header h3');
+        let targetCard = null;
+        
+        for (let header of cardHeaders) {
+            if (header.textContent.includes('Métodos de Pago por Equipo')) {
+                targetCard = header.closest('.card');
+                break;
+            }
+        }
+        
+        if (targetCard) {
+            const cardContent = targetCard.querySelector('.card-header + div');
+            if (cardContent) {
+                // Recrear la estructura básica si no existe
+                cardContent.innerHTML = '<div class="team-payment-table" style="overflow-x: auto;"></div>';
+                container = cardContent.querySelector('.team-payment-table');
+            }
+        }
+    }
+    
+    if (!container) {
+        console.error('No se pudo encontrar o crear el contenedor de la tabla de métodos de pago');
+        return;
+    }
+    
+    console.log('Contenedor encontrado, actualizando tabla...');
+    
+    // Actualizar el subtítulo con el nuevo rango de fechas
+    const subtitle = document.querySelector('.card-header p');
+    if (subtitle && dateRange) {
+        // Formatear fechas sin problemas de timezone
+        const startDate = formatDateFromString(dateRange.start_date);
+        const endDate = formatDateFromString(dateRange.end_date);
+        subtitle.textContent = `Periodo: ${startDate} - ${endDate}`;
+    }
+    
+    if (teamPaymentMethods.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 60px 20px; color: var(--text-secondary);">
+                <i class="fas fa-chart-bar" style="font-size: 48px; margin-bottom: 16px; color: var(--text-muted);"></i>
+                <h4 style="margin: 0 0 8px 0; color: var(--text-primary);">No hay datos disponibles</h4>
+                <p style="margin: 0; font-size: 14px;">No se encontraron pagos de equipos en el rango de fechas seleccionado.</p>
+                <p style="margin: 8px 0 0 0; font-size: 12px; color: var(--text-muted);">
+                    Periodo: ${dateRange ? formatDateFromString(dateRange.start_date) + ' - ' + formatDateFromString(dateRange.end_date) : ''}
+                </p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Obtener todos los métodos de pago únicos
+    const allPaymentMethods = [];
+    teamPaymentMethods.forEach(team => {
+        Object.keys(team.payment_methods).forEach(method => {
+            if (!allPaymentMethods.includes(method)) {
+                allPaymentMethods.push(method);
+            }
+        });
+    });
+    allPaymentMethods.sort();
+    
+    // Generar tabla HTML horizontal - solo la tabla, sin el div wrapper
+    let tableHTML = `
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.05);">
+                <thead>
+                    <tr style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);">
+                        <th style="padding: 16px 12px; text-align: left; font-weight: 600; color: var(--text-primary); border-right: 1px solid var(--border-color);">
+                            <i class="fas fa-users" style="color: var(--primary-color); margin-right: 6px;"></i>
+                            Equipo
+                        </th>
+    `;
+    
+    // Encabezados de métodos de pago
+    allPaymentMethods.forEach(method => {
+        const icon = method === 'Efectivo' ? 'money-bill-wave' : 
+                    method === 'Transferencia Bancaria' ? 'university' : 
+                    method === 'ATH M' ? 'mobile-alt' : 
+                    method === 'ATH B' ? 'credit-card' : 'credit-card';
+        
+        tableHTML += `
+            <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: var(--text-primary); border-right: 1px solid var(--border-color); min-width: 100px;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                    <i class="fas fa-${icon}" style="color: var(--primary-color); font-size: 12px;"></i>
+                    <span style="font-size: 11px; font-weight: 600;">${method}</span>
+                </div>
+            </th>
+        `;
+    });
+    
+    // Encabezado de Fee
+    tableHTML += `
+        <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: var(--warning-color); border-right: 1px solid var(--border-color); min-width: 90px; background: rgba(245, 158, 11, 0.1);">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                <i class="fas fa-percentage" style="color: var(--warning-color); font-size: 12px;"></i>
+                <span style="font-size: 11px; font-weight: 600;">Fee</span>
+            </div>
+        </th>
+        <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: var(--success-color); border-right: 1px solid var(--border-color); min-width: 100px; background: rgba(34, 197, 94, 0.1);">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                <i class="fas fa-plus-circle" style="color: var(--success-color); font-size: 12px;"></i>
+                <span style="font-size: 11px; font-weight: 600;">Total Bruto</span>
+            </div>
+        </th>
+        <th style="padding: 16px 8px; text-align: center; font-weight: 600; color: var(--info-color); border-right: 1px solid var(--border-color); min-width: 100px; background: rgba(59, 130, 246, 0.1);">
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+                <i class="fas fa-minus-circle" style="color: var(--info-color); font-size: 12px;"></i>
+                <span style="font-size: 11px; font-weight: 600;">Total Neto</span>
+            </div>
+        </th>
+    </tr>
+    </thead>
+    <tbody>
+    `;
+    
+    // Filas de equipos
+    teamPaymentMethods.forEach(team => {
+        tableHTML += `
+            <tr style="border-bottom: 1px solid var(--border-color); transition: all 0.2s ease;" 
+                onmouseover="this.style.backgroundColor='#f8f9fa'" 
+                onmouseout="this.style.backgroundColor='transparent'">
+                
+                <!-- Nombre del equipo -->
+                <td style="padding: 14px 12px; font-weight: 500; border-right: 1px solid var(--border-color); background: rgba(37, 99, 235, 0.02);">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 6px; height: 6px; background: var(--primary-color); border-radius: 50%;"></div>
+                        <span style="color: var(--text-primary); font-size: 13px;">${team.team_name}</span>
+                    </div>
+                </td>
+        `;
+        
+        // Columnas de métodos de pago
+        allPaymentMethods.forEach(method => {
+            if (team.payment_methods[method]) {
+                const data = team.payment_methods[method];
+                tableHTML += `
+                    <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color);">
+                        <span style="font-size: 13px; font-weight: 600; color: var(--success-color);">
+                            $${Number(data.amount).toLocaleString('es-ES', {minimumFractionDigits: 0, maximumFractionDigits: 0})}
+                        </span>
+                    </td>
+                `;
+            } else {
+                tableHTML += `
+                    <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color);">
+                        <span style="color: var(--text-muted); font-size: 12px;">—</span>
+                    </td>
+                `;
+            }
+        });
+        
+        // Columna de Fee (real de la BD)
+        const teamFee = team.total_fee || 0;
+        tableHTML += `
+            <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color); background: rgba(245, 158, 11, 0.05);">
+                ${teamFee > 0 ? `
+                    <span style="font-size: 13px; font-weight: 600; color: var(--warning-color);">
+                        $${Number(teamFee).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                    </span>
+                ` : `
+                    <span style="color: var(--text-muted); font-size: 12px;">—</span>
+                `}
+            </td>
+        `;
+        
+        // Columna de Total Bruto
+        const teamTotalBruto = team.total_amount || 0;
+        tableHTML += `
+            <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color); background: rgba(34, 197, 94, 0.05);">
+                <span style="font-size: 13px; font-weight: 600; color: var(--success-color);">
+                    $${Number(teamTotalBruto).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                </span>
+            </td>
+        `;
+        
+        // Columna de Total Neto
+        const teamTotalNeto = teamTotalBruto - teamFee;
+        tableHTML += `
+            <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color); background: rgba(59, 130, 246, 0.05);">
+                <span style="font-size: 13px; font-weight: 600; color: var(--info-color);">
+                    $${Number(teamTotalNeto).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                </span>
+            </td>
+        `;
+        
+        tableHTML += `
+        </tr>
+        `;
+    });
+    
+    // Fila de totales
+    tableHTML += `
+        <tr style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-top: 2px solid var(--border-color); font-weight: bold;">
+            <td style="padding: 16px 12px; font-weight: bold; color: var(--text-primary); border-right: 1px solid var(--border-color);">
+                <i class="fas fa-sigma" style="margin-right: 6px; color: var(--primary-color);"></i>
+                TOTALES
+            </td>
+    `;
+    
+    // Totales por método de pago
+    allPaymentMethods.forEach(method => {
+        let methodTotal = 0;
+        let methodCount = 0;
+        teamPaymentMethods.forEach(team => {
+            if (team.payment_methods[method]) {
+                methodTotal += team.payment_methods[method].amount;
+                methodCount += team.payment_methods[method].count;
+            }
+        });
+        
+        if (methodTotal > 0) {
+            tableHTML += `
+                <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color);">
+                    <span style="font-size: 13px; font-weight: bold; color: var(--success-color);">
+                        $${Number(methodTotal).toLocaleString('es-ES', {minimumFractionDigits: 0, maximumFractionDigits: 0})}
+                    </span>
+                </td>
+            `;
+        } else {
+            tableHTML += `
+                <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color);">
+                    <span style="color: var(--text-muted); font-size: 12px;">—</span>
+                </td>
+            `;
+        }
+    });
+    
+    // Total de fees y gran total
+    const totalAmount = teamPaymentMethods.reduce((sum, team) => sum + team.total_amount, 0);
+    const totalFee = teamPaymentMethods.reduce((sum, team) => sum + (team.total_fee || 0), 0);
+    const totalPayments = teamPaymentMethods.reduce((sum, team) => sum + team.total_payments, 0);
+    
+    tableHTML += `
+        <!-- Total de Fees -->
+        <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color); background: rgba(245, 158, 11, 0.1);">
+            ${totalFee > 0 ? `
+                <span style="font-size: 13px; font-weight: bold; color: var(--warning-color);">
+                    $${Number(totalFee).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+                </span>
+            ` : `
+                <span style="color: var(--text-muted); font-size: 12px;">—</span>
+            `}
+        </td>
+        
+        <!-- Total Bruto General -->
+        <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color); background: rgba(34, 197, 94, 0.1);">
+            <span style="font-size: 13px; font-weight: bold; color: var(--success-color);">
+                $${Number(totalAmount).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+            </span>
+        </td>
+        
+        <!-- Total Neto General -->
+        <td style="padding: 10px 8px; text-align: center; border-right: 1px solid var(--border-color); background: rgba(59, 130, 246, 0.1);">
+            <span style="font-size: 13px; font-weight: bold; color: var(--info-color);">
+                $${Number(totalAmount - totalFee).toLocaleString('es-ES', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+            </span>
+        </td>
+    </tr>
+    </tbody>
+    </table>
+    `;
+    
+    // Reemplazar SOLO el contenido del contenedor .team-payment-table
+    container.innerHTML = tableHTML;
+    
+    console.log('Tabla de métodos de pago actualizada exitosamente');
+}
+
 // Actualizar actividad reciente (SOLO para carga inicial - NO se usa en AJAX)
 function updateRecentActivity(activities) {
     const container = document.querySelector('.card[style*="grid-column: 3"] div[style*="flex: 1"]');
@@ -1284,62 +1923,12 @@ function updateRecentActivity(activities) {
     container.innerHTML = html;
 }
 
-// Actualizar botones de período activo
+// Actualizar estado del período activo (simplificado para dropdown)
 function updateActivePeriodButtons(activePeriod) {
-    const buttons = {
-        'btnCurrentWeek': activePeriod.isCurrentWeek,
-        'btnPreviousWeek': activePeriod.isPreviousWeek,
-        'btnCurrentMonth': activePeriod.isCurrentMonth,
-        'btnPreviousMonth': activePeriod.isPreviousMonth
-    };
-    
-    Object.keys(buttons).forEach(buttonId => {
-        const button = document.getElementById(buttonId);
-        if (button) {
-            if (buttons[buttonId]) {
-                button.className = 'btn btn-secondary';
-            } else {
-                button.className = 'btn btn-outline-secondary';
-            }
-        }
-    });
-}
-
-
-// Actualizar altura del gráfico basado en el contenedor
-function adjustChartHeight() {
-    const container = document.querySelector('.card[style*="grid-column: 1"]');
-    const chartCanvas = document.getElementById('incomeExpenseChart');
-    
-    // En modo móvil (responsive), usar altura fija
-    if (window.innerWidth <= 1200) {
-        if (chartCanvas) {
-            chartCanvas.style.height = '240px';
-            incomeExpenseChart.resize();
-        }
-        return;
-    }
-    
-    // En pantallas grandes, ajustar altura de forma más compacta
-    if (container && chartCanvas) {
-        const activityCard = document.querySelector('.card[style*="grid-column: 3"]');
-        const pendingCard = document.querySelector('.card[style*="grid-column: 2"]');
-        
-        if (activityCard && pendingCard) {
-            // Calcular altura promedio entre ambas cards, pero con un máximo
-            const activityHeight = Math.min(activityCard.offsetHeight, 300);
-            const pendingHeight = Math.min(pendingCard.offsetHeight, 300);
-            const avgHeight = Math.min(Math.max(activityHeight, pendingHeight), 300);
-            
-            const cardHeaderHeight = container.querySelector('.card-header').offsetHeight;
-            const chartPadding = 40; // 20px arriba y abajo
-            
-            chartCanvas.style.height = Math.min(avgHeight - cardHeaderHeight - chartPadding, 260) + 'px';
-        } else {
-            chartCanvas.style.height = '240px';
-        }
-        incomeExpenseChart.resize();
-    }
+    // Ya no necesitamos actualizar botones individuales, 
+    // el estado se maneja automáticamente en el dropdown
+    // Esta función se mantiene para compatibilidad con el AJAX
+    console.log('Período activo detectado:', activePeriod);
 }
 
 // Función para ocultar el overlay de carga
@@ -1400,14 +1989,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
     });
-    
-    // Ajustar altura del gráfico
-    setTimeout(adjustChartHeight, 500);
-    
-    // Ajustar altura al cambiar el tamaño de la ventana
-    window.addEventListener('resize', function() {
-        setTimeout(adjustChartHeight, 300);
-    });
 
     // Verificar visualmente los botones
     console.log("Estado actual de los botones:");
@@ -1432,6 +2013,43 @@ setTimeout(() => {
 </script>
 
 <style>
+/* Estilos para la tabla de métodos de pago por equipo */
+.team-payment-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.team-payment-table th {
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-primary);
+    background-color: var(--background-secondary, #f8f9fa);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.team-payment-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s;
+}
+
+.team-payment-table tr:hover {
+    background-color: var(--hover-color, #f8f9fa);
+}
+
+@media (max-width: 768px) {
+    .team-payment-table {
+        font-size: 12px;
+    }
+    
+    .team-payment-table th,
+    .team-payment-table td {
+        padding: 8px;
+    }
+}
+
 /* Variables CSS adicionales para el dashboard */
 :root {
     --primary-hover: #1d4ed8;
@@ -1561,6 +2179,12 @@ setTimeout(() => {
         flex-direction: column;
         gap: 8px;
     }
+    
+    /* Responsive para cards del resumen financiero */
+    .financial-summary {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 12px !important;
+    }
 }
 
 @media (max-width: 640px) {
@@ -1640,6 +2264,12 @@ setTimeout(() => {
     
     .dashboard-content {
         grid-template-columns: 1fr !important;
+    }
+    
+    /* Cards del resumen financiero en móviles pequeños */
+    .financial-summary {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
     }
 }
 

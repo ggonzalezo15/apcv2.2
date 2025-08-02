@@ -16,6 +16,10 @@ header('Content-Type: application/json');
 $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('monday this week'));
 $endDate = $_GET['end_date'] ?? date('Y-m-d', strtotime('sunday this week'));
 
+// Depuración AJAX
+error_log("DASHBOARD_AJAX - Fechas recibidas: $startDate a $endDate");
+error_log("DASHBOARD_AJAX - Parámetros GET: " . json_encode($_GET));
+
 // Validar fechas
 if (!$startDate || !$endDate) {
     $startDate = date('Y-m-d', strtotime('monday this week'));
@@ -30,22 +34,85 @@ try {
     exit;
 }
 
-// Funciones para obtener datos (adaptadas del dashboard principal)
-function getFinancialSummaryAjax($pdo, $startDate, $endDate) {
-    $totalIncome = 0;
+// Función unificada para obtener datos financieros y de métodos de pago (AJAX)
+function getUnifiedFinancialDataAjax($pdo, $startDate, $endDate) {
+    $result = [
+        'financial_summary' => ['income' => 0, 'expenses' => 0, 'fees' => 0, 'balance' => 0],
+        'team_payment_methods' => []
+    ];
+    
     try {
+        // Consulta unificada para ingresos, fees y métodos de pago por equipo
         $stmt = $pdo->prepare("
-            SELECT COALESCE(SUM(ip.amount), 0) as total_income
-            FROM income_payments ip 
-            WHERE DATE(ip.created_at) BETWEEN ? AND ?
+            SELECT 
+                -- Datos para resumen financiero
+                SUM(ip.amount) as total_income,
+                SUM(ip.fee) as total_fees,
+                
+                -- Datos para métodos de pago por equipo
+                t.id as team_id,
+                t.name as team_name,
+                pt.id as payment_type_id,
+                pt.name as payment_method,
+                COUNT(ip.id) as payment_count,
+                SUM(ip.amount) as team_method_amount,
+                SUM(ip.fee) as team_method_fee
+            FROM income_payments ip
+            INNER JOIN incomes i ON ip.income_id = i.id
+            INNER JOIN teams t ON i.team_id = t.id
+            INNER JOIN payment_types pt ON ip.payment_type_id = pt.id
+            WHERE i.income_date BETWEEN ? AND ?
+                AND pt.status = 'active'
+            GROUP BY t.id, t.name, pt.id, pt.name
+            ORDER BY t.name ASC, pt.name ASC
         ");
         $stmt->execute([$startDate, $endDate]);
-        $totalIncome = $stmt->fetchColumn() ?: 0;
+        $incomeResults = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Calcular totales para resumen financiero
+        $totalIncome = 0;
+        $totalFees = 0;
+        $teamData = [];
+        
+        foreach ($incomeResults as $row) {
+            // Acumular totales para resumen financiero
+            $totalIncome += $row['team_method_amount'];
+            $totalFees += $row['team_method_fee'];
+            
+            // Organizar datos por equipo para métodos de pago
+            $teamName = $row['team_name'];
+            if (!isset($teamData[$teamName])) {
+                $teamData[$teamName] = [
+                    'team_name' => $teamName,
+                    'payment_methods' => [],
+                    'total_amount' => 0,
+                    'total_payments' => 0,
+                    'total_fee' => 0
+                ];
+            }
+            
+            $paymentMethod = $row['payment_method'] ?: 'Sin especificar';
+            $teamData[$teamName]['payment_methods'][$paymentMethod] = [
+                'count' => $row['payment_count'],
+                'amount' => $row['team_method_amount'],
+                'fee' => $row['team_method_fee']
+            ];
+            $teamData[$teamName]['total_amount'] += $row['team_method_amount'];
+            $teamData[$teamName]['total_payments'] += $row['payment_count'];
+            $teamData[$teamName]['total_fee'] += $row['team_method_fee'];
+        }
+        
+        $result['financial_summary']['income'] = $totalIncome;
+        $result['financial_summary']['fees'] = $totalFees;
+        $result['team_payment_methods'] = array_values($teamData);
+        
+        error_log("Consulta unificada AJAX - Ingresos: $totalIncome, Fees: $totalFees, Equipos: " . count($teamData));
+        
     } catch (Exception $e) {
-        error_log("Error en consulta de ingresos AJAX: " . $e->getMessage());
+        error_log("Error en consulta unificada AJAX: " . $e->getMessage());
     }
     
-    $totalExpenses = 0;
+    // Consulta separada para gastos
     try {
         $stmt = $pdo->prepare("
             SELECT COALESCE(SUM(e.total_amount), 0) as total_expenses
@@ -53,18 +120,49 @@ function getFinancialSummaryAjax($pdo, $startDate, $endDate) {
             WHERE e.expense_date BETWEEN ? AND ?
         ");
         $stmt->execute([$startDate, $endDate]);
-        $totalExpenses = $stmt->fetchColumn() ?: 0;
+        $result['financial_summary']['expenses'] = $stmt->fetchColumn() ?: 0;
+        
     } catch (Exception $e) {
         error_log("Error en consulta de gastos AJAX: " . $e->getMessage());
     }
     
-    $balance = $totalIncome - $totalExpenses;
+    // Calcular balance
+    $result['financial_summary']['balance'] = 
+        $result['financial_summary']['income'] - 
+        $result['financial_summary']['expenses'] - 
+        $result['financial_summary']['fees'];
     
-    return [
-        'income' => $totalIncome,
-        'expenses' => $totalExpenses,
-        'balance' => $balance
-    ];
+    return $result;
+}
+
+// Funciones wrapper para mantener compatibilidad
+function getFinancialSummaryAjax($pdo, $startDate, $endDate) {
+    static $cachedData = null;
+    static $cachedDates = null;
+    
+    // Usar caché si las fechas son las mismas
+    if ($cachedData === null || $cachedDates !== [$startDate, $endDate]) {
+        $cachedData = getUnifiedFinancialDataAjax($pdo, $startDate, $endDate);
+        $cachedDates = [$startDate, $endDate];
+    }
+    
+    return $cachedData['financial_summary'];
+}
+
+function getTeamPaymentMethodsAjax($pdo, $startDate, $endDate) {
+    static $cachedData = null;
+    static $cachedDates = null;
+    
+    // Usar caché si las fechas son las mismas
+    if ($cachedData === null || $cachedDates !== [$startDate, $endDate]) {
+        $cachedData = getUnifiedFinancialDataAjax($pdo, $startDate, $endDate);
+        $cachedDates = [$startDate, $endDate];
+    }
+    
+    error_log("getTeamPaymentMethodsAjax - Consulta con fechas: $startDate a $endDate");
+    error_log("getTeamPaymentMethodsAjax - Registros encontrados: " . count($cachedData['team_payment_methods']));
+    
+    return $cachedData['team_payment_methods'];
 }
 
 function getIncomeContractorsAjax($pdo, $incomeId) {
@@ -125,65 +223,12 @@ function getPendingIncomesAjax($pdo, $limit = 5) {
     }
 }
 
-function getDailyDataAjax($pdo, $startDate, $endDate) {
-    $dates = [];
-    $current = new DateTime($startDate);
-    $end = new DateTime($endDate);
-    
-    while ($current <= $end) {
-        $dates[$current->format('Y-m-d')] = [
-            'date' => $current->format('Y-m-d'),
-            'income' => 0,
-            'expenses' => 0
-        ];
-        $current->add(new DateInterval('P1D'));
-    }
-    
-    // Obtener ingresos por día
-    try {
-        $stmt = $pdo->prepare("
-            SELECT DATE(ip.created_at) as payment_date, SUM(amount) as total
-            FROM income_payments ip
-            WHERE DATE(ip.created_at) BETWEEN ? AND ?
-            GROUP BY DATE(ip.created_at)
-        ");
-        $stmt->execute([$startDate, $endDate]);
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            if (isset($dates[$row['payment_date']])) {
-                $dates[$row['payment_date']]['income'] = $row['total'];
-            }
-        }
-    } catch (Exception $e) {
-        error_log("Error obteniendo ingresos diarios AJAX: " . $e->getMessage());
-    }
-    
-    // Obtener gastos por día
-    try {
-        $stmt = $pdo->prepare("
-            SELECT expense_date, SUM(total_amount) as total
-            FROM expenses 
-            WHERE expense_date BETWEEN ? AND ?
-            GROUP BY expense_date
-        ");
-        $stmt->execute([$startDate, $endDate]);
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            if (isset($dates[$row['expense_date']])) {
-                $dates[$row['expense_date']]['expenses'] = $row['total'];
-            }
-        }
-    } catch (Exception $e) {
-        // Tabla expenses puede no existir
-    }
-    
-    return array_values($dates);
-}
-
 try {
     // Obtener datos que SÍ deben cambiar con el rango de fechas
     $financialSummary = getFinancialSummaryAjax($pdo, $startDate, $endDate);
     // NO incluir recentActivity - debe mantenerse estática
     $pendingIncomes = getPendingIncomesAjax($pdo, 5);
-    $dailyData = getDailyDataAjax($pdo, $startDate, $endDate);
+    $teamPaymentMethods = getTeamPaymentMethodsAjax($pdo, $startDate, $endDate);
     
     // Determinar período activo
     $currentWeekStart = new DateTime('monday this week');
@@ -217,7 +262,7 @@ try {
         'data' => [
             'financial_summary' => $financialSummary,
             'pending_incomes' => $pendingIncomes,
-            'daily_data' => $dailyData,
+            'team_payment_methods' => $teamPaymentMethods,
             'active_period' => $activePeriod,
             'date_range' => [
                 'start_date' => $startDate,
