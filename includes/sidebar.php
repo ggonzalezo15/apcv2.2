@@ -73,12 +73,7 @@
                 
 
               
-                <li class="nav-item">
-                    <a href="settings.php?tab=reports" class="nav-link <?php echo (basename($_SERVER['PHP_SELF']) == 'settings.php' && isset($_GET['tab']) && $_GET['tab'] == 'reports') ? 'active' : ''; ?>">
-                        <i class="fas fa-chart-bar"></i>
-                        <span class="nav-text">Informes</span>
-                    </a>
-                </li>
+            
                 
                 <!-- Separador -->
                 <li class="nav-item" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border-color);">

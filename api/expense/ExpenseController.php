@@ -747,36 +747,38 @@ function deleteAttachment($attachmentId) {
     
     try {
         // Obtener información completa del archivo
-        $stmt = $pdo->prepare("SELECT file_path, file_key FROM expense_attachments WHERE id = ?");
+        $stmt = $pdo->prepare("SELECT file_path, file_key, original_filename FROM expense_attachments WHERE id = ?");
         $stmt->execute([$attachmentId]);
         $attachment = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if ($attachment) {
             // Verificar si es un archivo B2 (tiene file_key)
             if (!empty($attachment['file_key'])) {
-                // Eliminar de BackBlaze B2
+                // Eliminar de BackBlaze B2 con verificación avanzada
                 require_once '../../includes/B2FileUploader.php';
                 
                 try {
                     $uploader = new B2FileUploader();
+                    
+                    // Primer intento de eliminación
                     $result = $uploader->deleteFile($attachment['file_key']);
                     
                     if (!$result['success']) {
-                        error_log("Error eliminando archivo de B2: " . ($result['error'] ?? 'Unknown error'));
+                        error_log("Error en eliminación inicial de B2: " . ($result['error'] ?? 'Unknown error'));
                         // Continúa para eliminar el registro de BD aunque falle B2
                     } else {
-                        // 🆕 VERIFICACIÓN POST-ELIMINACIÓN
-                        $verificationResult = verifyB2FileDeletion($uploader, $attachment['file_key']);
+                        // ✅ VERIFICACIÓN POST-ELIMINACIÓN MEJORADA
+                        $verificationResult = verifyB2FileDeletionWithRetry($uploader, $attachment['file_key']);
                         
-                        if (!$verificationResult['verified']) {
-                            error_log("ADVERTENCIA: Archivo reportado como eliminado pero aún existe en B2: " . $attachment['file_key']);
-                            // Opcional: intentar eliminar nuevamente
-                            $retryResult = $uploader->deleteFile($attachment['file_key']);
-                            if (!$retryResult['success']) {
-                                error_log("FALLO CRÍTICO: No se pudo eliminar archivo de B2 después del retry: " . $attachment['file_key']);
-                            }
+                        if ($verificationResult['verified']) {
+                            error_log("✅ CONFIRMADO: Archivo eliminado exitosamente de B2 en {$verificationResult['attempts']} intento(s): " . $attachment['file_key']);
                         } else {
-                            error_log("CONFIRMADO: Archivo eliminado exitosamente de B2: " . $attachment['file_key']);
+                            $attempts = $verificationResult['attempts'] ?? 'unknown';
+                            error_log("⚠️ ADVERTENCIA: No se pudo verificar eliminación después de $attempts intentos: " . $attachment['file_key']);
+                            
+                            if ($verificationResult['max_retries_reached']) {
+                                error_log("🚨 CRÍTICO: Máximo de reintentos alcanzado para: " . $attachment['file_key']);
+                            }
                         }
                     }
                 } catch (Exception $e) {
@@ -787,13 +789,21 @@ function deleteAttachment($attachmentId) {
                 // Eliminar archivo local si existe
                 $filePath = '../../' . $attachment['file_path']; // Ajustar ruta desde api/expense/
                 if (file_exists($filePath)) {
-                    unlink($filePath);
+                    if (unlink($filePath)) {
+                        error_log("✅ Archivo local eliminado exitosamente: " . $filePath);
+                    } else {
+                        error_log("⚠️ Error eliminando archivo local: " . $filePath);
+                    }
+                } else {
+                    error_log("ℹ️ Archivo local no existe (ya eliminado): " . $filePath);
                 }
             }
             
             // Eliminar registro de la base de datos
             $stmt = $pdo->prepare("DELETE FROM expense_attachments WHERE id = ?");
             $stmt->execute([$attachmentId]);
+            
+            error_log("✅ Registro de BD eliminado para attachment: " . $attachmentId . " (" . ($attachment['original_filename'] ?? 'sin nombre') . ")");
         }
     } catch (Exception $e) {
         error_log("Error eliminando archivo adjunto: " . $e->getMessage());
@@ -1002,7 +1012,7 @@ function verifyB2FileDeletion($uploader, $fileKey) {
 }
 
 /**
- * Verificación avanzada con retry automático
+ * Verificación avanzada con retry automático (optimizada para web)
  * 
  * @param B2FileUploader $uploader
  * @param string $fileKey
@@ -1014,11 +1024,6 @@ function verifyB2FileDeletionWithRetry($uploader, $fileKey, $maxRetries = 2) {
     
     while ($attempts < $maxRetries) {
         $attempts++;
-        
-        // Esperar un poco antes de verificar (cache/propagación)
-        if ($attempts > 1) {
-            sleep(1); // Esperar 1 segundo entre intentos
-        }
         
         $verification = verifyB2FileDeletion($uploader, $fileKey);
         
@@ -1039,7 +1044,7 @@ function verifyB2FileDeletionWithRetry($uploader, $fileKey, $maxRetries = 2) {
         }
     }
     
-    // Si llegamos aquí, no se pudo verificar la eliminación
+    // Si llegamos aquí, no se pudo verificar la eliminación después de todos los intentos
     $verification['attempts'] = $attempts;
     $verification['max_retries_reached'] = true;
     
