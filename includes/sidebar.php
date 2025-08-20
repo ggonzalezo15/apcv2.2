@@ -63,11 +63,17 @@
                 </li>
                
                 
-                <!-- Administración -->
+                <!-- Reportes -->
                 <li class="nav-item">
-                    <a href="security_dashboard.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'security_dashboard.php' ? 'active' : ''; ?>">
-                        <i class="fas fa-shield-alt"></i>
-                        <span class="nav-text">Seguridad</span>
+                    <a href="reports.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'reports.php' ? 'active' : ''; ?>">
+                        <i class="fas fa-file-alt"></i>
+                        <span class="nav-text">Reportes</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="report_income.php" class="nav-link <?php echo basename($_SERVER['PHP_SELF']) == 'report_income.php' ? 'active' : ''; ?>">
+                        <i class="fas fa-money-bill-wave"></i>
+                        <span class="nav-text">Reporte de Ingresos</span>
                     </a>
                 </li>
                 

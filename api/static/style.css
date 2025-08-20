@@ -1,0 +1,66 @@
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #f7f9fc;
+    margin: 0;
+    padding: 0;
+}
+.container {
+    max-width: 900px;
+    margin: 40px auto;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    padding: 32px;
+}
+.controls {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 32px;
+    justify-content: center;
+}
+#teamSelector, #weekPicker, button {
+    font-size: 1.1em;
+    padding: 10px 18px;
+    border-radius: 8px;
+    border: 1px solid #2563eb;
+    background: #f0f4ff;
+    transition: box-shadow 0.3s;
+}
+button {
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+}
+button:hover {
+    box-shadow: 0 2px 8px rgba(37,99,235,0.15);
+}
+#report {
+    margin-top: 24px;
+}
+.day-container {
+    background: #f0f4ff;
+    border-radius: 8px;
+    margin-bottom: 24px;
+    padding: 18px;
+    box-shadow: 0 1px 4px rgba(37,99,235,0.07);
+}
+.day-title {
+    font-weight: bold;
+    font-size: 1.2em;
+    margin-bottom: 10px;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+th, td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e0e7ff;
+    text-align: left;
+}
+th {
+    background: #2563eb;
+    color: #fff;
+}

@@ -38,11 +38,12 @@ function getAllContractors() {
     $offset = isset($_GET['offset']) ? (int)$_GET['offset'] : 0;
     $sort = $_GET['sort'] ?? 'created_at';
     $dir = strtolower($_GET['dir'] ?? 'desc') === 'asc' ? 'ASC' : 'DESC';
-    $allowedSort = ['name', 'email', 'phone', 'status', 'created_at', 'updated_at', 'id'];
+    $allowedSort = ['name', 'email', 'phone', 'status', 'created_at', 'updated_at', 'id', 'type'];
     if (!in_array($sort, $allowedSort)) $sort = 'created_at';
     
     // Filtro de estado
     $statusFilter = $_GET['status'] ?? '';
+    $typeFilter = $_GET['type'] ?? '';
     $whereClause = '';
     $params = [];
     
@@ -51,7 +52,10 @@ function getAllContractors() {
         $whereClause = " WHERE status = ?";
         $params[] = $statusValue;
     }
-    
+    if ($typeFilter !== '') {
+        $whereClause .= ($whereClause ? ' AND' : ' WHERE') . " type = ?";
+        $params[] = $typeFilter;
+    }
     $sql = "SELECT * FROM contractors{$whereClause} ORDER BY $sort $dir, id DESC";
     if ($limit > 0) {
         $sql .= " LIMIT :limit OFFSET :offset";
@@ -66,19 +70,15 @@ function getAllContractors() {
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
     }
-    
     $contractors = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
     // Convertir ENUM a numérico para compatibilidad con frontend
     foreach ($contractors as &$contractor) {
         $contractor['status_numeric'] = $contractor['status'] === 'active' ? 1 : 0;
     }
-    
     $totalSql = "SELECT COUNT(*) FROM contractors{$whereClause}";
     $totalStmt = $pdo->prepare($totalSql);
     $totalStmt->execute($params);
     $total = $totalStmt->fetchColumn();
-    
     echo json_encode(['data' => $contractors, 'total' => (int)$total]);
 }
 
@@ -161,13 +161,15 @@ function updateContractor($id) {
             $status = $data['status'] == 1 || $data['status'] === 'active' ? 'active' : 'inactive';
         }
         
-        $stmt = $pdo->prepare("UPDATE contractors SET name = ?, email = ?, phone = ?, address = ?, status = ?, updated_at = NOW() WHERE id = ?");
+        $type = isset($data['type']) && in_array($data['type'], ['Tecnico','Administrativo']) ? $data['type'] : 'Tecnico';
+        $stmt = $pdo->prepare("UPDATE contractors SET name = ?, email = ?, phone = ?, address = ?, status = ?, type = ?, updated_at = NOW() WHERE id = ?");
         $stmt->execute([
             $data['name'],
             $data['email'] ?? null,
             $data['phone'] ?? null,
             $data['address'] ?? null,
             $status,
+            $type,
             $id
         ]);
         echo json_encode(["message" => "Contractor updated"]);

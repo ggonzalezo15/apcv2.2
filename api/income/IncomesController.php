@@ -695,9 +695,9 @@ function getTeams() {
 function getContractors() {
     global $pdo;
     
-    $stmt = $pdo->query("SELECT id, name, email, phone FROM contractors WHERE status = 'active' ORDER BY name");
+    $stmt = $pdo->prepare("SELECT id, name, email, phone FROM contractors WHERE status = 'active' AND type = 'Tecnico' ORDER BY name");
+    $stmt->execute();
     $contractors = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
     echo json_encode($contractors);
 }
 

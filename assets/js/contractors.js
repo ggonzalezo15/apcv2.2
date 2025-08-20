@@ -17,12 +17,12 @@ document.addEventListener('DOMContentLoaded', function() {
     loadBankAccountsForPayment();
     // Establecer fecha actual por defecto
     document.getElementById('paymentDate').value = new Date().toISOString().split('T')[0];
-    
     // Configurar ordenamiento después de un delay para asegurar que el DOM esté listo
     setTimeout(() => {
         setupTableSorting();
         setupStatusSwitch();
         setupSearchInput();
+        setupContractorTypeSelector();
     }, 100);
 });
 
@@ -148,26 +148,25 @@ function renderContractorsTable(contractors) {
     const tbody = document.getElementById('contractorsTableBody');
     tbody.innerHTML = '';
     if (!contractors.length) {
-        tbody.innerHTML = '<tr><td colspan="6">No hay contratistas registrados</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="7">No hay contratistas registrados</td></tr>';
         document.getElementById('totalContractors').textContent = '0';
         return;
     }
     document.getElementById('totalContractors').textContent = totalContractorsCount;
     contractors.forEach(contractor => {
         const tr = document.createElement('tr');
-        
         // Determinar estado y badge
         const isActive = contractor.status === 'active' || contractor.status_numeric === 1;
         const statusBadge = isActive 
             ? '<span class="status-badge status-active">Activo</span>'
             : '<span class="status-badge status-inactive">Inactivo</span>';
-        
         tr.innerHTML = `
             <td>
                 <a href="contractor_details.php?id=${contractor.id}" class="contractor-name-link" title="Ver detalles del contratista">
                     ${contractor.name}
                 </a>
             </td>
+            <td>${contractor.type || 'Tecnico'}</td>
             <td>${contractor.email || ''}</td>
             <td>${contractor.phone || ''}</td>
             <td>${contractor.address || ''}</td>
@@ -273,6 +272,12 @@ function editContractor(id) {
             statusLabel.textContent = isActive ? 'Activo' : 'Inactivo';
             statusLabel.style.color = isActive ? 'var(--success-color)' : 'var(--text-secondary)';
             
+            // Cargar tipo de contratista
+            const typeSelector = document.getElementById('contractorType');
+            if (typeSelector) {
+                typeSelector.value = contractor.type || 'Tecnico';
+            }
+            
             editingContractorId = contractor.id;
             openModal('contractorModal');
         });
@@ -330,7 +335,8 @@ document.getElementById('contractorForm').addEventListener('submit', function(e)
         email: document.getElementById('contractorEmail').value,
         phone: document.getElementById('contractorPhone').value,
         address: document.getElementById('contractorAddress').value,
-        status: document.getElementById('contractorStatus').checked ? 1 : 0
+        status: document.getElementById('contractorStatus').checked ? 1 : 0,
+        type: document.getElementById('contractorType').value
     };
     let url = API_URL;
     let method = 'POST';
@@ -655,6 +661,18 @@ function setupSearchInput() {
                 loadContractors(1);
             }, 300); // Debounce de 300ms
         });
+    }
+}
+
+// --- Manejo del selector de tipo en el modal ---
+function setupContractorTypeSelector() {
+    const typeSelector = document.getElementById('contractorType');
+    if (!typeSelector) return;
+    // Si se está editando, cargar el valor
+    if (window.editingContractorId && window.currentEditingContractor) {
+        typeSelector.value = window.currentEditingContractor.type || 'Tecnico';
+    } else {
+        typeSelector.value = 'Tecnico';
     }
 }
 

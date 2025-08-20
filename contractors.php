@@ -97,7 +97,11 @@ $pageTitle = 'Gestión de Contratistas';
                                 Nombre
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
-                            <th class="sortable" data-sort="email">
+                                <th class="sortable" data-sort="type">
+                                    Tipo
+                                    <i class="fas fa-sort sort-icon"></i>
+                                </th>
+                                <th class="sortable" data-sort="email">
                                 Email
                                 <i class="fas fa-sort sort-icon"></i>
                             </th>
@@ -142,6 +146,13 @@ $pageTitle = 'Gestión de Contratistas';
                 <div class="form-group">
                     <label class="form-label" for="contractorName">Nombre *</label>
                     <input type="text" class="form-input" id="contractorName" name="contractorName" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="contractorType">Tipo *</label>
+                    <select class="form-input" id="contractorType" name="contractorType" required>
+                        <option value="Tecnico">Técnico</option>
+                        <option value="Administrativo">Administrativo</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label class="form-label" for="contractorEmail">Email</label>
